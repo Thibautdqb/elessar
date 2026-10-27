@@ -36,7 +36,7 @@ def test_see_full(messy_df: pd.DataFrame, tmp_path: Path, capsys: pytest.Capture
     csv = pd.read_csv(report.to_csv(tmp_path / "s.csv"), index_col=0)
     assert list(csv.index) == list(messy_df.columns)
     md = report.to_markdown(tmp_path / "r.md").read_text()
-    assert "## Alerts" in md and "![" in md and "out/" in md
+    assert "## Data quality" in md and "![" in md and "out/" in md
     assert "Vision(" in repr(report)
 
 

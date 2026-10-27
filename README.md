@@ -40,18 +40,31 @@ import elessar
 
 df = pd.read_csv("titanic.csv")
 
-report = elessar.see(df, target="Survived")    # prints the report, writes PNGs to ./elessar_report/
-
+report = elessar.see(df, target="Survived")  # prints the report, writes the charts and the recap,
+                                             # then opens the recap in your browser
 report.alerts                                # [{severity, column, message}, ...]
 report.summary                               # one row per column, one column per metric
 report.correlations["target"]                # features ranked, with tests, p-values, AUC, MI, leakage flag
-report.to_markdown("elessar_report/report.md") # full report with the plots embedded
+report.recap                                 # {"md": .../report.md, "html": .../report.html}
 ```
+
+### The recap
+
+When the analysis finishes, elessar writes a recap next to the charts, as **`report.md`** (renders on GitHub,
+in VS Code, Obsidian…) and **`report.html`** (the same page, rendered), and opens it:
+
+- **Key findings** first: the features most associated with the target, then every high and medium alert
+- the **dataset overview**, then **target analysis**, **data quality**, **associations** and one collapsible
+  section per **column**, each with its charts in place
+
+It opens automatically only when you run from a terminal, never in CI, tests or pipelines. Use
+`open_report="md"` / `--open md` to open the Markdown file instead, or `open_report=False` / `--open none` to
+never open it. `report.to_markdown(path)` and `report.to_html(path)` write it anywhere.
 
 Or straight from the shell:
 
 ```bash
-elessar titanic.csv --target Survived --markdown --json
+elessar titanic.csv --target Survived
 ```
 
 Run `python examples/demo.py` to see it on a deliberately messy synthetic dataset.
@@ -60,7 +73,7 @@ Run `python examples/demo.py` to see it on a deliberately messy synthetic datase
 
 | Function | Returns | What it does |
 |---|---|---|
-| `see(df, target=None, config=None, plots=True, out_dir="elessar_report", verbose=True)` | `Vision` | Runs everything below, prints the terminal report, writes the plots. |
+| `see(df, target=None, config=None, plots=True, out_dir="elessar_report", verbose=True, open_report=None, name=None)` | `Vision` | Runs everything below, prints the terminal report, writes the charts and the recap, opens the recap. |
 | `see_column(series, config=None)` | `dict` | Everything about one column: type, stats, distribution, alerts. |
 | `see_types(df)` | `DataFrame` | Semantic type, pandas dtype, confidence, reason, and conversion suggestions (should-be-numeric / datetime / boolean / category, with the code). |
 | `see_stats(df)` | `DataFrame` | Descriptive statistics, one row per column. |
@@ -75,7 +88,7 @@ Every function accepts a `StoneConfig` to change thresholds (alpha, missing %, c
 
 ```
 elessar PATH [-t TARGET] [-o OUT] [--no-plots] [--sep SEP] [--nrows N] [--sample N]
-           [--alpha A] [--width W] [--json] [--markdown] [--csv] [-q]
+           [--alpha A] [--width W] [--json] [--markdown] [--csv] [-q] [--open {auto,html,md,none}]
 ```
 
 Reads CSV / TSV / TXT (separator sniffed) / JSON / JSONL / Parquet / Feather / Pickle / Excel, compressed or not. `python -m elessar` works too.
@@ -90,9 +103,10 @@ Reads CSV / TSV / TXT (separator sniffed) / JSON / JSONL / Parquet / Feather / P
 | `.correlations` | name → `DataFrame` |
 | `.quality` | all quality checks |
 | `.alerts` | list of `{severity, column, message}`, sorted high → medium → info |
-| `.plots` | paths of the PNG files written |
+| `.plots`, `.plot_index` | paths of the PNG files written; one `{column, other, kind, path}` record per chart |
+| `.recap` | paths of `report.md` and `report.html` |
 | `.print()`, `.render(width)` | the terminal report |
-| `.to_dict()`, `.to_json(path)`, `.to_csv(path)`, `.to_markdown(path)` | exports (CSV = the summary table) |
+| `.to_dict()`, `.to_json(path)`, `.to_csv(path)`, `.to_markdown(path)`, `.to_html(path)` | exports (CSV = the summary table) |
 
 ## What it computes
 

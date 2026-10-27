@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,7 @@ from .correlations import PAIR_COLUMNS, compute_correlations
 from .distributions import _fmt_params, analyze_distribution, is_fittable
 from .plots import make_plots
 from .quality import alert, check_quality, column_alerts, correlation_alerts, row_order_alert, sort_alerts
+from . import recap
 from .report import Vision
 from .stats import column_stats
 from .types import as_numeric, infer_type
@@ -105,10 +107,17 @@ def see(
     plots: bool = True,
     out_dir: str | Path = "elessar_report",
     verbose: bool = True,
+    open_report: bool | str | None = None,
+    name: str | None = None,
 ) -> Vision:
     """Analyse everything about ``df``: types, stats, distributions, correlations, quality, plots.
 
-    Prints a terminal report when ``verbose`` and writes PNG plots to ``out_dir`` when ``plots``.
+    Prints a terminal report when ``verbose``. When ``plots``, writes the charts and a recap
+    (``report.md`` and ``report.html``, charts embedded) to ``out_dir``.
+
+    ``open_report``: ``None`` opens the HTML recap only for a person at a terminal (never in CI,
+    tests or pipes); ``True`` or ``"html"`` always opens it, ``"md"`` opens the Markdown one,
+    ``False`` never opens. ``name`` titles the recap (e.g. the file name).
     """
     cfg = config or StoneConfig()
     original = list(df.columns) if isinstance(df, pd.DataFrame) else []
@@ -136,8 +145,9 @@ def see(
 
     plot_paths: list[Path] = []
     plot_errors: list[str] = []
+    plot_index: list[dict[str, Any]] = []
     if plots and df.shape[1]:
-        plot_paths = make_plots(df, details, correlations, out_dir, target, cfg, plot_errors)
+        plot_paths = make_plots(df, details, correlations, out_dir, target, cfg, plot_errors, plot_index)
     for err in plot_errors:
         alerts.append(alert("info", None, f"plot skipped after an error: {err[:100]}"))
 
@@ -166,9 +176,14 @@ def see(
         quality=quality,
         alerts=sort_alerts(alerts),
         plots=plot_paths,
+        plot_index=plot_index,
         target=target,
         alpha=cfg.alpha,
+        name=name,
     )
+    if plots and df.shape[1]:
+        report.recap = recap.write(report, out_dir)
     if verbose:
         report.print()
+    recap.maybe_open(report, open_report, sys.stdout if verbose else None)
     return report

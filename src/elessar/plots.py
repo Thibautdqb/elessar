@@ -107,6 +107,7 @@ class _Writer:
                 old.unlink()
         self.dpi = dpi
         self.paths: list[Path] = []
+        self.index: list[dict[str, Any]] = []  # {"column", "other", "kind", "path"} per chart written
         self.errors: list[str] = []
 
     def safe(self, what: str, step: Callable[..., Any], *args: Any) -> None:
@@ -116,11 +117,14 @@ class _Writer:
         except Exception as exc:  # noqa: BLE001
             self.errors.append(f"{what}: {exc!r}")
 
-    def save(self, fig: Figure, column: str, kind: str) -> None:
-        path = self.out_dir / f"{len(self.paths):02d}_{safe_name(column)}_{kind}.png"
+    def save(self, fig: Figure, column: str | None, kind: str, other: str | None = None) -> None:
+        """Write the figure; ``column`` is None for dataset-level charts, ``other`` is the second column of a pair."""
+        stem = "dataset" if column is None else safe_name(column) + (f"__{safe_name(other)}" if other is not None else "")
+        path = self.out_dir / f"{len(self.paths):02d}_{stem}_{kind}.png"
         fig.savefig(path, dpi=self.dpi, bbox_inches="tight", pad_inches=0.22)
         fig.clear()
         self.paths.append(path)
+        self.index.append({"column": column, "other": other, "kind": kind, "path": path})
 
 
 def _figure(w: float, h: float, title: str, subtitle: str = "", note: str = "") -> tuple[Figure, SubFigure]:
@@ -523,7 +527,7 @@ def plot_missing(writer: _Writer, df: pd.DataFrame, cfg: StoneConfig) -> None:
     ax_mat.grid(False)
     for side in ("left", "bottom"):
         ax_mat.spines[side].set_visible(False)
-    writer.save(fig, "dataset", "missing")
+    writer.save(fig, None, "missing")
 
 
 def plot_heatmap(
@@ -587,7 +591,7 @@ def plot_heatmap(
     cbar = body.colorbar(im, ax=ax, fraction=0.035, pad=0.02, aspect=30)
     cbar.outline.set_visible(False)
     cbar.ax.tick_params(labelsize=8, length=0)
-    writer.save(fig, "dataset", name)
+    writer.save(fig, None, name)
 
 
 def plot_nullity(writer: _Writer, df: pd.DataFrame, cfg: StoneConfig) -> None:
@@ -643,7 +647,7 @@ def plot_overview(writer: _Writer, df: pd.DataFrame, details: dict[str, dict[str
         ax.text(x_dist, i, f"{st.get('n_unique', 0):,}", fontsize=8.5, color=INK_2, va="center")
         ax.text(x_summary, i, truncate(_summary(st, stype), 26), fontsize=8, color=INK_2, va="center")
         _sparkline(ax, df[col], stype, st, (x_spark, i - 0.32, 0.2, 0.64), cfg)
-    writer.save(fig, "dataset", "overview")
+    writer.save(fig, None, "overview")
 
 
 def _summary(st: dict[str, Any], stype: str) -> str:
@@ -813,10 +817,12 @@ def plot_pair(writer: _Writer, df: pd.DataFrame, a: str, b: str, label: str, cfg
         if levels is not None:
             counts = np.array([np.sum(values == lv) for lv in levels])
             width = 0.6 * (np.diff(levels).min() if len(levels) > 1 else 1)
-            (marginal.barh if horizontal else marginal.bar)(levels, counts, width if not horizontal else width,
-                                                            color=BLUE_FILL)
+            (marginal.barh if horizontal else marginal.bar)(levels, counts, width, color=BLUE_FILL)
         else:
-            edges = _bins(values, False, (log_y if horizontal else log_x))
+            on_log = log_y if horizontal else log_x
+            if on_log:  # zeros sit on the symlog edge of the scatter; the margin shows the positive values
+                values = values[values > 0]
+            edges = _bins(values, False, on_log)
             marginal.hist(values, bins=edges, color=BLUE_FILL, edgecolor=SURFACE, linewidth=0.5,
                           orientation="horizontal" if horizontal else "vertical")
         marginal.axis("off")
@@ -826,7 +832,7 @@ def plot_pair(writer: _Writer, df: pd.DataFrame, a: str, b: str, label: str, cfg
     if y_levels is not None:
         ax.set_yticks(y_levels, [f"{lv:g}" for lv in y_levels])
         ax.grid(False, axis="y")
-    writer.save(fig, f"{a}__{b}", kind)
+    writer.save(fig, a, kind, other=b)
 
 
 def _groups(cat: pd.Series, values: pd.Series, max_groups: int = 10) -> tuple[list[str], list[np.ndarray]]:
@@ -912,7 +918,7 @@ def plot_target(
             _value_axis_only(ax, "x")
             ax.legend(title=target, loc="lower left", bbox_to_anchor=(0, 1.0), ncols=min(len(cols), 6),
                       handlelength=1, columnspacing=1.2, title_fontsize=8.5, alignment="left")
-        writer.save(fig, f"{target}__{feat}", "target")
+        writer.save(fig, target, "target", other=feat)
 
 
 # ---------------------------------------------------------------------------------------------- entry points
@@ -924,11 +930,13 @@ def make_plots(
     target: str | None = None,
     config: StoneConfig | None = None,
     errors: list[str] | None = None,
+    index: list[dict[str, Any]] | None = None,
 ) -> list[Path]:
     """Write every informative plot given precomputed details and correlations.
 
     Empty, constant and id columns get no individual plot (they carry nothing to see); failing
-    plots are appended to ``errors`` instead of raising.
+    plots are appended to ``errors`` instead of raising, and ``index`` receives one
+    ``{column, other, kind, path}`` record per chart.
     """
     cfg = config or StoneConfig()
     writer = _Writer(out_dir, cfg.dpi)
@@ -975,6 +983,8 @@ def make_plots(
             writer.safe("target", plot_target, df, target, assoc, types, cfg)
     if errors is not None:
         errors.extend(writer.errors)
+    if index is not None:
+        index.extend(writer.index)
     return writer.paths
 
 

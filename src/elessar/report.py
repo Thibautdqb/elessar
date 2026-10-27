@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import sys
 import textwrap
@@ -14,7 +13,7 @@ from typing import Any, TextIO
 import numpy as np
 import pandas as pd
 
-from ._utils import fmt_bytes, fmt_num, jsonable, safe_name, truncate
+from ._utils import fmt_bytes, fmt_num, jsonable, truncate
 from .distributions import _fmt_params
 
 _SEVERITY_LABEL = {"high": "HIGH", "medium": "MEDIUM", "info": "info"}
@@ -129,8 +128,11 @@ class Vision:
         quality: every data-quality check result.
         alerts: list of ``{severity, column, message}`` sorted by severity.
         plots: paths of the PNG files written.
+        plot_index: one ``{column, other, kind, path}`` record per chart.
+        recap: paths of the recap files written after the run (``{"md": ..., "html": ...}``).
         target: name of the target column, if any.
         alpha: significance level used for the tests.
+        name: dataset name shown in the recap title (e.g. the file name).
     """
 
     overview: dict[str, Any]
@@ -140,8 +142,11 @@ class Vision:
     quality: dict[str, Any]
     alerts: list[dict[str, Any]]
     plots: list[Path] = field(default_factory=list)
+    plot_index: list[dict[str, Any]] = field(default_factory=list)
+    recap: dict[str, Path] = field(default_factory=dict)
     target: str | None = None
     alpha: float = 0.05
+    name: str | None = None
 
     def __repr__(self) -> str:
         o = self.overview
@@ -330,71 +335,21 @@ class Vision:
         return path
 
     def to_markdown(self, path: str | Path) -> Path:
-        """Full Markdown report with embedded links to the plots."""
+        """The recap as Markdown (key findings, target, quality, associations, columns, with charts)."""
+        from .recap import build, render_markdown
+
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        base = path.parent.resolve()
+        path.write_text(render_markdown(build(self, path.parent)), encoding="utf-8")
+        return path
 
-        def rel(p: Path) -> str:
-            return Path(os.path.relpath(Path(p).resolve(), base)).as_posix()
+    def to_html(self, path: str | Path) -> Path:
+        """The same recap as a standalone HTML page (charts referenced next to it)."""
+        from .recap import build, render_html
 
-        o = self.overview
-        md = [f"# elessar report — {o['n_rows']:,} rows × {o['n_columns']} columns", "", "## Overview", ""]
-        md += [f"- **{k.replace('_', ' ')}**: {v}" for k, v in _overview_md(o).items()]
-        md += ["", f"## Alerts ({len(self.alerts)})", ""]
-        md += _md_table(["severity", "column", "message"],
-                        [[a["severity"], a["column"] or "-", a["message"]] for a in self.alerts]) if self.alerts else ["No issue found."]
-        md += ["", "## Column summary", ""]
-        if not self.summary.empty:
-            s = self.summary.reset_index()
-            md += _md_table(list(s.columns), [[_md_cell(v) for v in row] for row in s.itertuples(index=False)])
-        plots_by_col: dict[str, list[Path]] = {}
-        for p in self.plots:
-            for col in self.columns:
-                if p.stem.split("_", 1)[1] in {f"{safe_name(col)}_{kind}" for kind in ("dist", "bar", "time", "text")}:
-                    plots_by_col.setdefault(col, []).append(p)
-        dataset_plots = [p for p in self.plots if "_dataset_" in p.name]
-        if dataset_plots:
-            md += ["", "## Dataset plots", ""] + [f"![{p.stem}]({rel(p)})" for p in dataset_plots]
-        md += ["", "## Columns"]
-        for name, d in self.columns.items():
-            md += ["", f"### `{name}` — {d.get('semantic_type')}", "", f"*{d.get('pandas_dtype')} · {d.get('reason')}*", ""]
-            md += [f"- {' · '.join(p for p in parts if p)}" for parts in _detail_parts(d)]
-            md += [""] + [f"![{p.stem}]({rel(p)})" for p in plots_by_col.get(name, [])]
-        pairs = self.correlations.get("top_pairs")
-        if pairs is not None and not pairs.empty:
-            md += ["", "## Strongest associations", "", "BH-adjusted p-values; `*` = significant.", ""]
-            md += _md_table(*_pair_rows(pairs))
-        vif = self.correlations.get("vif")
-        if vif is not None and not vif.empty:
-            md += ["", "## Multicollinearity (VIF)", ""]
-            md += _md_table(["column", "VIF"], [[k, f"{v:.2f}"] for k, v in vif["vif"].items()])
-            deps = self.correlations.get("linear_dependencies")
-            if deps is not None and not deps.empty:
-                md += ["", "Exact linear dependencies:", ""] + [f"- `{r.equation}`" for r in deps.itertuples(index=False)]
-        miss = self.correlations.get("missingness")
-        if miss is not None and not miss.empty and miss["significant"].any():
-            md += ["", "## Missingness dependence (not MCAR)", ""]
-            sig = miss[miss["significant"]].head(30)
-            md += _md_table(["column", "depends on", "test", "effect", "p_adj", "detail"],
-                            [[r.column, r.depends_on, r.test, f"{r.effect:.3f}", _p(r.p_adjusted), r.detail]
-                             for r in sig.itertuples(index=False)])
-        assoc = self.correlations.get("target")
-        if self.target and assoc is not None and not assoc.empty:
-            md += ["", f"## Target analysis: `{self.target}`", ""]
-            md += _md_table(*_target_rows(assoc))
-            mt = self.correlations.get("missing_target")
-            if mt is not None and not mt.empty:
-                md += ["", "### Informative missingness", ""]
-                md += _md_table(["feature", "% missing", "test", "effect", "p_adj", "significant", "detail"],
-                                [[r.feature, f"{r.pct_missing:.1f}", r.test, f"{r.effect:.3f}", _p(r.p_adjusted),
-                                  "yes" if r.significant else "no", r.detail] for r in mt.itertuples(index=False)])
-            target_plots = [p for p in self.plots if p.stem.endswith(("_target", "_target_ranking"))]
-            md += [""] + [f"![{p.stem}]({rel(p)})" for p in target_plots]
-        scatter = [p for p in self.plots if p.stem.endswith("_scatter")]
-        if scatter:
-            md += ["", "## Most correlated pairs", ""] + [f"![{p.stem}]({rel(p)})" for p in scatter]
-        path.write_text("\n".join(md) + "\n", encoding="utf-8")
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(render_html(build(self, path.parent), self.name or "elessar report"), encoding="utf-8")
         return path
 
 
@@ -416,17 +371,6 @@ def _overview_md(o: dict[str, Any]) -> dict[str, str]:
         "missing cells": f"{o['pct_missing_cells']:.1f}%",
         **({"target": o["target"]} if o.get("target") else {}),
     }
-
-
-def _md_cell(v: Any) -> str:
-    if isinstance(v, float):
-        return fmt_num(v) if pd.notna(v) else ""
-    return "" if v is None else str(v).replace("|", "\\|").replace("\n", " ")
-
-
-def _md_table(headers: list[str], rows: list[list[Any]]) -> list[str]:
-    out = ["| " + " | ".join(headers) + " |", "|" + "|".join("---" for _ in headers) + "|"]
-    return out + ["| " + " | ".join(_md_cell(c) for c in r) + " |" for r in rows]
 
 
 def _detail_parts(d: dict[str, Any]) -> list[list[str]]:

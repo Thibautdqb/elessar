@@ -9,6 +9,7 @@ from pathlib import Path
 import pandas as pd
 
 from .config import StoneConfig
+from . import recap
 from .core import see
 
 TEXT_SEPARATORS = {".csv": ",", ".tsv": "\t", ".txt": None}
@@ -58,6 +59,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--markdown", action="store_true", help="also write <out>/report.md")
     p.add_argument("--csv", action="store_true", help="also write <out>/summary.csv")
     p.add_argument("-q", "--quiet", action="store_true", help="do not print the report")
+    p.add_argument("--open", choices=["auto", "html", "md", "none"], default="auto",
+                   help="open the recap when done: auto = HTML recap when run from a terminal (default)")
     return p
 
 
@@ -72,10 +75,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.target is not None and args.target not in map(str, df.columns):
         print(f"elessar: target {args.target!r} not in columns: {', '.join(map(str, df.columns))}", file=sys.stderr)
         return 2
-    report = see(df, target=args.target, config=cfg, plots=not args.no_plots, out_dir=args.out, verbose=False)
+    open_report = {"auto": None, "html": "html", "md": "md", "none": False}[args.open]
+    report = see(df, target=args.target, config=cfg, plots=not args.no_plots, out_dir=args.out, verbose=False,
+                 open_report=False, name=Path(args.path).name)
     if not args.quiet:
         report.print(width=args.width)
         sys.stdout.flush()  # keep the report before the "wrote ..." messages when both streams share a file
+    recap.maybe_open(report, open_report, sys.stderr)
     out = Path(args.out)
     if args.json or args.markdown or args.csv:
         out.mkdir(parents=True, exist_ok=True)
