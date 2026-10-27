@@ -1,0 +1,520 @@
+"""Data quality checks and actionable alerts."""
+
+from __future__ import annotations
+
+import re
+from typing import Any
+
+import numpy as np
+import pandas as pd
+
+from ._utils import fmt_bytes, fmt_num, hashable, is_text_dtype, prepare, quiet, sample, truncate
+from .config import StoneConfig
+from .correlations import compute_correlations
+from .types import CATEGORY_TYPES, DATETIME_TYPES, NUMERIC_TYPES, as_datetime, as_numeric, infer_type, python_kinds
+
+SEVERITIES: tuple[str, ...] = ("high", "medium", "info")
+_HINT_AGE = re.compile(r"(^|_)age($|_)|(^|_)age_?years")
+_HINT_NONNEG = re.compile(
+    r"price|amount|cost|salary|income|revenue|qty|quantity|count|weight|height|duration|distance|size|area|fare|fee"
+)
+_HINT_BIRTH = re.compile(r"birth|dob|born")
+_KIND_FAMILY = {"bool": "number", "list": "container", "dict": "container"}
+_DEFAULT_DATES = (pd.Timestamp("1970-01-01"), pd.Timestamp("1900-01-01"), pd.Timestamp("1899-12-30"))
+
+
+def alert(severity: str, column: str | None, message: str) -> dict[str, Any]:
+    return {"severity": severity, "column": column, "message": message}
+
+
+def sort_alerts(alerts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rank = {s: i for i, s in enumerate(SEVERITIES)}
+    return sorted(alerts, key=lambda a: (rank.get(a["severity"], 9), str(a["column"] or "")))
+
+
+def _hashable_frame(df: pd.DataFrame) -> pd.DataFrame:
+    return pd.DataFrame({c: hashable(df[c]) for c in df.columns}, index=df.index)
+
+
+def duplicate_rows(df: pd.DataFrame) -> dict[str, Any]:
+    """Count of fully duplicated rows (beyond the first occurrence) and example indices."""
+    if df.empty or df.shape[1] == 0:
+        return {"count": 0, "pct": 0.0, "example_indices": []}
+    try:
+        dup = _hashable_frame(df).duplicated(keep="first")
+    except TypeError:  # values that hash but do not compare (e.g. mixed exotic objects)
+        dup = _hashable_frame(df).astype(str).duplicated(keep="first")
+    n = int(dup.sum())
+    return {"count": n, "pct": 100.0 * n / len(df), "example_indices": [_idx(i) for i in df.index[dup][:10]]}
+
+
+def _idx(i: Any) -> Any:
+    return i.item() if isinstance(i, np.generic) else i if isinstance(i, (int, str)) else str(i)
+
+
+def duplicate_columns(df: pd.DataFrame) -> list[list[str]]:
+    """Groups of columns with identical content."""
+    buckets: dict[tuple[str, int], list[str]] = {}
+    for col in df.columns:
+        s = hashable(df[col])
+        try:
+            key = int(pd.util.hash_pandas_object(s, index=False).sum())
+        except TypeError:
+            key = int(pd.util.hash_pandas_object(s.astype(str), index=False).sum())
+        buckets.setdefault((str(df[col].dtype), key), []).append(col)
+    groups = []
+    for cols in buckets.values():
+        while len(cols) > 1:
+            first, rest = cols[0], cols[1:]
+            same = [c for c in rest if df[c].equals(df[first])]
+            if same:
+                groups.append([first, *same])
+            cols = [c for c in rest if c not in same]
+    return groups
+
+
+def missing_patterns(df: pd.DataFrame, config: StoneConfig | None = None) -> dict[str, Any]:
+    """Columns that go missing together, rows with many missing values, and frequent patterns."""
+    cfg = config or StoneConfig()
+    miss = df.isna()
+    out: dict[str, Any] = {"co_missing": [], "n_rows_many_missing": 0, "rows_many_missing_examples": [], "top_patterns": []}
+    if df.empty:
+        return out
+    cols = [c for c in df.columns if miss[c].sum() >= 2][:100]
+    if len(cols) >= 2:
+        m = sample(miss[cols], cfg.sample_size, cfg.random_state).to_numpy(dtype="float64")
+        inter = m.T @ m
+        sizes = np.diag(inter)
+        union = sizes[:, None] + sizes[None, :] - inter
+        with quiet():
+            jac = np.where(union > 0, inter / union, 0.0)
+        for i in range(len(cols)):
+            for j in range(i + 1, len(cols)):
+                if jac[i, j] >= cfg.co_missing_jaccard:
+                    out["co_missing"].append({"col_a": cols[i], "col_b": cols[j], "jaccard": float(jac[i, j])})
+    if df.shape[1] >= 2:
+        row_pct = 100.0 * miss.mean(axis=1)
+        many = row_pct >= cfg.row_missing_pct
+        out["n_rows_many_missing"] = int(many.sum())
+        out["rows_many_missing_examples"] = [_idx(i) for i in df.index[many][:10]]
+    any_missing = miss.any(axis=1)
+    if any_missing.any():
+        cols_missing = miss.columns[miss.any()]
+        sub = sample(miss.loc[any_missing, cols_missing], cfg.sample_size, cfg.random_state)
+        vc = sub.value_counts().head(5)
+        scale = any_missing.sum() / len(sub)
+        out["top_patterns"] = [
+            {"columns": [c for c, m in zip(cols_missing, key if isinstance(key, tuple) else (key,)) if m],
+             "rows": int(round(v * scale))}
+            for key, v in vc.items()
+        ]
+    return out
+
+
+def _strings(s: pd.Series) -> pd.Series:
+    """Non-missing string cells of a column (fast path for pandas string dtypes)."""
+    strs = s.dropna()
+    if isinstance(s.dtype, pd.StringDtype):
+        return strs
+    return strs[strs.map(lambda v: isinstance(v, str))].astype(str)
+
+
+def whitespace_issues(s: pd.Series) -> int:
+    if not is_text_dtype(s):
+        return 0
+    strs = _strings(s)
+    return int((strs != strs.str.strip()).sum())
+
+
+def placeholder_values(s: pd.Series, stype: str, config: StoneConfig | None = None) -> dict[str, int]:
+    """Values that are probably sentinels for 'missing' (``"NA"``, ``"?"``, ``-999``...)."""
+    cfg = config or StoneConfig()
+    found: dict[str, int] = {}
+    if is_text_dtype(s):
+        strs = _strings(s)
+        hits = strs[strs.str.strip().str.lower().isin(cfg.placeholder_strings)]
+        found.update({repr(k): int(v) for k, v in hits.value_counts().items()})
+    if stype in NUMERIC_TYPES or stype == "numeric_string":
+        x = as_numeric(s).dropna()
+        if len(x) and x.nunique() > 2:
+            lo, hi = x.min(), x.max()
+            for p in cfg.placeholder_numbers:
+                if p in (lo, hi):
+                    count = int((x == p).sum())
+                    rest = x[x != p]
+                    far = rest.empty or (p > rest.max() * 1.5 if p > 0 else p < rest.min() * 1.5 - 1)
+                    if count and far:
+                        found[fmt_num(p)] = count
+    return found
+
+
+def suspicious_values(s: pd.Series, stype: str) -> list[str]:
+    """Domain sanity checks driven by the column name (ages, prices, birth dates, default dates)."""
+    name = re.sub(r"([a-z])([A-Z])", r"\1_\2", str(s.name)).lower()
+    msgs = []
+    if stype in NUMERIC_TYPES or stype == "numeric_string":
+        x = as_numeric(s).dropna()
+        if _HINT_AGE.search(name):
+            neg, old = int((x < 0).sum()), int((x > 120).sum())
+            if neg:
+                msgs.append(f"{neg} negative ages")
+            if old:
+                msgs.append(f"{old} ages above 120")
+        elif _HINT_NONNEG.search(name) and (x < 0).any():
+            msgs.append(f"{int((x < 0).sum())} negative values in a quantity that should be >= 0")
+    if stype in DATETIME_TYPES:
+        d = as_datetime(s).dropna()
+        for default in _DEFAULT_DATES:
+            n = int((d == default).sum())
+            if n:
+                msgs.append(f"{n} default-looking dates ({default.date()})")
+        if _HINT_BIRTH.search(name):
+            future = int((d > pd.Timestamp.now(tz="UTC").tz_localize(None)).sum())
+            if future:
+                msgs.append(f"{future} birth dates in the future")
+        old = int((d < pd.Timestamp("1900-01-01")).sum())
+        if old:
+            msgs.append(f"{old} dates before 1900")
+    return msgs
+
+
+def dtype_optimization(s: pd.Series, stype: str) -> dict[str, Any] | None:
+    """Cheaper dtype for the column with the estimated memory saving (None if no real win)."""
+    current = int(s.memory_usage(deep=True, index=False))
+    col = repr(str(s.name))
+    suggestion = None
+    with quiet():
+        if pd.api.types.is_integer_dtype(s.dtype) and not pd.api.types.is_bool_dtype(s.dtype) and s.notna().all():
+            kind = "unsigned" if len(s) and s.min() >= 0 else "integer"
+            new = pd.to_numeric(s, downcast=kind)
+            if new.dtype != s.dtype:
+                suggestion = (str(new.dtype), new, f"df[{col}] = pd.to_numeric(df[{col}], downcast={kind!r})")
+        elif s.dtype == np.float64 and len(s):
+            new = s.astype("float32")
+            if np.allclose(new.astype("float64"), s, rtol=1e-6, equal_nan=True):
+                suggestion = ("float32", new, f"df[{col}] = df[{col}].astype('float32')")
+        elif is_text_dtype(s) and stype in CATEGORY_TYPES:
+            nonnull = max(int(s.notna().sum()), 1)
+            if hashable(s).nunique() / nonnull <= 0.5:
+                new = hashable(s).astype("category")
+                suggestion = ("category", new, f"df[{col}] = df[{col}].astype('category')")
+        elif is_text_dtype(s) and stype == "numeric_string":
+            new = as_numeric(s)
+            suggestion = ("float64", new, f"df[{col}] = elessar.types.parse_numeric(df[{col}])")
+        elif is_text_dtype(s) and stype == "datetime_string":
+            new = as_datetime(s)
+            suggestion = ("datetime64", new, f"df[{col}] = pd.to_datetime(df[{col}], errors='coerce', format='mixed')")
+    if suggestion is None:
+        return None
+    dtype, new, code = suggestion
+    new_bytes = int(new.memory_usage(deep=True, index=False))
+    saving = current - new_bytes
+    if saving <= 0 or saving < 0.1 * current:
+        return None
+    return {
+        "column": str(s.name),
+        "current_dtype": str(s.dtype),
+        "suggested_dtype": dtype,
+        "current_bytes": current,
+        "new_bytes": new_bytes,
+        "saving_bytes": saving,
+        "saving_pct": 100.0 * saving / current if current else 0.0,
+        "code": code,
+    }
+
+
+def redundant_pairs(
+    correlations: dict[str, pd.DataFrame], config: StoneConfig | None = None, target: str | None = None
+) -> list[dict[str, Any]]:
+    """Feature pairs whose association exceeds ``high_corr`` (pairs with the target are not redundancy)."""
+    cfg = config or StoneConfig()
+    pairs = correlations.get("top_pairs")
+    if pairs is None or pairs.empty:
+        return []
+    strong = pairs[(pairs["abs_value"] >= cfg.high_corr) & (pairs["col_a"] != target) & (pairs["col_b"] != target)]
+    return [
+        {"col_a": r.col_a, "col_b": r.col_b, "method": r.method, "value": float(r.value)}
+        for r in strong.itertuples(index=False)
+    ]
+
+
+def check_quality(
+    df: pd.DataFrame,
+    types: dict[str, dict[str, Any]],
+    correlations: dict[str, pd.DataFrame],
+    config: StoneConfig | None = None,
+    target: str | None = None,
+) -> dict[str, Any]:
+    """Run every dataset-level check given precomputed type info and correlations."""
+    cfg = config or StoneConfig()
+    out: dict[str, Any] = {
+        "duplicate_rows": duplicate_rows(df),
+        "duplicate_columns": duplicate_columns(df),
+        "empty_columns": [],
+        "constant_columns": [],
+        "quasi_constant_columns": {},
+        "high_missing_columns": {},
+        "missing_patterns": missing_patterns(df, cfg),
+        "mixed_type_columns": {},
+        "whitespace_columns": {},
+        "placeholder_values": {},
+        "suspicious_values": {},
+        "id_columns": [],
+        "redundant_pairs": redundant_pairs(correlations, cfg, target),
+        "dtype_optimizations": [],
+        "conversion_suggestions": {},
+    }
+    n = len(df)
+    for col in df.columns:
+        s, info = df[col], types[col]
+        stype = info["semantic_type"]
+        try:
+            if stype == "empty":
+                out["empty_columns"].append(col)
+            elif stype == "constant":
+                out["constant_columns"].append(col)
+            elif stype == "id":
+                out["id_columns"].append(col)
+            pct_missing = 100.0 * s.isna().sum() / n if n else 0.0
+            if pct_missing >= cfg.medium_missing_pct and stype != "empty":
+                out["high_missing_columns"][col] = pct_missing
+            nonnull = hashable(s.dropna())
+            if stype not in ("empty", "constant") and len(nonnull):
+                top_pct = 100.0 * nonnull.value_counts().iloc[0] / len(nonnull)
+                if top_pct >= cfg.quasi_constant_pct:
+                    out["quasi_constant_columns"][col] = top_pct
+            kinds = python_kinds(sample(s, cfg.sample_size, cfg.random_state))
+            if len({_KIND_FAMILY.get(k, k) for k in kinds}) > 1:
+                out["mixed_type_columns"][col] = kinds
+            ws = whitespace_issues(s)
+            if ws:
+                out["whitespace_columns"][col] = ws
+            ph = placeholder_values(s, stype, cfg)
+            if ph:
+                out["placeholder_values"][col] = ph
+            sus = suspicious_values(s, stype)
+            if sus:
+                out["suspicious_values"][col] = sus
+            opt = dtype_optimization(s, stype) if stype not in ("empty", "constant") else None
+            if opt:
+                out["dtype_optimizations"].append(opt)
+            if info.get("suggestions"):
+                out["conversion_suggestions"][col] = info["suggestions"]
+        except Exception as exc:  # noqa: BLE001 - quality checks must not stop on one column
+            out.setdefault("errors", {})[col] = repr(exc)
+    out["memory_bytes"] = int(df.memory_usage(deep=True, index=True).sum()) if df.shape[1] else 0
+    out["potential_saving_bytes"] = int(sum(o["saving_bytes"] for o in out["dtype_optimizations"]))
+    out["alerts"] = sort_alerts(quality_alerts(out, cfg))
+    return out
+
+
+def _co_missing_groups(pairs: list[dict[str, Any]]) -> list[list[str]]:
+    """Connected groups of columns linked by co-missing pairs."""
+    groups: list[set[str]] = []
+    for pair in pairs:
+        linked = [g for g in groups if pair["col_a"] in g or pair["col_b"] in g]
+        merged = {pair["col_a"], pair["col_b"]}.union(*linked)
+        groups = [g for g in groups if g not in linked] + [merged]
+    return [sorted(g) for g in groups]
+
+
+def quality_alerts(q: dict[str, Any], config: StoneConfig | None = None) -> list[dict[str, Any]]:
+    """Turn the quality dict into ``{severity, column, message}`` alerts."""
+    cfg = config or StoneConfig()
+    alerts = []
+    dr = q["duplicate_rows"]
+    if dr["count"]:
+        alerts.append(alert("medium", None, f"{dr['count']:,} duplicate rows ({dr['pct']:.1f}%), e.g. index "
+                            f"{dr['example_indices'][:3]} -> df.drop_duplicates()"))
+    for group in q["duplicate_columns"]:
+        for other in group[1:]:
+            alerts.append(alert("medium", other, f"identical to column '{group[0]}' -> drop one of them"))
+    for col in q["empty_columns"]:
+        alerts.append(alert("high", col, "column is entirely missing -> drop it"))
+    for col in q["constant_columns"]:
+        alerts.append(alert("medium", col, "constant column carries no information -> drop it"))
+    for col, pct in q["quasi_constant_columns"].items():
+        alerts.append(alert("info", col, f"quasi-constant: {pct:.1f}% of values are identical"))
+    for col, pct in q["high_missing_columns"].items():
+        sev = "high" if pct >= cfg.high_missing_pct else "medium"
+        alerts.append(alert(sev, col, f"{pct:.1f}% missing -> drop, or impute and add a missing-indicator"))
+    mp = q["missing_patterns"]
+    for group in _co_missing_groups(mp["co_missing"]):
+        alerts.append(alert("info", group[0], f"columns go missing together: {', '.join(group)} "
+                            "-> likely a common cause (same source / form section)"))
+    if mp["n_rows_many_missing"]:
+        alerts.append(alert("medium", None, f"{mp['n_rows_many_missing']:,} rows have >= {cfg.row_missing_pct:.0f}% "
+                            "of their values missing"))
+    for col, kinds in q["mixed_type_columns"].items():
+        mix = ", ".join(f"{k}={v}" for k, v in kinds.items())
+        alerts.append(alert("high", col, f"mixed Python types ({mix}) -> normalise to a single type"))
+    for col, n in q["whitespace_columns"].items():
+        alerts.append(alert("medium", col, f"{n:,} values with leading/trailing whitespace -> .str.strip()"))
+    for col, found in q["placeholder_values"].items():
+        vals = ", ".join(f"{k} ({v})" for k, v in list(found.items())[:5])
+        alerts.append(alert("medium", col, f"placeholder values used as missing: {vals} -> replace with NaN"))
+    for col, msgs in q["suspicious_values"].items():
+        for m in msgs:
+            alerts.append(alert("high", col, f"suspicious: {m}"))
+    for col in q["id_columns"]:
+        alerts.append(alert("info", col, "identifier-like column -> exclude from modelling and statistics"))
+    partners: dict[str, list[str]] = {}
+    for pair in q["redundant_pairs"]:
+        partners.setdefault(pair["col_b"], []).append(f"'{pair['col_a']}' ({pair['method']} {pair['value']:+.3f})")
+    for col, others in partners.items():
+        alerts.append(alert("medium", col, f"redundant with {', '.join(others)} -> keep only one"))
+    for col, suggestions in q["conversion_suggestions"].items():
+        for sug in suggestions:
+            if sug["flag"] != "should-be-category":
+                alerts.append(alert("medium", col, f"{sug['flag']}: {truncate(sug['code'], 110)}"))
+    opts = q["dtype_optimizations"]
+    if opts:
+        changes = ", ".join(f"{o['column']} -> {o['suggested_dtype']}" for o in opts[:8])
+        more = f" (+{len(opts) - 8} more)" if len(opts) > 8 else ""
+        alerts.append(alert("info", None, f"dtype optimizations save ~{fmt_bytes(q['potential_saving_bytes'])}: "
+                            f"{changes}{more} (see quality['dtype_optimizations'] for code)"))
+    for col, err in q.get("errors", {}).items():
+        alerts.append(alert("high", col, f"quality checks failed: {truncate(err, 100)}"))
+    return alerts
+
+
+def column_alerts(col: str, detail: dict[str, Any], config: StoneConfig | None = None) -> list[dict[str, Any]]:
+    """Alerts derived from one column's statistics and distribution analysis."""
+    cfg = config or StoneConfig()
+    st, stype = detail.get("stats", {}), detail.get("semantic_type")
+    out = []
+    for step, err in detail.get("errors", {}).items():
+        out.append(alert("high", col, f"{step} failed: {truncate(err, 100)}"))
+    if st.get("n_inf"):
+        out.append(alert("high", col, f"{st['n_inf']:,} infinite values -> replace with NaN or clip"))
+    numeric = stype in NUMERIC_TYPES or stype == "numeric_string"
+    if numeric and (st.get("pct_outliers_iqr") or 0) >= cfg.outlier_alert_pct and st.get("iqr"):
+        out.append(alert("info", col, f"{st['pct_outliers_iqr']:.1f}% outliers by the 1.5xIQR rule "
+                         f"(outside [{fmt_num(st['iqr_lower'])}, {fmt_num(st['iqr_upper'])}])"))
+    skew = st.get("skewness")
+    if numeric and skew is not None and np.isfinite(skew) and abs(skew) > 2:
+        hint = " -> consider a log transform" if (st.get("min") or 0) > 0 and skew > 0 else ""
+        out.append(alert("info", col, f"heavily skewed (skewness {skew:.2f}){hint}"))
+    for side, word in (("max", "capped at"), ("min", "floored at")):
+        if st.get(f"capped_{side}") and not (side == "min" and st[side] == 0):
+            out.append(alert("medium", col, f"{word} {fmt_num(st[side])}: {st[f'pct_at_{side}']:.1f}% of values sit exactly "
+                             "there (censored data) -> treat as censored, or flag and model separately"))
+    if numeric and st.get("count") and st.get("min", -1) >= 0 and 100 * st.get("n_zeros", 0) / st["count"] >= 30 \
+            and (st.get("n_unique") or 0) > 10:
+        pct = 100 * st["n_zeros"] / st["count"]
+        out.append(alert("info", col, f"zero-inflated: {pct:.0f}% zeros -> consider a two-part (hurdle) model or "
+                         "an is-zero indicator"))
+    if numeric and (st.get("heaping_index") or 0) >= 2:
+        out.append(alert("info", col, f"heaping: {st['pct_round_values']:.0f}% of values end in 0 or 5 "
+                         "(expected ~20%) -> rounded / self-reported values?"))
+    tau, tp = st.get("counts_trend_tau"), st.get("counts_trend_p")
+    if tau is not None and tp < cfg.alpha and abs(tau) >= 0.3:
+        way = "increase" if tau > 0 else "decrease"
+        out.append(alert("info", col, f"rows per {st['counts_resolution']} {way} over time (Kendall tau {tau:.2f}, "
+                         f"p={tp:.1e})"))
+    if st.get("n_unparsable"):
+        out.append(alert("medium", col, f"{st['n_unparsable']:,} values could not be parsed as numbers"))
+    if stype == "categorical" and st.get("n_unique", 0) > cfg.max_categories:
+        out.append(alert("info", col, f"high cardinality ({st['n_unique']:,} categories) -> group rare levels "
+                         "or use target/frequency encoding"))
+    if stype in CATEGORY_TYPES and st.get("top_values") and 90 <= st["top_values"][0]["pct"] < cfg.quasi_constant_pct:
+        out.append(alert("info", col, f"imbalanced: '{st['top_values'][0]['value']}' is "
+                         f"{st['top_values'][0]['pct']:.1f}% of values"))
+    if st.get("n_inconsistent_groups"):
+        ex = " / ".join(repr(v) for v in st["inconsistent_labels"][0][:3])
+        out.append(alert("medium", col, f"{st['n_inconsistent_groups']} label groups differ only by case/spaces/"
+                         f"accents, e.g. {ex} -> normalise labels"))
+    if stype in CATEGORY_TYPES and st.get("n_rare_categories") and 2 < st.get("n_unique", 0) <= cfg.max_categories:
+        out.append(alert("info", col, f"{st['n_rare_categories']} rare categories (< {cfg.rare_category_pct}% each, "
+                         f"{st['pct_rows_rare']:.1f}% of rows)"))
+    if st.get("n_future"):
+        out.append(alert("medium", col, f"{st['n_future']:,} dates are in the future"))
+    if stype in DATETIME_TYPES and st.get("n_unparsed"):
+        out.append(alert("medium", col, f"{st['n_unparsed']:,} values could not be parsed as dates"))
+    empties = (st.get("n_empty") or 0) + (st.get("n_whitespace_only") or 0)
+    if empties:
+        out.append(alert("medium", col, f"{empties:,} empty or whitespace-only strings -> treat as missing?"))
+    return out
+
+
+def row_order_alert(details: dict[str, dict[str, Any]], config: StoneConfig | None = None) -> list[dict[str, Any]]:
+    """One alert when numeric columns are strongly autocorrelated in row order (sorted file / time series)."""
+    cfg = config or StoneConfig()
+    hits = []
+    for col, d in details.items():
+        st = d.get("stats", {})
+        r1, p1 = st.get("autocorr_lag1"), st.get("autocorr_lag1_p")
+        monotonic = st.get("monotonic_increasing") or st.get("monotonic_decreasing")
+        if d.get("semantic_type") in NUMERIC_TYPES and r1 is not None and abs(r1) >= 0.3 and p1 < cfg.alpha and not monotonic:
+            hits.append((abs(r1), f"{col} {r1:+.2f}"))
+    if not hits:
+        return []
+    listed = ", ".join(h[1] for h in sorted(hits, reverse=True)[:6]) + (f" (+{len(hits) - 6} more)" if len(hits) > 6 else "")
+    return [alert("medium", None, f"rows are ordered (sorted file or time series): lag-1 autocorrelation {listed} "
+                  "-> shuffle before a random split, or use time-aware validation")]
+
+
+def correlation_alerts(
+    correlations: dict[str, pd.DataFrame], target: str | None = None, config: StoneConfig | None = None
+) -> list[dict[str, Any]]:
+    """Alerts from the association tests: multicollinearity, non-random missingness, target issues."""
+    cfg = config or StoneConfig()
+    out = []
+    vif = correlations.get("vif")
+    deps = correlations.get("linear_dependencies")
+    explained: set[str] = set()
+    if deps is not None:
+        for r in deps.itertuples(index=False):
+            explained.update(r.columns)
+            out.append(alert("high", r.column, f"exact linear dependency: {truncate(r.equation, 160)} -> drop one of "
+                             "these columns (singular design matrix)"))
+    if vif is not None:
+        high = vif[(vif["vif"] >= cfg.vif_threshold) & ~vif.index.isin(list(explained))]["vif"]
+        if len(high):
+            listed = ", ".join(f"{c} ({'inf' if np.isinf(v) else f'{v:.0f}'})" for c, v in high.head(8).items())
+            more = f" (+{len(high) - 8} more)" if len(high) > 8 else ""
+            out.append(alert("medium", None, f"multicollinearity, VIF >= {cfg.vif_threshold:g}: {listed}{more} -> drop "
+                             "or combine for linear models"))
+    miss = correlations.get("missingness")
+    if miss is not None and not miss.empty:
+        strength = np.where(miss["test"].str.startswith("mann"), (miss["effect"] - 0.5).abs() * 2, miss["effect"])
+        strong = miss[miss["significant"] & (strength >= 0.2) & (miss["pct_missing"] >= 1)]
+        firsts = strong.drop_duplicates("column")
+        if len(firsts) == 1:
+            r = firsts.iloc[0]
+            out.append(alert("info", r.column, f"missingness depends on '{r.depends_on}': {r.detail} "
+                             f"(p_adj={r.p_adjusted:.1e}) -> not missing completely at random"))
+        elif len(firsts) > 1:
+            listed = ", ".join(f"{r.column} (on {r.depends_on})" for r in firsts.head(8).itertuples(index=False))
+            more = f" (+{len(firsts) - 8} more)" if len(firsts) > 8 else ""
+            out.append(alert("info", None, f"missing values are not random in {len(firsts)} columns: {listed}{more} "
+                             "-> see correlations['missingness']; impute conditionally"))
+    mt = correlations.get("missing_target")
+    if mt is not None and not mt.empty:
+        for r in mt[mt["significant"]].itertuples(index=False):
+            out.append(alert("medium", r.feature, f"missingness is informative about '{target}': {r.detail} "
+                             f"(p_adj={r.p_adjusted:.1e}) -> add a missing-indicator feature"))
+    assoc = correlations.get("target")
+    if assoc is not None and not assoc.empty:
+        for r in assoc[assoc["leakage_suspect"]].itertuples(index=False):
+            auc = f", AUC {r.auc:.3f}" if pd.notna(r.auc) else ""
+            out.append(alert("high", r.feature, f"possible target leakage: {r.method} = {r.association:.3f}{auc} "
+                             f"with '{target}'"))
+    return out
+
+
+def see_quality(df: pd.DataFrame | pd.Series, config: StoneConfig | None = None) -> dict[str, Any]:
+    """All data-quality checks plus their ``alerts`` (list of ``{severity, column, message}``)."""
+    cfg = config or StoneConfig()
+    df = prepare(df)
+    types = {}
+    for col in df.columns:
+        try:
+            types[col] = infer_type(df[col], cfg)
+        except Exception as exc:  # noqa: BLE001
+            types[col] = {"semantic_type": "mixed", "suggestions": [], "reason": repr(exc)}
+    corr = compute_correlations(df, {c: t["semantic_type"] for c, t in types.items()}, None, cfg)
+    out = check_quality(df, types, corr, cfg)
+    out["missingness_dependence"] = corr["missingness"]
+    out["alerts"] = sort_alerts(out["alerts"] + correlation_alerts(corr, None, cfg))
+    return out
