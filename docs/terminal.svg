@@ -1,0 +1,318 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="766" height="606" viewBox="0 0 766 606" role="img" aria-label="elessar analysing train.csv in a terminal">
+<title>elessar analysing train.csv in a terminal</title>
+<style>
+text{font-family:ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono','DejaVu Sans Mono',monospace;font-size:13px;fill:#d1d7e0;white-space:pre;opacity:0}
+@keyframes l0{0%,2.746%{opacity:0}2.751%,97.249%{opacity:1}100%{opacity:0}}.l0{animation:l0 21.81s infinite}
+@keyframes c0_0{0%,4.351%{fill-opacity:0}4.356%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_0{animation:c0_0 21.81s infinite}
+@keyframes c0_1{0%,4.558%{fill-opacity:0}4.562%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_1{animation:c0_1 21.81s infinite}
+@keyframes c0_2{0%,4.764%{fill-opacity:0}4.768%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_2{animation:c0_2 21.81s infinite}
+@keyframes c0_3{0%,4.970%{fill-opacity:0}4.975%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_3{animation:c0_3 21.81s infinite}
+@keyframes c0_4{0%,5.177%{fill-opacity:0}5.181%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_4{animation:c0_4 21.81s infinite}
+@keyframes c0_5{0%,5.383%{fill-opacity:0}5.387%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_5{animation:c0_5 21.81s infinite}
+@keyframes c0_6{0%,5.589%{fill-opacity:0}5.594%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_6{animation:c0_6 21.81s infinite}
+@keyframes c0_7{0%,5.796%{fill-opacity:0}5.800%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_7{animation:c0_7 21.81s infinite}
+@keyframes c0_8{0%,6.002%{fill-opacity:0}6.006%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_8{animation:c0_8 21.81s infinite}
+@keyframes c0_9{0%,6.208%{fill-opacity:0}6.213%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_9{animation:c0_9 21.81s infinite}
+@keyframes c0_10{0%,6.414%{fill-opacity:0}6.419%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_10{animation:c0_10 21.81s infinite}
+@keyframes c0_11{0%,6.621%{fill-opacity:0}6.625%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_11{animation:c0_11 21.81s infinite}
+@keyframes c0_12{0%,6.827%{fill-opacity:0}6.832%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_12{animation:c0_12 21.81s infinite}
+@keyframes c0_13{0%,7.033%{fill-opacity:0}7.038%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_13{animation:c0_13 21.81s infinite}
+@keyframes c0_14{0%,7.240%{fill-opacity:0}7.244%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_14{animation:c0_14 21.81s infinite}
+@keyframes c0_15{0%,7.446%{fill-opacity:0}7.451%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_15{animation:c0_15 21.81s infinite}
+@keyframes c0_16{0%,7.652%{fill-opacity:0}7.657%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_16{animation:c0_16 21.81s infinite}
+@keyframes c0_17{0%,7.859%{fill-opacity:0}7.863%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_17{animation:c0_17 21.81s infinite}
+@keyframes c0_18{0%,8.065%{fill-opacity:0}8.070%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_18{animation:c0_18 21.81s infinite}
+@keyframes c0_19{0%,8.271%{fill-opacity:0}8.276%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_19{animation:c0_19 21.81s infinite}
+@keyframes c0_20{0%,8.478%{fill-opacity:0}8.482%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_20{animation:c0_20 21.81s infinite}
+@keyframes c0_21{0%,8.684%{fill-opacity:0}8.689%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_21{animation:c0_21 21.81s infinite}
+@keyframes c0_22{0%,8.890%{fill-opacity:0}8.895%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_22{animation:c0_22 21.81s infinite}
+@keyframes c0_23{0%,9.097%{fill-opacity:0}9.101%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_23{animation:c0_23 21.81s infinite}
+@keyframes c0_24{0%,9.303%{fill-opacity:0}9.308%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_24{animation:c0_24 21.81s infinite}
+@keyframes c0_25{0%,9.509%{fill-opacity:0}9.514%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_25{animation:c0_25 21.81s infinite}
+@keyframes c0_26{0%,9.716%{fill-opacity:0}9.720%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_26{animation:c0_26 21.81s infinite}
+@keyframes c0_27{0%,9.922%{fill-opacity:0}9.927%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_27{animation:c0_27 21.81s infinite}
+@keyframes c0_28{0%,10.128%{fill-opacity:0}10.133%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_28{animation:c0_28 21.81s infinite}
+@keyframes c0_29{0%,10.335%{fill-opacity:0}10.339%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_29{animation:c0_29 21.81s infinite}
+@keyframes c0_30{0%,10.541%{fill-opacity:0}10.546%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_30{animation:c0_30 21.81s infinite}
+@keyframes c0_31{0%,10.747%{fill-opacity:0}10.752%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_31{animation:c0_31 21.81s infinite}
+@keyframes c0_32{0%,10.954%{fill-opacity:0}10.958%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_32{animation:c0_32 21.81s infinite}
+@keyframes c0_33{0%,11.160%{fill-opacity:0}11.165%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_33{animation:c0_33 21.81s infinite}
+@keyframes c0_34{0%,11.366%{fill-opacity:0}11.371%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_34{animation:c0_34 21.81s infinite}
+@keyframes c0_35{0%,11.573%{fill-opacity:0}11.577%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_35{animation:c0_35 21.81s infinite}
+@keyframes c0_36{0%,11.779%{fill-opacity:0}11.784%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_36{animation:c0_36 21.81s infinite}
+@keyframes c0_37{0%,11.985%{fill-opacity:0}11.990%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_37{animation:c0_37 21.81s infinite}
+@keyframes c0_38{0%,12.192%{fill-opacity:0}12.196%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_38{animation:c0_38 21.81s infinite}
+@keyframes c0_39{0%,12.398%{fill-opacity:0}12.403%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_39{animation:c0_39 21.81s infinite}
+@keyframes c0_40{0%,12.604%{fill-opacity:0}12.609%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_40{animation:c0_40 21.81s infinite}
+@keyframes c0_41{0%,12.811%{fill-opacity:0}12.815%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_41{animation:c0_41 21.81s infinite}
+@keyframes c0_42{0%,13.017%{fill-opacity:0}13.022%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_42{animation:c0_42 21.81s infinite}
+@keyframes c0_43{0%,13.223%{fill-opacity:0}13.228%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_43{animation:c0_43 21.81s infinite}
+@keyframes c0_44{0%,13.430%{fill-opacity:0}13.434%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_44{animation:c0_44 21.81s infinite}
+@keyframes c0_45{0%,13.636%{fill-opacity:0}13.641%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_45{animation:c0_45 21.81s infinite}
+@keyframes c0_46{0%,13.842%{fill-opacity:0}13.847%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_46{animation:c0_46 21.81s infinite}
+@keyframes c0_47{0%,14.049%{fill-opacity:0}14.053%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_47{animation:c0_47 21.81s infinite}
+@keyframes c0_48{0%,14.255%{fill-opacity:0}14.260%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_48{animation:c0_48 21.81s infinite}
+@keyframes c0_49{0%,14.461%{fill-opacity:0}14.466%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_49{animation:c0_49 21.81s infinite}
+@keyframes c0_50{0%,14.668%{fill-opacity:0}14.672%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_50{animation:c0_50 21.81s infinite}
+@keyframes c0_51{0%,14.874%{fill-opacity:0}14.878%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_51{animation:c0_51 21.81s infinite}
+@keyframes c0_52{0%,15.080%{fill-opacity:0}15.085%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c0_52{animation:c0_52 21.81s infinite}
+@keyframes l1{0%,17.121%{opacity:0}17.125%,97.249%{opacity:1}100%{opacity:0}}.l1{animation:l1 21.81s infinite}
+@keyframes l2{0%,19.872%{opacity:0}19.876%,97.249%{opacity:1}100%{opacity:0}}.l2{animation:l2 21.81s infinite}
+@keyframes c2_0{0%,21.476%{fill-opacity:0}21.481%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_0{animation:c2_0 21.81s infinite}
+@keyframes c2_1{0%,21.683%{fill-opacity:0}21.687%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_1{animation:c2_1 21.81s infinite}
+@keyframes c2_2{0%,21.889%{fill-opacity:0}21.894%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_2{animation:c2_2 21.81s infinite}
+@keyframes c2_3{0%,22.095%{fill-opacity:0}22.100%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_3{animation:c2_3 21.81s infinite}
+@keyframes c2_4{0%,22.302%{fill-opacity:0}22.306%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_4{animation:c2_4 21.81s infinite}
+@keyframes c2_5{0%,22.508%{fill-opacity:0}22.513%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_5{animation:c2_5 21.81s infinite}
+@keyframes c2_6{0%,22.714%{fill-opacity:0}22.719%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_6{animation:c2_6 21.81s infinite}
+@keyframes c2_7{0%,22.921%{fill-opacity:0}22.925%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_7{animation:c2_7 21.81s infinite}
+@keyframes c2_8{0%,23.127%{fill-opacity:0}23.132%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_8{animation:c2_8 21.81s infinite}
+@keyframes c2_9{0%,23.333%{fill-opacity:0}23.338%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_9{animation:c2_9 21.81s infinite}
+@keyframes c2_10{0%,23.540%{fill-opacity:0}23.544%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_10{animation:c2_10 21.81s infinite}
+@keyframes c2_11{0%,23.746%{fill-opacity:0}23.751%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_11{animation:c2_11 21.81s infinite}
+@keyframes c2_12{0%,23.952%{fill-opacity:0}23.957%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_12{animation:c2_12 21.81s infinite}
+@keyframes c2_13{0%,24.159%{fill-opacity:0}24.163%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_13{animation:c2_13 21.81s infinite}
+@keyframes c2_14{0%,24.365%{fill-opacity:0}24.370%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_14{animation:c2_14 21.81s infinite}
+@keyframes c2_15{0%,24.571%{fill-opacity:0}24.576%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_15{animation:c2_15 21.81s infinite}
+@keyframes c2_16{0%,24.778%{fill-opacity:0}24.782%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_16{animation:c2_16 21.81s infinite}
+@keyframes c2_17{0%,24.984%{fill-opacity:0}24.989%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_17{animation:c2_17 21.81s infinite}
+@keyframes c2_18{0%,25.190%{fill-opacity:0}25.195%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_18{animation:c2_18 21.81s infinite}
+@keyframes c2_19{0%,25.397%{fill-opacity:0}25.401%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_19{animation:c2_19 21.81s infinite}
+@keyframes c2_20{0%,25.603%{fill-opacity:0}25.608%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_20{animation:c2_20 21.81s infinite}
+@keyframes c2_21{0%,25.809%{fill-opacity:0}25.814%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_21{animation:c2_21 21.81s infinite}
+@keyframes c2_22{0%,26.016%{fill-opacity:0}26.020%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_22{animation:c2_22 21.81s infinite}
+@keyframes c2_23{0%,26.222%{fill-opacity:0}26.227%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_23{animation:c2_23 21.81s infinite}
+@keyframes c2_24{0%,26.428%{fill-opacity:0}26.433%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_24{animation:c2_24 21.81s infinite}
+@keyframes c2_25{0%,26.635%{fill-opacity:0}26.639%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_25{animation:c2_25 21.81s infinite}
+@keyframes c2_26{0%,26.841%{fill-opacity:0}26.845%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_26{animation:c2_26 21.81s infinite}
+@keyframes c2_27{0%,27.047%{fill-opacity:0}27.052%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_27{animation:c2_27 21.81s infinite}
+@keyframes c2_28{0%,27.254%{fill-opacity:0}27.258%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_28{animation:c2_28 21.81s infinite}
+@keyframes c2_29{0%,27.460%{fill-opacity:0}27.464%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_29{animation:c2_29 21.81s infinite}
+@keyframes c2_30{0%,27.666%{fill-opacity:0}27.671%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_30{animation:c2_30 21.81s infinite}
+@keyframes c2_31{0%,27.873%{fill-opacity:0}27.877%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_31{animation:c2_31 21.81s infinite}
+@keyframes c2_32{0%,28.079%{fill-opacity:0}28.083%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_32{animation:c2_32 21.81s infinite}
+@keyframes c2_33{0%,28.285%{fill-opacity:0}28.290%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_33{animation:c2_33 21.81s infinite}
+@keyframes c2_34{0%,28.492%{fill-opacity:0}28.496%,97.249%{fill-opacity:1}100%{fill-opacity:0}}.c2_34{animation:c2_34 21.81s infinite}
+@keyframes l3{0%,31.334%{opacity:0}31.339%,97.249%{opacity:1}100%{opacity:0}}.l3{animation:l3 21.81s infinite}
+@keyframes l4{0%,31.678%{opacity:0}31.683%,97.249%{opacity:1}100%{opacity:0}}.l4{animation:l4 21.81s infinite}
+@keyframes l5{0%,32.022%{opacity:0}32.027%,97.249%{opacity:1}100%{opacity:0}}.l5{animation:l5 21.81s infinite}
+@keyframes l6{0%,32.366%{opacity:0}32.370%,97.249%{opacity:1}100%{opacity:0}}.l6{animation:l6 21.81s infinite}
+@keyframes l7{0%,33.971%{opacity:0}33.975%,97.249%{opacity:1}100%{opacity:0}}.l7{animation:l7 21.81s infinite}
+@keyframes l8{0%,34.315%{opacity:0}34.319%,97.249%{opacity:1}100%{opacity:0}}.l8{animation:l8 21.81s infinite}
+@keyframes l9{0%,34.658%{opacity:0}34.663%,97.249%{opacity:1}100%{opacity:0}}.l9{animation:l9 21.81s infinite}
+@keyframes l10{0%,35.002%{opacity:0}35.007%,97.249%{opacity:1}100%{opacity:0}}.l10{animation:l10 21.81s infinite}
+@keyframes l11{0%,35.346%{opacity:0}35.351%,97.249%{opacity:1}100%{opacity:0}}.l11{animation:l11 21.81s infinite}
+@keyframes l12{0%,35.690%{opacity:0}35.695%,97.249%{opacity:1}100%{opacity:0}}.l12{animation:l12 21.81s infinite}
+@keyframes l13{0%,36.034%{opacity:0}36.039%,97.249%{opacity:1}100%{opacity:0}}.l13{animation:l13 21.81s infinite}
+@keyframes l14{0%,36.378%{opacity:0}36.382%,97.249%{opacity:1}100%{opacity:0}}.l14{animation:l14 21.81s infinite}
+@keyframes l15{0%,36.722%{opacity:0}36.726%,97.249%{opacity:1}100%{opacity:0}}.l15{animation:l15 21.81s infinite}
+@keyframes l16{0%,37.066%{opacity:0}37.070%,97.249%{opacity:1}100%{opacity:0}}.l16{animation:l16 21.81s infinite}
+@keyframes l17{0%,37.409%{opacity:0}37.414%,97.249%{opacity:1}100%{opacity:0}}.l17{animation:l17 21.81s infinite}
+@keyframes l18{0%,37.753%{opacity:0}37.758%,97.249%{opacity:1}100%{opacity:0}}.l18{animation:l18 21.81s infinite}
+@keyframes l19{0%,39.358%{opacity:0}39.363%,97.249%{opacity:1}100%{opacity:0}}.l19{animation:l19 21.81s infinite}
+@keyframes l20{0%,39.702%{opacity:0}39.707%,97.249%{opacity:1}100%{opacity:0}}.l20{animation:l20 21.81s infinite}
+@keyframes l21{0%,40.046%{opacity:0}40.050%,97.249%{opacity:1}100%{opacity:0}}.l21{animation:l21 21.81s infinite}
+@keyframes l22{0%,40.390%{opacity:0}40.394%,97.249%{opacity:1}100%{opacity:0}}.l22{animation:l22 21.81s infinite}
+@keyframes l23{0%,40.734%{opacity:0}40.738%,97.249%{opacity:1}100%{opacity:0}}.l23{animation:l23 21.81s infinite}
+@keyframes l24{0%,41.077%{opacity:0}41.082%,97.249%{opacity:1}100%{opacity:0}}.l24{animation:l24 21.81s infinite}
+@keyframes l25{0%,41.421%{opacity:0}41.426%,97.249%{opacity:1}100%{opacity:0}}.l25{animation:l25 21.81s infinite}
+@keyframes l26{0%,41.765%{opacity:0}41.770%,97.249%{opacity:1}100%{opacity:0}}.l26{animation:l26 21.81s infinite}
+@keyframes l27{0%,42.109%{opacity:0}42.114%,97.249%{opacity:1}100%{opacity:0}}.l27{animation:l27 21.81s infinite}
+@keyframes l28{0%,42.453%{opacity:0}42.458%,97.249%{opacity:1}100%{opacity:0}}.l28{animation:l28 21.81s infinite}
+@keyframes l29{0%,42.797%{opacity:0}42.801%,97.249%{opacity:1}100%{opacity:0}}.l29{animation:l29 21.81s infinite}
+@keyframes l30{0%,43.141%{opacity:0}43.145%,97.249%{opacity:1}100%{opacity:0}}.l30{animation:l30 21.81s infinite}
+@keyframes l31{0%,43.485%{opacity:0}43.489%,97.249%{opacity:1}100%{opacity:0}}.l31{animation:l31 21.81s infinite}
+@keyframes l32{0%,43.829%{opacity:0}43.833%,97.249%{opacity:1}100%{opacity:0}}.l32{animation:l32 21.81s infinite}
+@keyframes l33{0%,45.433%{opacity:0}45.438%,97.249%{opacity:1}100%{opacity:0}}.l33{animation:l33 21.81s infinite}
+@keyframes l34{0%,45.777%{opacity:0}45.782%,97.249%{opacity:1}100%{opacity:0}}.l34{animation:l34 21.81s infinite}
+@keyframes l35{0%,46.121%{opacity:0}46.126%,97.249%{opacity:1}100%{opacity:0}}.l35{animation:l35 21.81s infinite}
+@keyframes l36{0%,46.465%{opacity:0}46.470%,97.249%{opacity:1}100%{opacity:0}}.l36{animation:l36 21.81s infinite}
+@keyframes l37{0%,46.809%{opacity:0}46.813%,97.249%{opacity:1}100%{opacity:0}}.l37{animation:l37 21.81s infinite}
+@keyframes l38{0%,47.153%{opacity:0}47.157%,97.249%{opacity:1}100%{opacity:0}}.l38{animation:l38 21.81s infinite}
+@keyframes l39{0%,47.497%{opacity:0}47.501%,97.249%{opacity:1}100%{opacity:0}}.l39{animation:l39 21.81s infinite}
+@keyframes l40{0%,47.840%{opacity:0}47.845%,97.249%{opacity:1}100%{opacity:0}}.l40{animation:l40 21.81s infinite}
+@keyframes l41{0%,48.184%{opacity:0}48.189%,97.249%{opacity:1}100%{opacity:0}}.l41{animation:l41 21.81s infinite}
+@keyframes l42{0%,48.528%{opacity:0}48.533%,97.249%{opacity:1}100%{opacity:0}}.l42{animation:l42 21.81s infinite}
+@keyframes l43{0%,48.872%{opacity:0}48.877%,97.249%{opacity:1}100%{opacity:0}}.l43{animation:l43 21.81s infinite}
+@keyframes l44{0%,49.216%{opacity:0}49.221%,97.249%{opacity:1}100%{opacity:0}}.l44{animation:l44 21.81s infinite}
+@keyframes l45{0%,49.560%{opacity:0}49.564%,97.249%{opacity:1}100%{opacity:0}}.l45{animation:l45 21.81s infinite}
+@keyframes l46{0%,49.904%{opacity:0}49.908%,97.249%{opacity:1}100%{opacity:0}}.l46{animation:l46 21.81s infinite}
+@keyframes l47{0%,50.248%{opacity:0}50.252%,97.249%{opacity:1}100%{opacity:0}}.l47{animation:l47 21.81s infinite}
+@keyframes l48{0%,50.591%{opacity:0}50.596%,97.249%{opacity:1}100%{opacity:0}}.l48{animation:l48 21.81s infinite}
+@keyframes l49{0%,50.935%{opacity:0}50.940%,97.249%{opacity:1}100%{opacity:0}}.l49{animation:l49 21.81s infinite}
+@keyframes l50{0%,52.540%{opacity:0}52.545%,97.249%{opacity:1}100%{opacity:0}}.l50{animation:l50 21.81s infinite}
+@keyframes l51{0%,52.884%{opacity:0}52.889%,97.249%{opacity:1}100%{opacity:0}}.l51{animation:l51 21.81s infinite}
+@keyframes l52{0%,53.228%{opacity:0}53.232%,97.249%{opacity:1}100%{opacity:0}}.l52{animation:l52 21.81s infinite}
+@keyframes l53{0%,53.572%{opacity:0}53.576%,97.249%{opacity:1}100%{opacity:0}}.l53{animation:l53 21.81s infinite}
+@keyframes l54{0%,53.916%{opacity:0}53.920%,97.249%{opacity:1}100%{opacity:0}}.l54{animation:l54 21.81s infinite}
+@keyframes l55{0%,54.260%{opacity:0}54.264%,97.249%{opacity:1}100%{opacity:0}}.l55{animation:l55 21.81s infinite}
+@keyframes l56{0%,54.603%{opacity:0}54.608%,97.249%{opacity:1}100%{opacity:0}}.l56{animation:l56 21.81s infinite}
+@keyframes l57{0%,54.947%{opacity:0}54.952%,97.249%{opacity:1}100%{opacity:0}}.l57{animation:l57 21.81s infinite}
+@keyframes l58{0%,55.291%{opacity:0}55.296%,97.249%{opacity:1}100%{opacity:0}}.l58{animation:l58 21.81s infinite}
+@keyframes l59{0%,55.635%{opacity:0}55.640%,97.249%{opacity:1}100%{opacity:0}}.l59{animation:l59 21.81s infinite}
+@keyframes l60{0%,55.979%{opacity:0}55.983%,97.249%{opacity:1}100%{opacity:0}}.l60{animation:l60 21.81s infinite}
+@keyframes l61{0%,56.323%{opacity:0}56.327%,97.249%{opacity:1}100%{opacity:0}}.l61{animation:l61 21.81s infinite}
+@keyframes l62{0%,56.667%{opacity:0}56.671%,97.249%{opacity:1}100%{opacity:0}}.l62{animation:l62 21.81s infinite}
+@keyframes l63{0%,57.011%{opacity:0}57.015%,97.249%{opacity:1}100%{opacity:0}}.l63{animation:l63 21.81s infinite}
+@keyframes l64{0%,57.354%{opacity:0}57.359%,97.249%{opacity:1}100%{opacity:0}}.l64{animation:l64 21.81s infinite}
+@keyframes l65{0%,57.698%{opacity:0}57.703%,97.249%{opacity:1}100%{opacity:0}}.l65{animation:l65 21.81s infinite}
+@keyframes l66{0%,58.042%{opacity:0}58.047%,97.249%{opacity:1}100%{opacity:0}}.l66{animation:l66 21.81s infinite}
+@keyframes l67{0%,58.386%{opacity:0}58.391%,97.249%{opacity:1}100%{opacity:0}}.l67{animation:l67 21.81s infinite}
+@keyframes l68{0%,59.991%{opacity:0}59.995%,97.249%{opacity:1}100%{opacity:0}}.l68{animation:l68 21.81s infinite}
+@keyframes l69{0%,60.335%{opacity:0}60.339%,97.249%{opacity:1}100%{opacity:0}}.l69{animation:l69 21.81s infinite}
+@keyframes l70{0%,60.679%{opacity:0}60.683%,97.249%{opacity:1}100%{opacity:0}}.l70{animation:l70 21.81s infinite}
+@keyframes l71{0%,61.022%{opacity:0}61.027%,97.249%{opacity:1}100%{opacity:0}}.l71{animation:l71 21.81s infinite}
+@keyframes l72{0%,61.366%{opacity:0}61.371%,97.249%{opacity:1}100%{opacity:0}}.l72{animation:l72 21.81s infinite}
+@keyframes l73{0%,61.710%{opacity:0}61.715%,97.249%{opacity:1}100%{opacity:0}}.l73{animation:l73 21.81s infinite}
+@keyframes l74{0%,62.054%{opacity:0}62.059%,97.249%{opacity:1}100%{opacity:0}}.l74{animation:l74 21.81s infinite}
+@keyframes l75{0%,62.398%{opacity:0}62.403%,97.249%{opacity:1}100%{opacity:0}}.l75{animation:l75 21.81s infinite}
+@keyframes l76{0%,62.742%{opacity:0}62.746%,97.249%{opacity:1}100%{opacity:0}}.l76{animation:l76 21.81s infinite}
+@keyframes l77{0%,63.086%{opacity:0}63.090%,97.249%{opacity:1}100%{opacity:0}}.l77{animation:l77 21.81s infinite}
+@keyframes l78{0%,63.430%{opacity:0}63.434%,97.249%{opacity:1}100%{opacity:0}}.l78{animation:l78 21.81s infinite}
+@keyframes l79{0%,63.773%{opacity:0}63.778%,97.249%{opacity:1}100%{opacity:0}}.l79{animation:l79 21.81s infinite}
+@keyframes l80{0%,64.117%{opacity:0}64.122%,97.249%{opacity:1}100%{opacity:0}}.l80{animation:l80 21.81s infinite}
+@keyframes l81{0%,64.461%{opacity:0}64.466%,97.249%{opacity:1}100%{opacity:0}}.l81{animation:l81 21.81s infinite}
+@keyframes l82{0%,64.805%{opacity:0}64.810%,97.249%{opacity:1}100%{opacity:0}}.l82{animation:l82 21.81s infinite}
+@keyframes l83{0%,66.410%{opacity:0}66.414%,97.249%{opacity:1}100%{opacity:0}}.l83{animation:l83 21.81s infinite}
+@keyframes l84{0%,66.754%{opacity:0}66.758%,97.249%{opacity:1}100%{opacity:0}}.l84{animation:l84 21.81s infinite}
+@keyframes l85{0%,67.098%{opacity:0}67.102%,97.249%{opacity:1}100%{opacity:0}}.l85{animation:l85 21.81s infinite}
+@keyframes l86{0%,67.442%{opacity:0}67.446%,97.249%{opacity:1}100%{opacity:0}}.l86{animation:l86 21.81s infinite}
+@keyframes l87{0%,67.785%{opacity:0}67.790%,97.249%{opacity:1}100%{opacity:0}}.l87{animation:l87 21.81s infinite}
+@keyframes l88{0%,68.129%{opacity:0}68.134%,97.249%{opacity:1}100%{opacity:0}}.l88{animation:l88 21.81s infinite}
+@keyframes l89{0%,68.473%{opacity:0}68.478%,97.249%{opacity:1}100%{opacity:0}}.l89{animation:l89 21.81s infinite}
+@keyframes l90{0%,68.817%{opacity:0}68.822%,97.249%{opacity:1}100%{opacity:0}}.l90{animation:l90 21.81s infinite}
+@keyframes l91{0%,69.161%{opacity:0}69.166%,97.249%{opacity:1}100%{opacity:0}}.l91{animation:l91 21.81s infinite}
+@keyframes l92{0%,69.505%{opacity:0}69.509%,97.249%{opacity:1}100%{opacity:0}}.l92{animation:l92 21.81s infinite}
+@keyframes l93{0%,69.849%{opacity:0}69.853%,97.249%{opacity:1}100%{opacity:0}}.l93{animation:l93 21.81s infinite}
+@keyframes l94{0%,70.193%{opacity:0}70.197%,97.249%{opacity:1}100%{opacity:0}}.l94{animation:l94 21.81s infinite}
+@keyframes l95{0%,70.536%{opacity:0}70.541%,97.249%{opacity:1}100%{opacity:0}}.l95{animation:l95 21.81s infinite}
+@keyframes l96{0%,70.880%{opacity:0}70.885%,97.249%{opacity:1}100%{opacity:0}}.l96{animation:l96 21.81s infinite}
+@keyframes l97{0%,71.224%{opacity:0}71.229%,97.249%{opacity:1}100%{opacity:0}}.l97{animation:l97 21.81s infinite}
+@keyframes l98{0%,71.568%{opacity:0}71.573%,97.249%{opacity:1}100%{opacity:0}}.l98{animation:l98 21.81s infinite}
+@keyframes l99{0%,71.912%{opacity:0}71.917%,97.249%{opacity:1}100%{opacity:0}}.l99{animation:l99 21.81s infinite}
+@keyframes l100{0%,72.256%{opacity:0}72.260%,97.249%{opacity:1}100%{opacity:0}}.l100{animation:l100 21.81s infinite}
+@keyframes l101{0%,72.600%{opacity:0}72.604%,97.249%{opacity:1}100%{opacity:0}}.l101{animation:l101 21.81s infinite}
+@keyframes l102{0%,72.944%{opacity:0}72.948%,97.249%{opacity:1}100%{opacity:0}}.l102{animation:l102 21.81s infinite}
+@keyframes l103{0%,74.548%{opacity:0}74.553%,97.249%{opacity:1}100%{opacity:0}}.l103{animation:l103 21.81s infinite}
+@keyframes l104{0%,74.892%{opacity:0}74.897%,97.249%{opacity:1}100%{opacity:0}}.l104{animation:l104 21.81s infinite}
+@keyframes l105{0%,75.236%{opacity:0}75.241%,97.249%{opacity:1}100%{opacity:0}}.l105{animation:l105 21.81s infinite}
+@keyframes l106{0%,77.070%{opacity:0}77.075%,97.249%{opacity:1}100%{opacity:0}}.l106{animation:l106 21.81s infinite}
+@keyframes scroll{0%{transform:translateY(0)}42.962%{transform:translateY(0px)}43.145%{transform:translateY(-18px)}43.306%{transform:translateY(-18px)}43.489%{transform:translateY(-36px)}43.650%{transform:translateY(-36px)}43.833%{transform:translateY(-54px)}45.254%{transform:translateY(-54px)}45.438%{transform:translateY(-72px)}45.598%{transform:translateY(-72px)}45.782%{transform:translateY(-90px)}45.942%{transform:translateY(-90px)}46.126%{transform:translateY(-108px)}46.286%{transform:translateY(-108px)}46.470%{transform:translateY(-126px)}46.630%{transform:translateY(-126px)}46.813%{transform:translateY(-144px)}46.974%{transform:translateY(-144px)}47.157%{transform:translateY(-162px)}47.318%{transform:translateY(-162px)}47.501%{transform:translateY(-180px)}47.662%{transform:translateY(-180px)}47.845%{transform:translateY(-198px)}48.006%{transform:translateY(-198px)}48.189%{transform:translateY(-216px)}48.349%{transform:translateY(-216px)}48.533%{transform:translateY(-234px)}48.693%{transform:translateY(-234px)}48.877%{transform:translateY(-252px)}49.037%{transform:translateY(-252px)}49.221%{transform:translateY(-270px)}49.381%{transform:translateY(-270px)}49.564%{transform:translateY(-288px)}49.725%{transform:translateY(-288px)}49.908%{transform:translateY(-306px)}50.069%{transform:translateY(-306px)}50.252%{transform:translateY(-324px)}50.413%{transform:translateY(-324px)}50.596%{transform:translateY(-342px)}50.757%{transform:translateY(-342px)}50.940%{transform:translateY(-360px)}52.361%{transform:translateY(-360px)}52.545%{transform:translateY(-378px)}52.705%{transform:translateY(-378px)}52.889%{transform:translateY(-396px)}53.049%{transform:translateY(-396px)}53.232%{transform:translateY(-414px)}53.393%{transform:translateY(-414px)}53.576%{transform:translateY(-432px)}53.737%{transform:translateY(-432px)}53.920%{transform:translateY(-450px)}54.081%{transform:translateY(-450px)}54.264%{transform:translateY(-468px)}54.425%{transform:translateY(-468px)}54.608%{transform:translateY(-486px)}54.768%{transform:translateY(-486px)}54.952%{transform:translateY(-504px)}55.112%{transform:translateY(-504px)}55.296%{transform:translateY(-522px)}55.456%{transform:translateY(-522px)}55.640%{transform:translateY(-540px)}55.800%{transform:translateY(-540px)}55.983%{transform:translateY(-558px)}56.144%{transform:translateY(-558px)}56.327%{transform:translateY(-576px)}56.488%{transform:translateY(-576px)}56.671%{transform:translateY(-594px)}56.832%{transform:translateY(-594px)}57.015%{transform:translateY(-612px)}57.176%{transform:translateY(-612px)}57.359%{transform:translateY(-630px)}57.519%{transform:translateY(-630px)}57.703%{transform:translateY(-648px)}57.863%{transform:translateY(-648px)}58.047%{transform:translateY(-666px)}58.207%{transform:translateY(-666px)}58.391%{transform:translateY(-684px)}59.812%{transform:translateY(-684px)}59.995%{transform:translateY(-702px)}60.156%{transform:translateY(-702px)}60.339%{transform:translateY(-720px)}60.500%{transform:translateY(-720px)}60.683%{transform:translateY(-738px)}60.844%{transform:translateY(-738px)}61.027%{transform:translateY(-756px)}61.188%{transform:translateY(-756px)}61.371%{transform:translateY(-774px)}61.531%{transform:translateY(-774px)}61.715%{transform:translateY(-792px)}61.875%{transform:translateY(-792px)}62.059%{transform:translateY(-810px)}62.219%{transform:translateY(-810px)}62.403%{transform:translateY(-828px)}62.563%{transform:translateY(-828px)}62.746%{transform:translateY(-846px)}62.907%{transform:translateY(-846px)}63.090%{transform:translateY(-864px)}63.251%{transform:translateY(-864px)}63.434%{transform:translateY(-882px)}63.595%{transform:translateY(-882px)}63.778%{transform:translateY(-900px)}63.939%{transform:translateY(-900px)}64.122%{transform:translateY(-918px)}64.282%{transform:translateY(-918px)}64.466%{transform:translateY(-936px)}64.626%{transform:translateY(-936px)}64.810%{transform:translateY(-954px)}66.231%{transform:translateY(-954px)}66.414%{transform:translateY(-972px)}66.575%{transform:translateY(-972px)}66.758%{transform:translateY(-990px)}66.919%{transform:translateY(-990px)}67.102%{transform:translateY(-1008px)}67.263%{transform:translateY(-1008px)}67.446%{transform:translateY(-1026px)}67.607%{transform:translateY(-1026px)}67.790%{transform:translateY(-1044px)}67.950%{transform:translateY(-1044px)}68.134%{transform:translateY(-1062px)}68.294%{transform:translateY(-1062px)}68.478%{transform:translateY(-1080px)}68.638%{transform:translateY(-1080px)}68.822%{transform:translateY(-1098px)}68.982%{transform:translateY(-1098px)}69.166%{transform:translateY(-1116px)}69.326%{transform:translateY(-1116px)}69.509%{transform:translateY(-1134px)}69.670%{transform:translateY(-1134px)}69.853%{transform:translateY(-1152px)}70.014%{transform:translateY(-1152px)}70.197%{transform:translateY(-1170px)}70.358%{transform:translateY(-1170px)}70.541%{transform:translateY(-1188px)}70.702%{transform:translateY(-1188px)}70.885%{transform:translateY(-1206px)}71.045%{transform:translateY(-1206px)}71.229%{transform:translateY(-1224px)}71.389%{transform:translateY(-1224px)}71.573%{transform:translateY(-1242px)}71.733%{transform:translateY(-1242px)}71.917%{transform:translateY(-1260px)}72.077%{transform:translateY(-1260px)}72.260%{transform:translateY(-1278px)}72.421%{transform:translateY(-1278px)}72.604%{transform:translateY(-1296px)}72.765%{transform:translateY(-1296px)}72.948%{transform:translateY(-1314px)}74.370%{transform:translateY(-1314px)}74.553%{transform:translateY(-1332px)}74.713%{transform:translateY(-1332px)}74.897%{transform:translateY(-1350px)}75.057%{transform:translateY(-1350px)}75.241%{transform:translateY(-1368px)}76.891%{transform:translateY(-1368px)}77.075%{transform:translateY(-1386px)}99.9%{transform:translateY(-1386px)}100%{transform:translateY(0)}}.content{animation:scroll 21.81s infinite}
+@keyframes blink{0%,49%{fill-opacity:1}50%,100%{fill-opacity:0}}.cursor{animation:blink 1s step-end infinite}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;opacity:1!important}.content{transform:none!important}}
+</style>
+<defs><clipPath id="screen"><rect x="0" y="40" width="766" height="566"/></clipPath></defs>
+<rect width="766" height="606" rx="10" fill="#0d1117"/>
+<path d="M0 10a10 10 0 0 1 10-10h746a10 10 0 0 1 10 10v26h-766z" fill="#161b22"/>
+<circle cx="20" cy="18" r="6" fill="#ff5f57"/><circle cx="40" cy="18" r="6" fill="#febc2e"/><circle cx="60" cy="18" r="6" fill="#28c840"/>
+<text x="383.0" y="22" text-anchor="middle" style="opacity:1;fill:#7d8590;font-size:12px">elessar — zsh</text>
+<g clip-path="url(#screen)"><g class="content">
+<text class="l0" x="22" y="58" xml:space="preserve"><tspan fill="#3fb950">❯ </tspan><tspan fill="#e6edf3"><tspan class="c0_0">p</tspan><tspan class="c0_1">i</tspan><tspan class="c0_2">p</tspan><tspan class="c0_3"> </tspan><tspan class="c0_4">i</tspan><tspan class="c0_5">n</tspan><tspan class="c0_6">s</tspan><tspan class="c0_7">t</tspan><tspan class="c0_8">a</tspan><tspan class="c0_9">l</tspan><tspan class="c0_10">l</tspan><tspan class="c0_11"> </tspan><tspan class="c0_12">g</tspan><tspan class="c0_13">i</tspan><tspan class="c0_14">t</tspan><tspan class="c0_15">+</tspan><tspan class="c0_16">h</tspan><tspan class="c0_17">t</tspan><tspan class="c0_18">t</tspan><tspan class="c0_19">p</tspan><tspan class="c0_20">s</tspan><tspan class="c0_21">:</tspan><tspan class="c0_22">/</tspan><tspan class="c0_23">/</tspan><tspan class="c0_24">g</tspan><tspan class="c0_25">i</tspan><tspan class="c0_26">t</tspan><tspan class="c0_27">h</tspan><tspan class="c0_28">u</tspan><tspan class="c0_29">b</tspan><tspan class="c0_30">.</tspan><tspan class="c0_31">c</tspan><tspan class="c0_32">o</tspan><tspan class="c0_33">m</tspan><tspan class="c0_34">/</tspan><tspan class="c0_35">t</tspan><tspan class="c0_36">h</tspan><tspan class="c0_37">i</tspan><tspan class="c0_38">b</tspan><tspan class="c0_39">a</tspan><tspan class="c0_40">u</tspan><tspan class="c0_41">t</tspan><tspan class="c0_42">d</tspan><tspan class="c0_43">q</tspan><tspan class="c0_44">b</tspan><tspan class="c0_45">/</tspan><tspan class="c0_46">e</tspan><tspan class="c0_47">l</tspan><tspan class="c0_48">e</tspan><tspan class="c0_49">s</tspan><tspan class="c0_50">s</tspan><tspan class="c0_51">a</tspan><tspan class="c0_52">r</tspan></tspan></text>
+<text class="l1" x="22" y="76" xml:space="preserve"><tspan fill="#7d8590">Successfully installed elessar</tspan></text>
+<text class="l2" x="22" y="94" xml:space="preserve"><tspan fill="#3fb950">❯ </tspan><tspan fill="#e6edf3"><tspan class="c2_0">e</tspan><tspan class="c2_1">l</tspan><tspan class="c2_2">e</tspan><tspan class="c2_3">s</tspan><tspan class="c2_4">s</tspan><tspan class="c2_5">a</tspan><tspan class="c2_6">r</tspan><tspan class="c2_7"> </tspan><tspan class="c2_8">t</tspan><tspan class="c2_9">r</tspan><tspan class="c2_10">a</tspan><tspan class="c2_11">i</tspan><tspan class="c2_12">n</tspan><tspan class="c2_13">.</tspan><tspan class="c2_14">c</tspan><tspan class="c2_15">s</tspan><tspan class="c2_16">v</tspan><tspan class="c2_17"> </tspan><tspan class="c2_18">-</tspan><tspan class="c2_19">-</tspan><tspan class="c2_20">t</tspan><tspan class="c2_21">a</tspan><tspan class="c2_22">r</tspan><tspan class="c2_23">g</tspan><tspan class="c2_24">e</tspan><tspan class="c2_25">t</tspan><tspan class="c2_26"> </tspan><tspan class="c2_27">S</tspan><tspan class="c2_28">u</tspan><tspan class="c2_29">r</tspan><tspan class="c2_30">v</tspan><tspan class="c2_31">i</tspan><tspan class="c2_32">v</tspan><tspan class="c2_33">e</tspan><tspan class="c2_34">d</tspan></tspan></text>
+<text class="l3" x="22" y="112" xml:space="preserve"><tspan fill="#7d8590">════════════════════════════════════════════════════════════════════════════════════════════</tspan></text>
+<text class="l4" x="22" y="130" xml:space="preserve"><tspan fill="#79c0ff" font-weight="700"> elessar report  ·  891 rows x 12 columns</tspan></text>
+<text class="l5" x="22" y="148" xml:space="preserve"><tspan fill="#7d8590">════════════════════════════════════════════════════════════════════════════════════════════</tspan></text>
+<text class="l6" x="22" y="166" xml:space="preserve"></text>
+<text class="l7" x="22" y="184" xml:space="preserve"><tspan fill="#79c0ff" font-weight="700">OVERVIEW</tspan></text>
+<text class="l8" x="22" y="202" xml:space="preserve"><tspan fill="#7d8590">────────</tspan></text>
+<text class="l9" x="22" y="220" xml:space="preserve"><tspan>  rows            891</tspan></text>
+<text class="l10" x="22" y="238" xml:space="preserve"><tspan>  columns         12</tspan></text>
+<text class="l11" x="22" y="256" xml:space="preserve"><tspan>  memory          285.6 KB  (suggested dtypes save ~124.8 KB)</tspan></text>
+<text class="l12" x="22" y="274" xml:space="preserve"><tspan>  pandas dtypes   int64=5, str=5, float64=2</tspan></text>
+<text class="l13" x="22" y="292" xml:space="preserve"><tspan>  semantic types  categorical=4, numeric_continuous=2, numeric_discrete=2, id=1, boolean=1,</tspan></text>
+<text class="l14" x="22" y="310" xml:space="preserve"><tspan>                  ordinal-candidate=1, text=1</tspan></text>
+<text class="l15" x="22" y="328" xml:space="preserve"><tspan>  duplicate rows  0 (0.0%)</tspan></text>
+<text class="l16" x="22" y="346" xml:space="preserve"><tspan>  missing cells   8.1%  (708 rows with at least one)</tspan></text>
+<text class="l17" x="22" y="364" xml:space="preserve"><tspan>  target          Survived</tspan></text>
+<text class="l18" x="22" y="382" xml:space="preserve"></text>
+<text class="l19" x="22" y="400" xml:space="preserve"><tspan fill="#79c0ff" font-weight="700">ALERTS (14: 1 high, 3 medium, 10 info)</tspan></text>
+<text class="l20" x="22" y="418" xml:space="preserve"><tspan fill="#7d8590">──────────────────────────────────────</tspan></text>
+<text class="l21" x="22" y="436" xml:space="preserve"><tspan>  </tspan><tspan fill="#ff7b72" font-weight="700">HIGH</tspan><tspan>    Cabin        77.1% missing -&gt; drop, or impute and add a missing-indicator</tspan></text>
+<text class="l22" x="22" y="454" xml:space="preserve"><tspan>  </tspan><tspan fill="#e3b341" font-weight="700">MEDIUM</tspan><tspan>  Age          missingness is informative about &#x27;Survived&#x27;: Survived=1: 29% when</tspan></text>
+<text class="l23" x="22" y="472" xml:space="preserve"><tspan>                       missing vs 41% when present (p_adj=5.9e-03) -&gt; add a missing-</tspan></text>
+<text class="l24" x="22" y="490" xml:space="preserve"><tspan>                       indicator feature</tspan></text>
+<text class="l25" x="22" y="508" xml:space="preserve"><tspan>  </tspan><tspan fill="#e3b341" font-weight="700">MEDIUM</tspan><tspan>  Cabin        missingness is informative about &#x27;Survived&#x27;: Survived=1: 30% when</tspan></text>
+<text class="l26" x="22" y="526" xml:space="preserve"><tspan>                       missing vs 67% when present (p_adj=6.2e-21) -&gt; add a missing-</tspan></text>
+<text class="l27" x="22" y="544" xml:space="preserve"><tspan>                       indicator feature</tspan></text>
+<text class="l28" x="22" y="562" xml:space="preserve"><tspan>  </tspan><tspan fill="#e3b341" font-weight="700">MEDIUM</tspan><tspan>  Name         2 values with leading/trailing whitespace -&gt; .str.strip()</tspan></text>
+<text class="l29" x="22" y="580" xml:space="preserve"><tspan>  </tspan><tspan fill="#79c0ff" font-weight="700">info</tspan><tspan>    -            dtype optimizations save ~124.8 KB: PassengerId -&gt; uint16, Survived</tspan></text>
+<text class="l30" x="22" y="598" xml:space="preserve"><tspan>                       -&gt; uint8, Pclass -&gt; uint8, Sex -&gt; category, Age -&gt; float32, SibSp -&gt;</tspan></text>
+<text class="l31" x="22" y="616" xml:space="preserve"><tspan>  …</tspan></text>
+<text class="l32" x="22" y="634" xml:space="preserve"></text>
+<text class="l33" x="22" y="652" xml:space="preserve"><tspan fill="#79c0ff" font-weight="700">COLUMN SUMMARY</tspan></text>
+<text class="l34" x="22" y="670" xml:space="preserve"><tspan fill="#7d8590">──────────────</tspan></text>
+<text class="l35" x="22" y="688" xml:space="preserve"><tspan>  column       type                missing  unique            mean/top  std/top%    max</tspan></text>
+<text class="l36" x="22" y="706" xml:space="preserve"><tspan fill="#7d8590">  ───────────  ──────────────────  ───────  ──────  ──────────────────  ────────  ─────</tspan></text>
+<text class="l37" x="22" y="724" xml:space="preserve"><tspan>  PassengerId  id                     0.0%     891                   1      0.1%</tspan></text>
+<text class="l38" x="22" y="742" xml:space="preserve"><tspan>  Survived     boolean                0.0%       2                   0     61.6%</tspan></text>
+<text class="l39" x="22" y="760" xml:space="preserve"><tspan>  Pclass       ordinal-candidate      0.0%       3               2.309    0.8361      3</tspan></text>
+<text class="l40" x="22" y="778" xml:space="preserve"><tspan>  Name         text                   0.0%     891  Braund, Mr. Owen …      0.1%</tspan></text>
+<text class="l41" x="22" y="796" xml:space="preserve"><tspan>  Sex          categorical            0.0%       2                male     64.8%</tspan></text>
+<text class="l42" x="22" y="814" xml:space="preserve"><tspan>  Age          numeric_continuous    19.9%      88                29.7     14.53     80</tspan></text>
+<text class="l43" x="22" y="832" xml:space="preserve"><tspan>  SibSp        numeric_discrete       0.0%       7               0.523     1.103      8</tspan></text>
+<text class="l44" x="22" y="850" xml:space="preserve"><tspan>  Parch        numeric_discrete       0.0%       7              0.3816    0.8061      6</tspan></text>
+<text class="l45" x="22" y="868" xml:space="preserve"><tspan>  Ticket       categorical            0.0%     681              347082      0.8%</tspan></text>
+<text class="l46" x="22" y="886" xml:space="preserve"><tspan>  Fare         numeric_continuous     0.0%     248                32.2     49.69  512.3</tspan></text>
+<text class="l47" x="22" y="904" xml:space="preserve"><tspan>  Cabin        categorical           77.1%     147                  G6      2.0%</tspan></text>
+<text class="l48" x="22" y="922" xml:space="preserve"><tspan>  Embarked     categorical            0.2%       3                   S     72.4%</tspan></text>
+<text class="l49" x="22" y="940" xml:space="preserve"></text>
+<text class="l50" x="22" y="958" xml:space="preserve"><tspan fill="#79c0ff" font-weight="700">COLUMN DETAILS</tspan></text>
+<text class="l51" x="22" y="976" xml:space="preserve"><tspan fill="#7d8590">──────────────</tspan></text>
+<text class="l52" x="22" y="994" xml:space="preserve"><tspan fill="#e6edf3" font-weight="700">▸ Age  ·  numeric_continuous  ·  float64  ·  float64 dtype: 88 distinct real values</tspan></text>
+<text class="l53" x="22" y="1012" xml:space="preserve"><tspan>    missing 177 (19.9%) · unique 88 (12.3%) · memory 7.0 KB · mode 24.0 ×30</tspan></text>
+<text class="l54" x="22" y="1030" xml:space="preserve"><tspan>    mean 29.7 ± 14.53 · 95% CI [28.63, 30.77] · median 28 [27, 29] · trimmed 29.27</tspan></text>
+<text class="l55" x="22" y="1048" xml:space="preserve"><tspan>    IQR 17.88 · MAD 9 · CV 0.4891 · geo mean 24.43</tspan></text>
+<text class="l56" x="22" y="1066" xml:space="preserve"><tspan>    min 0.42 · p1 1 · p5 4 · p25 20.12 · p75 38 · p95 56 · p99 65.87 · max 80 · sum 21,205.2</tspan></text>
+<text class="l57" x="22" y="1084" xml:space="preserve"><tspan>    skew 0.389 · kurtosis 0.178 · outliers IQR 1.5% · |z|&gt;3 0.3% · mod-z 0.1% · zeros 0</tspan></text>
+<text class="l58" x="22" y="1102" xml:space="preserve"><tspan>    negatives 0 · decimals 1 · heaping ×1.0 · KDE modes 1 · bimodality coef 0.36</tspan></text>
+<text class="l59" x="22" y="1120" xml:space="preserve"><tspan>    lag-1 autocorr 0.05 (p 0.19)</tspan></text>
+<text class="l60" x="22" y="1138" xml:space="preserve"><tspan>    normality: </tspan><tspan fill="#ffa657">not normal</tspan><tspan> · Shapiro p 7e-08 · D&#x27;Agostino p 1e-04 · Jarque-Bera p 8e-05</tspan></text>
+<text class="l61" x="22" y="1156" xml:space="preserve"><tspan>    Anderson p 0.01</tspan></text>
+<text class="l62" x="22" y="1174" xml:space="preserve"><tspan>    shape: roughly symmetric, best fit normal(loc=29.7, scale=14.5)</tspan></text>
+<text class="l63" x="22" y="1192" xml:space="preserve"><tspan>    #1 norm(loc=29.7, scale=14.5) AIC 5,850.5 KS p 0.005</tspan></text>
+<text class="l64" x="22" y="1210" xml:space="preserve"><tspan>    #2 t(df=22.9, loc=29.5, scale=13.9) AIC 5,851.3 KS p 0.016</tspan></text>
+<text class="l65" x="22" y="1228" xml:space="preserve"><tspan>    #3 logistic(loc=29.1, scale=8.15) AIC 5,851.4 KS p 0.046</tspan></text>
+<text class="l66" x="22" y="1246" xml:space="preserve"><tspan>…</tspan></text>
+<text class="l67" x="22" y="1264" xml:space="preserve"></text>
+<text class="l68" x="22" y="1282" xml:space="preserve"><tspan fill="#79c0ff" font-weight="700">CORRELATIONS</tspan></text>
+<text class="l69" x="22" y="1300" xml:space="preserve"><tspan fill="#7d8590">────────────</tspan></text>
+<text class="l70" x="22" y="1318" xml:space="preserve"><tspan>  28 pairs tested, 24 significant after Benjamini-Hochberg correction (alpha 0.05);</tspan></text>
+<text class="l71" x="22" y="1336" xml:space="preserve"><tspan>  strongest shown below</tspan></text>
+<text class="l72" x="22" y="1354" xml:space="preserve"><tspan>  column A  column B  method      value  95% CI              n   p_adj  sig</tspan></text>
+<text class="l73" x="22" y="1372" xml:space="preserve"><tspan fill="#7d8590">  ────────  ────────  ─────────  ──────  ────────────────  ───  ──────  ───</tspan></text>
+<text class="l74" x="22" y="1390" xml:space="preserve"><tspan>  Pclass    Fare      spearman   -0.688  [-0.725, -0.648]  891  2e-124  </tspan><tspan fill="#3fb950">*</tspan></text>
+<text class="l75" x="22" y="1408" xml:space="preserve"><tspan>  Survived  Sex       cramers_v  +0.543                    891   5e-58  </tspan><tspan fill="#3fb950">*</tspan></text>
+<text class="l76" x="22" y="1426" xml:space="preserve"></text>
+<text class="l77" x="22" y="1444" xml:space="preserve"><tspan>  multicollinearity (VIF): Pclass 1.7, Fare 1.6, Age 1.3, SibSp 1.3, Parch 1.2</tspan></text>
+<text class="l78" x="22" y="1462" xml:space="preserve"></text>
+<text class="l79" x="22" y="1480" xml:space="preserve"><tspan>  missingness that depends on other columns (evidence against MCAR):</tspan></text>
+<text class="l80" x="22" y="1498" xml:space="preserve"><tspan>    Cabin &lt;- Pclass: median Pclass = 3 when missing vs 1 · p_adj 3e-91</tspan></text>
+<text class="l81" x="22" y="1516" xml:space="preserve"><tspan>    Age &lt;- Embarked: 64% missing when Embarked=Q vs 14% when Embarked=S · p_adj 2e-23</tspan></text>
+<text class="l82" x="22" y="1534" xml:space="preserve"></text>
+<text class="l83" x="22" y="1552" xml:space="preserve"><tspan fill="#79c0ff" font-weight="700">TARGET ANALYSIS</tspan></text>
+<text class="l84" x="22" y="1570" xml:space="preserve"><tspan fill="#7d8590">───────────────</tspan></text>
+<text class="l85" x="22" y="1588" xml:space="preserve"><tspan>  target: Survived  (boolean)</tspan></text>
+<text class="l86" x="22" y="1606" xml:space="preserve"><tspan>  feature   type                method     association    n   p_adj  sig    AUC     MI  flag</tspan></text>
+<text class="l87" x="22" y="1624" xml:space="preserve"><tspan fill="#7d8590">  ────────  ──────────────────  ─────────  ───────────  ───  ──────  ───  ─────  ─────  ────</tspan></text>
+<text class="l88" x="22" y="1642" xml:space="preserve"><tspan>  Sex       categorical         cramers_v       +0.543  891   3e-58  </tspan><tspan fill="#3fb950">*</tspan><tspan>           0.218</tspan></text>
+<text class="l89" x="22" y="1660" xml:space="preserve"><tspan>  Pclass    ordinal-candidate   eta             +0.338  891   1e-23  </tspan><tspan fill="#3fb950">*</tspan><tspan>    0.319  0.092</tspan></text>
+<text class="l90" x="22" y="1678" xml:space="preserve"><tspan>  Fare      numeric_continuous  eta             +0.257  891   1e-21  </tspan><tspan fill="#3fb950">*</tspan><tspan>    0.692  0.100</tspan></text>
+<text class="l91" x="22" y="1696" xml:space="preserve"><tspan>  Embarked  categorical         cramers_v       +0.166  889   3e-06  </tspan><tspan fill="#3fb950">*</tspan><tspan>           0.021</tspan></text>
+<text class="l92" x="22" y="1714" xml:space="preserve"><tspan>  Parch     numeric_discrete    eta             +0.082  891   5e-05  </tspan><tspan fill="#3fb950">*</tspan><tspan>    0.561  0.024</tspan></text>
+<text class="l93" x="22" y="1732" xml:space="preserve"><tspan>  Age       numeric_continuous  eta             +0.077  714    0.16       0.469  0.023</tspan></text>
+<text class="l94" x="22" y="1750" xml:space="preserve"><tspan>  SibSp     numeric_discrete    eta             +0.035  891  0.0094  </tspan><tspan fill="#3fb950">*</tspan><tspan>    0.543  0.019</tspan></text>
+<text class="l95" x="22" y="1768" xml:space="preserve"><tspan>  6/7 features significantly associated (BH-adjusted p &lt; 0.05)</tspan></text>
+<text class="l96" x="22" y="1786" xml:space="preserve"></text>
+<text class="l97" x="22" y="1804" xml:space="preserve"><tspan>  is the target different when a feature is missing?</tspan></text>
+<text class="l98" x="22" y="1822" xml:space="preserve"><tspan>    </tspan><tspan fill="#3fb950">yes</tspan><tspan>  Cabin (77.1% missing): Survived=1: 30% when missing vs 67% when present</tspan></text>
+<text class="l99" x="22" y="1840" xml:space="preserve"><tspan>    p_adj 6e-21</tspan></text>
+<text class="l100" x="22" y="1858" xml:space="preserve"><tspan>    </tspan><tspan fill="#3fb950">yes</tspan><tspan>  Age (19.9% missing): Survived=1: 29% when missing vs 41% when present</tspan></text>
+<text class="l101" x="22" y="1876" xml:space="preserve"><tspan>    p_adj 0.0059</tspan></text>
+<text class="l102" x="22" y="1894" xml:space="preserve"></text>
+<text class="l103" x="22" y="1912" xml:space="preserve"><tspan fill="#79c0ff" font-weight="700">PLOTS</tspan></text>
+<text class="l104" x="22" y="1930" xml:space="preserve"><tspan fill="#7d8590">─────</tspan></text>
+<text class="l105" x="22" y="1948" xml:space="preserve"><tspan>  27 PNG files in elessar_report/</tspan></text>
+<text class="l106" x="22" y="1966" xml:space="preserve"><tspan fill="#3fb950">❯ </tspan><tspan class="cursor">▋</tspan></text>
+</g></g>
+</svg>
