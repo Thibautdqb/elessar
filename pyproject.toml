@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "elessar"
 version = "0.1.0"
-description = "The Elfstone for pandas: see everything about a DataFrame, and how to heal it"
+description = "Automated exploratory data analysis and data-quality profiling for pandas DataFrames"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

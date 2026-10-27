@@ -1,4 +1,4 @@
-"""elessar, the Elfstone for pandas: see everything about a DataFrame, and how to heal it.
+"""elessar: automated exploratory data analysis and data-quality profiling for pandas DataFrames.
 
 >>> import elessar
 >>> report = elessar.see(df, target="price")   # prints the report, writes plots

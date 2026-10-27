@@ -1,10 +1,12 @@
 <p align="center">
-  <img src="docs/logo.png" alt="elessar logo: a marble god-king in sunglasses, wearing an emerald eagle brooch, codes Python on a laptop beside a panda, under a giant green gem in a neon jungle" width="100%">
+  <img src="docs/logo.png" alt="elessar logo: a marble statue of a bearded god codes on a laptop in a neon jungle temple, under a floating emerald crystal, with the word elessar in neon letters" width="100%">
 </p>
 
-**The Elfstone for pandas: see everything about a DataFrame, and how to heal it.**
+**Automated exploratory data analysis and data-quality profiling for pandas DataFrames.**
 
-*In Tolkien's legend, the Elessar is the green Elfstone through which whatever is seen is made whole again.*
+One function call (`elessar.see(df)`) or one command (`elessar data.csv`) gives you the semantic type of every column, full descriptive statistics, the best-fitting distribution, associations between all columns with significance tests, target and leakage analysis, data-quality alerts with the code to fix them, and report-ready charts.
+
+*About the name: in Tolkien's legend, the Elessar is the green Elfstone through which whatever is seen is made whole again.*
 
 <p align="center">
   <img src="docs/terminal.svg" alt="elessar analysing the Titanic dataset in a terminal: install, run, then the report scrolls by (overview, alerts, column summary, correlations, target analysis)" width="766">
