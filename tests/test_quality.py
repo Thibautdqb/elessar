@@ -45,7 +45,7 @@ def test_see_quality(messy_df: pd.DataFrame) -> None:
     sev = [a["severity"] for a in q["alerts"]]
     assert set(sev) <= set(SEVERITIES)
     assert sev == sorted(sev, key=SEVERITIES.index)
-    assert all({"severity", "column", "message"} == set(a) for a in q["alerts"])
+    assert all({"severity", "column", "message", "kind"} == set(a) for a in q["alerts"])
 
 
 def test_suspicious_dates() -> None:
@@ -75,3 +75,16 @@ def test_correlation_alerts(rng: np.random.Generator) -> None:
 
     leak = correlation_alerts(see_corr(target_df, target="t"), "t")
     assert any(al["severity"] == "high" and "leakage" in al["message"] for al in leak)
+
+
+def test_alert_grouping_and_duplicate_dedup(rng: np.random.Generator) -> None:
+    from elessar import see
+
+    df = pd.DataFrame({f"skew{i}": rng.lognormal(0, 1.5, 400) for i in range(4)})
+    df["copy"] = df["skew0"]
+    alerts = see(df, plots=False, verbose=False).alerts
+    grouped = [a for a in alerts if a["kind"] == "skewed"]
+    assert len(grouped) == 1 and grouped[0]["column"] is None and grouped[0]["message"].startswith("5 columns")
+    about_copy = [a["message"] for a in alerts if a["column"] in ("copy", "skew0")]
+    assert sum("identical" in m for m in about_copy) == 1
+    assert not any("linear dependency" in m or "redundant" in m for m in about_copy)

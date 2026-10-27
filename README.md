@@ -110,7 +110,7 @@ Reads CSV / TSV / TXT (separator sniffed) / JSON / JSONL / Parquet / Feather / P
 
 ## What it computes
 
-**Semantic types**: `empty`, `constant`, `boolean` (including 0/1, yes/no, true/false, y/n, oui/non), `id` (unique or near-unique, consecutive ints, UUIDs), `numeric_continuous`, `numeric_discrete` (counts, few levels), `categorical` (labels and high-cardinality codes), `ordinal-candidate` (low/medium/high, sizes, Likert, months, weekdays, quarters, 1-5 integer scales, ordered categoricals), `datetime`, `datetime_string`, `numeric_string` (`"1 234,5"`, `"12%"`, `"$3.2"`), `text`, `email`, `url`, `phone`, `postal_code`, `ip_address`, `json_like`, `mixed`.
+**Semantic types**: `empty`, `constant`, `boolean` (including 0/1, yes/no, true/false, y/n, oui/non), `id` (unique or near-unique, consecutive ints, UUIDs), `numeric_continuous`, `numeric_discrete` (counts, few levels), `categorical` (labels and high-cardinality codes), `ordinal-candidate` (low/medium/high, sizes, Likert, months, weekdays, quarters, 1-5 integer scales, ordered categoricals), `datetime`, `datetime_string`, `numeric_string` (`"1 234,5"`, `"12%"`, `"$3.2"`), `text`, `multi_label` (lists of labels in a cell: `"Comedies, Dramas"`), `email`, `url`, `phone`, `postal_code`, `ip_address`, `json_like`, `mixed`. Numbers written with units (`"90 min"`, `"60 kg"`) are parsed, and mixed units in one column (`min` and `Seasons`, `kg` and `lbs`) are flagged.
 
 **Statistics**
 - *all columns*: count, missing, unique, memory, modes, top-N values

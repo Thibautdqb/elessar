@@ -13,7 +13,7 @@ from typing import Any, TextIO
 import numpy as np
 import pandas as pd
 
-from ._utils import fmt_bytes, fmt_num, jsonable, truncate
+from ._utils import fmt_bytes, fmt_num, fmt_p, jsonable, truncate
 from .distributions import _fmt_params
 
 _SEVERITY_LABEL = {"high": "HIGH", "medium": "MEDIUM", "info": "info"}
@@ -25,15 +25,6 @@ def _pct(x: Any) -> str:
 
 def _str(x: Any) -> str:
     return "" if x is None or (isinstance(x, float) and pd.isna(x)) else str(x)
-
-
-def _p(x: Any) -> str:
-    """Compact p-value: 0.032, 4e-07, <1e-300."""
-    if x is None or pd.isna(x):
-        return "-"
-    if x == 0:
-        return "<1e-300"
-    return f"{x:.2g}" if x >= 1e-3 else f"{x:.0e}"
 
 
 def _kv(counts: dict[Any, Any], limit: int = 8) -> str:
@@ -98,7 +89,7 @@ _NUMERIC_HEADERS = {"missing", "unique", "mean/top", "std/top%", "min", "max", "
 def _pair_rows(pairs: pd.DataFrame) -> tuple[list[str], list[list[str]]]:
     rows = [
         [r.col_a, r.col_b, r.method, f"{r.value:+.3f}",
-         f"[{r.ci_low:+.3f}, {r.ci_high:+.3f}]" if pd.notna(r.ci_low) else "", f"{r.n:,}", _p(r.p_adjusted),
+         f"[{r.ci_low:+.3f}, {r.ci_high:+.3f}]" if pd.notna(r.ci_low) else "", f"{r.n:,}", fmt_p(r.p_adjusted),
          "*" if r.significant else ""]
         for r in pairs.itertuples(index=False)
     ]
@@ -107,7 +98,7 @@ def _pair_rows(pairs: pd.DataFrame) -> tuple[list[str], list[list[str]]]:
 
 def _target_rows(assoc: pd.DataFrame) -> tuple[list[str], list[list[str]]]:
     rows = [
-        [r.feature, r.feature_type, r.method, f"{r.association:+.3f}", r.test, f"{r.n:,}", _p(r.p_adjusted),
+        [r.feature, r.feature_type, r.method, f"{r.association:+.3f}", r.test, f"{r.n:,}", fmt_p(r.p_adjusted),
          "*" if r.significant else "", f"{r.auc:.3f}" if pd.notna(r.auc) else "",
          f"{r.mutual_info:.3f}" if pd.notna(r.mutual_info) else "", "LEAKAGE?" if r.leakage_suspect else ""]
         for r in assoc.itertuples(index=False)
@@ -276,7 +267,7 @@ class Vision:
         if miss is not None and not miss.empty and miss["significant"].any():
             lines += ["", "  missingness that depends on other columns (evidence against MCAR):"]
             for r in miss[miss["significant"]].drop_duplicates("column").head(10).itertuples(index=False):
-                lines += _join_wrap([f"{r.column} <- {r.depends_on}: {r.detail}", f"p_adj {_p(r.p_adjusted)}"], w, "    ")
+                lines += _join_wrap([f"{r.column} <- {r.depends_on}: {r.detail}", f"p_adj {fmt_p(r.p_adjusted)}"], w, "    ")
         return lines
 
     def _target_lines(self, w: int) -> list[str]:
@@ -297,7 +288,7 @@ class Vision:
             for r in mt.head(10).itertuples(index=False):
                 flag = "yes" if r.significant else "no "
                 lines += _join_wrap([f"{flag}  {r.feature} ({r.pct_missing:.1f}% missing): {r.detail}",
-                                     f"p_adj {_p(r.p_adjusted)}"], w, "    ")
+                                     f"p_adj {fmt_p(r.p_adjusted)}"], w, "    ")
         return lines
 
     def _plot_lines(self, w: int) -> list[str]:
@@ -406,19 +397,19 @@ def _detail_parts(d: dict[str, Any]) -> list[list[str]]:
             f"KDE modes {st['n_modes_kde']}" if st.get("n_modes_kde") else "",
             f"bimodality coef {st['bimodality_coefficient']:.2f}" if st.get("bimodality_coefficient") is not None else "",
             "monotonic ↑" if st.get("monotonic_increasing") else "monotonic ↓" if st.get("monotonic_decreasing") else "",
-            f"lag-1 autocorr {st['autocorr_lag1']:.2f} (p {_p(st['autocorr_lag1_p'])})" if st.get("autocorr_lag1") is not None else "",
+            f"lag-1 autocorr {st['autocorr_lag1']:.2f} (p {fmt_p(st['autocorr_lag1_p'])})" if st.get("autocorr_lag1") is not None else "",
         ])
     dist = d.get("distribution") or {}
     norm = dist.get("normality") or {}
     if norm.get("verdict"):
-        lines.append([f"normality: {norm['verdict']}", f"Shapiro p {_p(norm.get('shapiro_p'))}",
-                      f"D'Agostino p {_p(norm.get('dagostino_p'))}", f"Jarque-Bera p {_p(norm.get('jarque_bera_p'))}",
-                      f"Anderson p {_p(norm.get('anderson_p'))}" if norm.get("anderson_p") is not None else ""])
+        lines.append([f"normality: {norm['verdict']}", f"Shapiro p {fmt_p(norm.get('shapiro_p'))}",
+                      f"D'Agostino p {fmt_p(norm.get('dagostino_p'))}", f"Jarque-Bera p {fmt_p(norm.get('jarque_bera_p'))}",
+                      f"Anderson p {fmt_p(norm.get('anderson_p'))}" if norm.get("anderson_p") is not None else ""])
     fit = dist.get("fit") or {}
     if fit.get("fits"):
         lines.append([f"shape: {fit['description']}"])
         lines.append([
-            f"#{i + 1} {f['distribution']}({_fmt_params(f['params'])}) AIC {fmt_num(f['aic'], 6)} KS p {_p(f['ks_pvalue'])}"
+            f"#{i + 1} {f['distribution']}({_fmt_params(f['params'])}) AIC {fmt_num(f['aic'], 6)} KS p {fmt_p(f['ks_pvalue'])}"
             + (f" [{f['note']}]" if f["note"] else "")
             for i, f in enumerate(fit["fits"])
         ])
@@ -428,8 +419,8 @@ def _detail_parts(d: dict[str, Any]) -> list[list[str]]:
                       f"rare {st['n_rare_categories']} ({st['pct_rows_rare']:.1f}% rows)" if st["n_rare_categories"] else "",
                       f"true {st['pct_true']:.1f}% [{st['ci95_pct_true_low']:.1f}, {st['ci95_pct_true_high']:.1f}]"
                       if st.get("pct_true") is not None else "",
-                      f"uniform? chi² p {_p(st['uniform_chi2_p'])}" if st.get("uniform_chi2_p") is not None else ""])
-    if st.get("top_values") and not unique_ish and stype not in ("numeric_continuous", "datetime", "text"):
+                      f"uniform? chi² p {fmt_p(st['uniform_chi2_p'])}" if st.get("uniform_chi2_p") is not None else ""])
+    if st.get("top_values") and not unique_ish and stype not in ("numeric_continuous", "datetime", "text", "multi_label"):
         lines.append(["top: " + ", ".join(f"{truncate(v['value'], 25)} {v['pct']:.1f}%" for v in st["top_values"][:6])])
     if st.get("inconsistent_labels"):
         lines.append(["inconsistent labels: " + "; ".join(" / ".join(map(repr, g)) for g in st["inconsistent_labels"][:3])])
@@ -438,7 +429,7 @@ def _detail_parts(d: dict[str, Any]) -> list[list[str]]:
                       f"dup timestamps {st['n_duplicated_timestamps']:,}", f"future {st['n_future']:,}" if st["n_future"] else "",
                       "monotonic ↑" if st.get("monotonic_increasing") else "",
                       f"trend in rows per {st['counts_resolution']}: tau {st['counts_trend_tau']:+.2f} "
-                      f"(p {_p(st['counts_trend_p'])})" if st.get("counts_trend_tau") is not None else ""])
+                      f"(p {fmt_p(st['counts_trend_p'])})" if st.get("counts_trend_tau") is not None else ""])
         if st.get("largest_gaps"):
             g = st["largest_gaps"][0]
             lines.append([f"largest gap {g['gap']} ({g['start']} → {g['end']})"])
@@ -455,6 +446,12 @@ def _detail_parts(d: dict[str, Any]) -> list[list[str]]:
     elif "len_mean" in st and "cardinality" not in st:
         lines.append([f"length {st['len_min']}–{st['len_max']} (mean {st['len_mean']:.1f})",
                       f"duplicates {st['n_duplicates']:,}" if "n_duplicates" in st else ""])
+    if "labels_per_row_mean" in st:
+        lines.append([f"{st['n_labels']:,} distinct labels", f"{st['labels_per_row_mean']:.1f} labels per row "
+                      f"(max {st['labels_per_row_max']})", f"single label {st['pct_single_label']:.0f}%",
+                      f"separator {st['separator']!r}"])
+        lines.append(["top labels: " + ", ".join(f"{truncate(x['label'], 25)} {x['pct_rows']:.0f}%"
+                                                 for x in st["top_labels"][:8])])
     if st.get("top_domains"):
         lines.append([f"{st['n_domains']} domains: " + ", ".join(f"{x['domain']} ({x['count']})" for x in st["top_domains"][:5])])
     if st.get("python_kinds"):

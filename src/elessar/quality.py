@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ._utils import fmt_bytes, fmt_num, hashable, is_text_dtype, prepare, quiet, sample, truncate
+from ._utils import fmt_bytes, fmt_num, fmt_p, hashable, is_text_dtype, prepare, quiet, sample, truncate
 from .config import StoneConfig
 from .correlations import compute_correlations
 from .types import CATEGORY_TYPES, DATETIME_TYPES, NUMERIC_TYPES, as_datetime, as_numeric, infer_type, python_kinds
@@ -23,8 +23,38 @@ _KIND_FAMILY = {"bool": "number", "list": "container", "dict": "container"}
 _DEFAULT_DATES = (pd.Timestamp("1970-01-01"), pd.Timestamp("1900-01-01"), pd.Timestamp("1899-12-30"))
 
 
-def alert(severity: str, column: str | None, message: str) -> dict[str, Any]:
-    return {"severity": severity, "column": column, "message": message}
+def alert(severity: str, column: str | None, message: str, kind: str | None = None) -> dict[str, Any]:
+    """One alert; ``kind`` tags repetitive informational findings so they can be grouped."""
+    return {"severity": severity, "column": column, "message": message, "kind": kind}
+
+
+GROUPED_KINDS: dict[str, str] = {
+    "outliers": "have >= {outlier_alert_pct:g}% outliers by the 1.5xIQR rule",
+    "skewed": "are heavily skewed (|skewness| > 2)",
+    "heaping": "show heaping (excess of values ending in 0 or 5)",
+    "zero_inflated": "are zero-inflated (>= 30% zeros)",
+    "high_cardinality": "have high cardinality (> {max_categories} categories)",
+    "rare_categories": "have rare categories (< {rare_category_pct:g}% of rows each)",
+    "imbalanced": "are imbalanced (one value >= 90% of rows)",
+    "multi_label": "hold a list of labels in each cell (one column per label: .str.get_dummies(sep))",
+}
+
+
+def group_alerts(alerts: list[dict[str, Any]], config: StoneConfig | None = None, min_count: int = 3) -> list[dict[str, Any]]:
+    """Merge informational alerts of the same kind found in ``min_count`` or more columns into one alert."""
+    cfg = config or StoneConfig()
+    by_kind: dict[str, list[dict[str, Any]]] = {}
+    for a in alerts:
+        if a.get("kind") in GROUPED_KINDS and a["severity"] == "info":
+            by_kind.setdefault(a["kind"], []).append(a)
+    merged = {k for k, group in by_kind.items() if len(group) >= min_count}
+    out = [a for a in alerts if a.get("kind") not in merged]
+    for kind in merged:
+        cols = [str(a["column"]) for a in by_kind[kind]]
+        listed = ", ".join(cols[:10]) + (f" (+{len(cols) - 10} more)" if len(cols) > 10 else "")
+        what = GROUPED_KINDS[kind].format(**vars(cfg))
+        out.append(alert("info", None, f"{len(cols)} columns {what}: {listed} -> details per column", kind))
+    return out
 
 
 def sort_alerts(alerts: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -359,13 +389,23 @@ def quality_alerts(q: dict[str, Any], config: StoneConfig | None = None) -> list
     for col in q["id_columns"]:
         alerts.append(alert("info", col, "identifier-like column -> exclude from modelling and statistics"))
     partners: dict[str, list[str]] = {}
+    copies = [set(group) for group in q["duplicate_columns"]]
     for pair in q["redundant_pairs"]:
+        if any({pair["col_a"], pair["col_b"]} <= group for group in copies):
+            continue  # identical columns: already reported as such
         partners.setdefault(pair["col_b"], []).append(f"'{pair['col_a']}' ({pair['method']} {pair['value']:+.3f})")
     for col, others in partners.items():
         alerts.append(alert("medium", col, f"redundant with {', '.join(others)} -> keep only one"))
     for col, suggestions in q["conversion_suggestions"].items():
         for sug in suggestions:
-            if sug["flag"] != "should-be-category":
+            if sug["flag"] == "mixed-units":
+                alerts.append(alert("medium", col, f"mixed units ({sug['note']}): these numbers are not comparable, "
+                                    f"statistics use the main unit only -> split value and unit: "
+                                    f"{truncate(sug['code'], 110)}"))
+            elif sug["flag"] == "multi-label":
+                alerts.append(alert("info", col, f"each cell holds a list of labels -> one column per label: "
+                                    f"{truncate(sug['code'], 110)}", "multi_label"))
+            elif sug["flag"] != "should-be-category":
                 alerts.append(alert("medium", col, f"{sug['flag']}: {truncate(sug['code'], 110)}"))
     opts = q["dtype_optimizations"]
     if opts:
@@ -390,11 +430,11 @@ def column_alerts(col: str, detail: dict[str, Any], config: StoneConfig | None =
     numeric = stype in NUMERIC_TYPES or stype == "numeric_string"
     if numeric and (st.get("pct_outliers_iqr") or 0) >= cfg.outlier_alert_pct and st.get("iqr"):
         out.append(alert("info", col, f"{st['pct_outliers_iqr']:.1f}% outliers by the 1.5xIQR rule "
-                         f"(outside [{fmt_num(st['iqr_lower'])}, {fmt_num(st['iqr_upper'])}])"))
+                         f"(outside [{fmt_num(st['iqr_lower'])}, {fmt_num(st['iqr_upper'])}])", "outliers"))
     skew = st.get("skewness")
     if numeric and skew is not None and np.isfinite(skew) and abs(skew) > 2:
         hint = " -> consider a log transform" if (st.get("min") or 0) > 0 and skew > 0 else ""
-        out.append(alert("info", col, f"heavily skewed (skewness {skew:.2f}){hint}"))
+        out.append(alert("info", col, f"heavily skewed (skewness {skew:.2f}){hint}", "skewed"))
     for side, word in (("max", "capped at"), ("min", "floored at")):
         if st.get(f"capped_{side}") and not (side == "min" and st[side] == 0):
             out.append(alert("medium", col, f"{word} {fmt_num(st[side])}: {st[f'pct_at_{side}']:.1f}% of values sit exactly "
@@ -403,30 +443,30 @@ def column_alerts(col: str, detail: dict[str, Any], config: StoneConfig | None =
             and (st.get("n_unique") or 0) > 10:
         pct = 100 * st["n_zeros"] / st["count"]
         out.append(alert("info", col, f"zero-inflated: {pct:.0f}% zeros -> consider a two-part (hurdle) model or "
-                         "an is-zero indicator"))
+                         "an is-zero indicator", "zero_inflated"))
     if numeric and (st.get("heaping_index") or 0) >= 2:
         out.append(alert("info", col, f"heaping: {st['pct_round_values']:.0f}% of values end in 0 or 5 "
-                         "(expected ~20%) -> rounded / self-reported values?"))
+                         "(expected ~20%) -> rounded / self-reported values?", "heaping"))
     tau, tp = st.get("counts_trend_tau"), st.get("counts_trend_p")
     if tau is not None and tp < cfg.alpha and abs(tau) >= 0.3:
         way = "increase" if tau > 0 else "decrease"
         out.append(alert("info", col, f"rows per {st['counts_resolution']} {way} over time (Kendall tau {tau:.2f}, "
-                         f"p={tp:.1e})"))
+                         f"p={fmt_p(tp)})"))
     if st.get("n_unparsable"):
         out.append(alert("medium", col, f"{st['n_unparsable']:,} values could not be parsed as numbers"))
     if stype == "categorical" and st.get("n_unique", 0) > cfg.max_categories:
         out.append(alert("info", col, f"high cardinality ({st['n_unique']:,} categories) -> group rare levels "
-                         "or use target/frequency encoding"))
+                         "or use target/frequency encoding", "high_cardinality"))
     if stype in CATEGORY_TYPES and st.get("top_values") and 90 <= st["top_values"][0]["pct"] < cfg.quasi_constant_pct:
         out.append(alert("info", col, f"imbalanced: '{st['top_values'][0]['value']}' is "
-                         f"{st['top_values'][0]['pct']:.1f}% of values"))
+                         f"{st['top_values'][0]['pct']:.1f}% of values", "imbalanced"))
     if st.get("n_inconsistent_groups"):
         ex = " / ".join(repr(v) for v in st["inconsistent_labels"][0][:3])
         out.append(alert("medium", col, f"{st['n_inconsistent_groups']} label groups differ only by case/spaces/"
                          f"accents, e.g. {ex} -> normalise labels"))
     if stype in CATEGORY_TYPES and st.get("n_rare_categories") and 2 < st.get("n_unique", 0) <= cfg.max_categories:
         out.append(alert("info", col, f"{st['n_rare_categories']} rare categories (< {cfg.rare_category_pct}% each, "
-                         f"{st['pct_rows_rare']:.1f}% of rows)"))
+                         f"{st['pct_rows_rare']:.1f}% of rows)", "rare_categories"))
     if st.get("n_future"):
         out.append(alert("medium", col, f"{st['n_future']:,} dates are in the future"))
     if stype in DATETIME_TYPES and st.get("n_unparsed"):
@@ -455,17 +495,26 @@ def row_order_alert(details: dict[str, dict[str, Any]], config: StoneConfig | No
 
 
 def correlation_alerts(
-    correlations: dict[str, pd.DataFrame], target: str | None = None, config: StoneConfig | None = None
+    correlations: dict[str, pd.DataFrame],
+    target: str | None = None,
+    config: StoneConfig | None = None,
+    duplicate_columns: list[list[str]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Alerts from the association tests: multicollinearity, non-random missingness, target issues."""
+    """Alerts from the association tests: multicollinearity, non-random missingness, target issues.
+
+    Linear dependencies that only restate identical columns (``duplicate_columns``) are skipped.
+    """
     cfg = config or StoneConfig()
     out = []
     vif = correlations.get("vif")
     deps = correlations.get("linear_dependencies")
     explained: set[str] = set()
     if deps is not None:
+        copies = [set(group) for group in duplicate_columns or []]
         for r in deps.itertuples(index=False):
             explained.update(r.columns)
+            if any(set(r.columns) <= group for group in copies):
+                continue
             out.append(alert("high", r.column, f"exact linear dependency: {truncate(r.equation, 160)} -> drop one of "
                              "these columns (singular design matrix)"))
     if vif is not None:
@@ -483,7 +532,7 @@ def correlation_alerts(
         if len(firsts) == 1:
             r = firsts.iloc[0]
             out.append(alert("info", r.column, f"missingness depends on '{r.depends_on}': {r.detail} "
-                             f"(p_adj={r.p_adjusted:.1e}) -> not missing completely at random"))
+                             f"(p_adj={fmt_p(r.p_adjusted)}) -> not missing completely at random"))
         elif len(firsts) > 1:
             listed = ", ".join(f"{r.column} (on {r.depends_on})" for r in firsts.head(8).itertuples(index=False))
             more = f" (+{len(firsts) - 8} more)" if len(firsts) > 8 else ""
@@ -493,7 +542,7 @@ def correlation_alerts(
     if mt is not None and not mt.empty:
         for r in mt[mt["significant"]].itertuples(index=False):
             out.append(alert("medium", r.feature, f"missingness is informative about '{target}': {r.detail} "
-                             f"(p_adj={r.p_adjusted:.1e}) -> add a missing-indicator feature"))
+                             f"(p_adj={fmt_p(r.p_adjusted)}) -> add a missing-indicator feature"))
     assoc = correlations.get("target")
     if assoc is not None and not assoc.empty:
         for r in assoc[assoc["leakage_suspect"]].itertuples(index=False):
@@ -516,5 +565,5 @@ def see_quality(df: pd.DataFrame | pd.Series, config: StoneConfig | None = None)
     corr = compute_correlations(df, {c: t["semantic_type"] for c, t in types.items()}, None, cfg)
     out = check_quality(df, types, corr, cfg)
     out["missingness_dependence"] = corr["missingness"]
-    out["alerts"] = sort_alerts(out["alerts"] + correlation_alerts(corr, None, cfg))
+    out["alerts"] = sort_alerts(out["alerts"] + correlation_alerts(corr, None, cfg, out["duplicate_columns"]))
     return out

@@ -140,3 +140,14 @@ def test_zero_inflation_alert(rng: np.random.Generator) -> None:
 
     gains = pd.Series(np.r_[np.zeros(900), rng.integers(100, 10_000, 100)], name="gain")
     assert any("zero-inflated" in a["message"] for a in see_column(gains)["alerts"])
+
+
+def test_multilabel_stats(rng: np.random.Generator) -> None:
+    from elessar.stats import multilabel_stats
+
+    s = pd.Series([", ".join(rng.choice(["a", "b", "c", "d"], rng.integers(1, 4), replace=False)) for _ in range(500)])
+    st = column_stats(s)
+    assert st["separator"] == ", " and st["n_labels"] == 4
+    assert 1 <= st["labels_per_row_mean"] <= 3 and st["labels_per_row_max"] == 3
+    assert sum(x["pct_rows"] for x in st["top_labels"]) > 100  # several labels per row
+    assert multilabel_stats(pd.Series([None, None]))["n_labels"] == 0

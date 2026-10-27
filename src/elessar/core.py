@@ -13,7 +13,7 @@ from .config import StoneConfig
 from .correlations import PAIR_COLUMNS, compute_correlations
 from .distributions import _fmt_params, analyze_distribution, is_fittable
 from .plots import make_plots
-from .quality import alert, check_quality, column_alerts, correlation_alerts, row_order_alert, sort_alerts
+from .quality import alert, check_quality, column_alerts, correlation_alerts, group_alerts, row_order_alert, sort_alerts
 from . import recap
 from .report import Vision
 from .stats import column_stats
@@ -133,7 +133,7 @@ def see(
         alerts.append(alert("medium", None, "duplicate or non-string column names were renamed (a, a.1, ...)"))
     if "error" in correlations:
         alerts.append(alert("high", None, f"correlations failed: {correlations['error'].iloc[0, 0]}"))
-    alerts.extend(correlation_alerts(correlations, target, cfg))
+    alerts.extend(correlation_alerts(correlations, target, cfg, quality["duplicate_columns"]))
     alerts.extend(row_order_alert(details, cfg))
     if target is not None:
         top = details[target].get("stats", {}).get("top_values") or []
@@ -174,7 +174,7 @@ def see(
         columns=details,
         correlations=correlations,
         quality=quality,
-        alerts=sort_alerts(alerts),
+        alerts=sort_alerts(group_alerts(alerts, cfg)),
         plots=plot_paths,
         plot_index=plot_index,
         target=target,

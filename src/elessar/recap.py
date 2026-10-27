@@ -20,8 +20,8 @@ from urllib.parse import quote
 
 import pandas as pd
 
-from ._utils import fmt_bytes
-from .report import _detail_parts, _overview_md, _p, _pair_rows, _target_rows
+from ._utils import fmt_bytes, fmt_p
+from .report import _detail_parts, _overview_md, _pair_rows, _target_rows
 
 if TYPE_CHECKING:
     from .report import Vision
@@ -103,7 +103,7 @@ class _Recap:
             for r in sig.head(3).itertuples(index=False):
                 extra = f", AUC {r.auc:.2f}" if pd.notna(r.auc) else ""
                 items.append([code(r.feature), ("", f" is {_strength(r.association)} associated with "), code(v.target),
-                              ("", f" ({r.method} {r.association:.3f}{extra}, p_adj {_p(r.p_adjusted)})")])
+                              ("", f" ({r.method} {r.association:.3f}{extra}, p_adj {fmt_p(r.p_adjusted)})")])
             if len(assoc) > len(sig):
                 names = ", ".join(assoc[~assoc["significant"]]["feature"].astype(str).head(6))
                 n_none = len(assoc) - len(sig)
@@ -132,7 +132,7 @@ class _Recap:
         if mt is not None and not mt.empty:
             self.add("h", 3, "Is the target different when a feature is missing?", None)
             self.add("table", ["feature", "% missing", "significant", "p_adj", "detail"],
-                     [[[code(r.feature)], f"{r.pct_missing:.1f}", "yes" if r.significant else "no", _p(r.p_adjusted),
+                     [[[code(r.feature)], f"{r.pct_missing:.1f}", "yes" if r.significant else "no", fmt_p(r.p_adjusted),
                        r.detail] for r in mt.itertuples(index=False)], "data")
         self.figures(self.charts(("target",), v.target), grid=True)
 
@@ -151,7 +151,7 @@ class _Recap:
             self.add("h", 3, "Missing values that are not random", None)
             sig = miss[miss["significant"]].drop_duplicates("column").head(20)
             self.add("table", ["column", "% missing", "depends on", "detail", "p_adj"],
-                     [[[code(r.column)], f"{r.pct_missing:.1f}", [code(r.depends_on)], r.detail, _p(r.p_adjusted)]
+                     [[[code(r.column)], f"{r.pct_missing:.1f}", [code(r.depends_on)], r.detail, fmt_p(r.p_adjusted)]
                       for r in sig.itertuples(index=False)], "data")
         opts = q.get("dtype_optimizations") or []
         if opts:

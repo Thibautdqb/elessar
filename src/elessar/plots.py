@@ -25,13 +25,13 @@ from matplotlib.figure import Figure, SubFigure
 from matplotlib.ticker import FuncFormatter, MaxNLocator, NullFormatter
 from scipy import stats
 
-from ._utils import fmt_bytes, fmt_num, hashable, prepare, quiet, resolve_target, safe_name, sample, sample_array, truncate
+from ._utils import fmt_bytes, fmt_num, fmt_p, hashable, prepare, quiet, resolve_target, safe_name, sample, sample_array, truncate
 from .config import StoneConfig
 from .correlations import bh_adjust
 from .distributions import _fmt_params, frozen_best
 from .quality import duplicate_rows
-from .stats import time_resolution
-from .types import CATEGORY_TYPES, DATETIME_TYPES, NUMERIC_TYPES, as_datetime, as_numeric, ordinal_order
+from .stats import split_labels, time_resolution
+from .types import CATEGORY_TYPES, DATETIME_TYPES, MULTI_LABEL, NUMERIC_TYPES, as_datetime, as_numeric, ordinal_order
 
 # ---------------------------------------------------------------------------------------------- design tokens
 SURFACE = "#fcfcfb"
@@ -182,16 +182,10 @@ def _text_color(fill: str) -> str:
     return "white" if 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.55 else INK
 
 
-def _p(p: float) -> str:
-    if p is None or not np.isfinite(p):
-        return "n/a"
-    return "< 1e-300" if p == 0 else (f"{p:.2g}" if p >= 1e-3 else f"{p:.0e}")
-
-
 def _type_family(stype: str) -> str:
     if stype in NUMERIC_TYPES or stype == "numeric_string":
         return "numeric"
-    if stype in CATEGORY_TYPES:
+    if stype in CATEGORY_TYPES or stype == MULTI_LABEL:
         return "category"
     if stype in DATETIME_TYPES:
         return "datetime"
@@ -304,7 +298,13 @@ def plot_numeric(writer: _Writer, col: str, x: pd.Series, detail: dict[str, Any]
     discrete = fit.get("kind") == "discrete"
     logx = _log_x(v, st.get("skewness"))
 
-    parts = [detail.get("semantic_type", ""), f"n = {st.get('count', len(v)):,}"]
+    units = list((detail.get("units") or {}).keys())
+    n_values = int(np.isfinite(x.to_numpy(dtype="float64")).sum())
+    parts = [detail.get("semantic_type", "")]
+    if len(units) > 1:
+        parts.append(f"{units[0]} only: {n_values:,} of {st.get('count', n_values):,} values (mixed units)")
+    else:
+        parts.append(f"n = {st.get('count', len(v)):,}")
     if st.get("pct_missing"):
         parts.append(f"{st['pct_missing']:.1f}% missing")
     if st.get("mean") is not None:
@@ -346,7 +346,7 @@ def plot_numeric(writer: _Writer, col: str, x: pd.Series, detail: dict[str, Any]
     ax_h.axvline(med, color=INK, lw=1, ls=(0, (3, 2)))
     ax_h.annotate(f"median {fmt_num(med)}", xy=(med, 1), xycoords=("data", "axes fraction"), xytext=(4, -2),
                   textcoords="offset points", fontsize=8, color=INK, va="top")
-    ax_h.set_ylabel("rows" + (" (sample)" if len(full) < st.get("count", len(full)) else ""))
+    ax_h.set_ylabel("rows" + (" (sample)" if len(full) < n_values else ""))
     ax_h.legend(loc="lower right", bbox_to_anchor=(1, 1.0), ncols=2, handlelength=1.4, borderaxespad=0.2)
 
     ax_h.tick_params(labelbottom=False)
@@ -362,7 +362,7 @@ def plot_numeric(writer: _Writer, col: str, x: pd.Series, detail: dict[str, Any]
     ax_b.grid(False, axis="y")
     ax_b.spines["left"].set_visible(False)
     n_out = st.get("n_outliers_iqr")
-    ax_b.set_xlabel(col + (" · log scale" if logx else "") + (f"   ·   {n_out:,} outliers (1.5×IQR)" if n_out else ""))
+    ax_b.set_xlabel(col + (f" ({units[0]})" if units else "") + (" · log scale" if logx else "") + (f"   ·   {n_out:,} outliers (1.5×IQR)" if n_out else ""))
     if not logx:
         _format_axis(ax_b, "x")
 
@@ -387,6 +387,30 @@ def _hbar(ax: Any, labels: list[str], counts: np.ndarray, total: int, colors: li
     ax.grid(False)
     for side in ("left", "bottom"):
         ax.spines[side].set_visible(False)
+
+
+def plot_multilabel(writer: _Writer, col: str, s: pd.Series, detail: dict[str, Any], cfg: StoneConfig) -> None:
+    """Most frequent labels of a list column, as the share of rows carrying each label."""
+    st = detail.get("stats", {})
+    sep = st.get("separator") or detail.get("sep") or ", "
+    labels = split_labels(s, sep)
+    vc = labels.explode().dropna().value_counts()
+    if len(vc) < 2:
+        return
+    top = vc.head(cfg.plot_top_n)
+    names = [str(v) for v in top.index]
+    counts = top.to_numpy(dtype="int64")
+    colors = [BLUE] * len(names)
+    rest = len(vc) - len(top)
+    sub = (f"multi-label  ·  {len(vc):,} distinct labels  ·  {st.get('labels_per_row_mean', 0):.1f} labels per row  ·  "
+           f"n = {len(labels):,}")
+    note = "Share of rows carrying each label; a row can carry several, so shares add up to more than 100%."
+    if rest:
+        note += f" {rest:,} less frequent labels not shown."
+    fig, body = _figure(9.5, 0.34 * len(names) + 1.6, col, sub, note)
+    ax = body.add_subplot()
+    _hbar(ax, names, counts, len(labels), colors)
+    writer.save(fig, col, "bar")
 
 
 def plot_categorical(writer: _Writer, col: str, s: pd.Series, detail: dict[str, Any], cfg: StoneConfig) -> None:
@@ -443,7 +467,7 @@ def plot_datetime(writer: _Writer, col: str, s: pd.Series, detail: dict[str, Any
     parts = [detail.get("semantic_type", ""), f"{d.min():%Y-%m-%d} → {d.max():%Y-%m-%d}", f"n = {len(d):,}",
              f"rows per {unit}"]
     if st.get("counts_trend_tau") is not None:
-        parts.append(f"trend τ = {st['counts_trend_tau']:+.2f} (p {_p(st['counts_trend_p'])})")
+        parts.append(f"trend τ = {st['counts_trend_tau']:+.2f} (p {fmt_p(st['counts_trend_p'])})")
     fig, body = _figure(12, 4.4, col, "  ·  ".join(parts))
     ax = body.add_subplot()
     x, y = counts.index, counts.to_numpy(dtype="float64")
@@ -659,6 +683,8 @@ def _summary(st: dict[str, Any], stype: str) -> str:
         return f"{st['words_mean']:.1f} words on average"
     if st.get("pct_true") is not None:
         return f"{st['pct_true']:.0f}% true"
+    if st.get("top_labels"):
+        return f"{st['top_labels'][0]['label']} {st['top_labels'][0]['pct_rows']:.0f}% of rows"
     top = st.get("top_values") or []
     if top and stype in CATEGORY_TYPES:
         return f"{top[0]['value']} {top[0]['pct']:.0f}%"
@@ -680,7 +706,8 @@ def _sparkline(ax: Any, s: pd.Series, stype: str, st: dict[str, Any], box: tuple
             edges = _bins(v, integer_like, not integer_like and _log_x(v, st.get("skewness")))
             heights = np.histogram(v, bins=edges if len(edges) <= 30 else 24)[0].astype(float)
     elif family == "category":
-        top = hashable(s.dropna()).value_counts().head(12)
+        values = split_labels(s, st.get("separator") or ", ").explode() if stype == MULTI_LABEL else hashable(s.dropna())
+        top = values.value_counts().head(12)
         if len(top) >= 2:
             heights, color = top.to_numpy(dtype=float), ORANGE
     elif family == "datetime":
@@ -726,7 +753,7 @@ def plot_target_ranking(writer: _Writer, assoc: pd.DataFrame, target: str, cfg: 
         extra = f"  AUC {r.auc:.2f}" if pd.notna(r.auc) else ""
         ax.text(abs(r.association) + xmax * 0.01, yi, f"{abs(r.association):.2f}", va="center", fontsize=8.5,
                 color=INK, fontweight="bold")
-        ax.text(abs(r.association) + xmax * 0.075, yi, f"{r.method}{extra}  ·  p_adj {_p(r.p_adjusted)}",
+        ax.text(abs(r.association) + xmax * 0.075, yi, f"{r.method}{extra}  ·  p_adj {fmt_p(r.p_adjusted)}",
                 va="center", fontsize=7.5, color=MUTED)
     ax.set_xlim(0, xmax)
     ax.set_xlabel("|association|")
@@ -856,7 +883,7 @@ def plot_target(
         feat, f_type = row.feature, row.feature_type
         f_numeric = row.method == "spearman" or (row.method == "eta" and not t_numeric)
         auc = f"  ·  AUC {row.auc:.2f}" if pd.notna(row.auc) else ""
-        label = f"{row.method} = {row.association:.3f}  ·  p_adj {_p(row.p_adjusted)}{auc}"
+        label = f"{row.method} = {row.association:.3f}  ·  p_adj {fmt_p(row.p_adjusted)}{auc}"
         if t_numeric and f_numeric:
             plot_pair(writer, df, feat, target, label, cfg, "target")
             continue
@@ -968,6 +995,8 @@ def make_plots(
                 writer.safe(col, plot_datetime, col, df[col], detail, cfg)
             elif stype == "text":
                 writer.safe(col, plot_text, col, df[col], detail, cfg)
+            elif stype == MULTI_LABEL:
+                writer.safe(col, plot_multilabel, col, df[col], detail, cfg)
         pairs = correlations.get("top_pairs")
         if pairs is not None and not pairs.empty:
             num_pairs = pairs[pairs["method"].isin(["pearson", "spearman"])]
@@ -975,7 +1004,7 @@ def make_plots(
                 num_pairs = num_pairs[(num_pairs["col_a"] != target) & (num_pairs["col_b"] != target)]
             for r in num_pairs.head(cfg.n_scatter).itertuples(index=False):
                 ci = f" [{r.ci_low:.3f}, {r.ci_high:.3f}]" if pd.notna(r.ci_low) else ""
-                label = f"{r.method} = {r.value:.3f}{ci}  ·  p_adj {_p(r.p_adjusted)}"
+                label = f"{r.method} = {r.value:.3f}{ci}  ·  p_adj {fmt_p(r.p_adjusted)}"
                 writer.safe(f"{r.col_a}/{r.col_b}", plot_pair, df, r.col_a, r.col_b, label, cfg, "scatter")
         assoc = correlations.get("target")
         if target is not None and assoc is not None and not assoc.empty:

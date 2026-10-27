@@ -11,16 +11,17 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ._utils import hashable, is_text_dtype, prepare, quiet, sample
+from ._utils import hashable, is_text_dtype, prepare, quiet, sample, truncate
 from .config import StoneConfig
 
 SEMANTIC_TYPES: tuple[str, ...] = (
     "empty", "constant", "boolean", "id", "numeric_continuous", "numeric_discrete",
     "categorical", "ordinal-candidate", "datetime", "datetime_string", "numeric_string",
-    "text", "email", "url", "phone", "postal_code", "ip_address", "json_like", "mixed",
+    "text", "email", "url", "phone", "postal_code", "ip_address", "json_like", "mixed", "multi_label",
 )
 NUMERIC_TYPES = frozenset({"numeric_continuous", "numeric_discrete"})
 CATEGORY_TYPES = frozenset({"categorical", "boolean", "ordinal-candidate"})
+MULTI_LABEL = "multi_label"
 DATETIME_TYPES = frozenset({"datetime", "datetime_string"})
 STRING_PATTERN_TYPES = frozenset({"email", "url", "phone", "postal_code", "ip_address"})
 
@@ -52,7 +53,7 @@ ORDINAL_SCALES: tuple[tuple[str, ...], ...] = (
 )
 
 _EMAIL = re.compile(r"^[\w.+'-]+@[\w-]+(\.[\w-]+)*\.[a-z]{2,}$", re.I)
-_URL = re.compile(r"^(?:(?:https?|ftp)://[^\s/$.?#][^\s]*|www\.[^\s]+\.[a-z]{2,}\S*)$", re.I)
+_URL = re.compile(r"^(?:(?:https?|ftp)://[^\s/$.?#][^\s]*|www\.[^\s]+\.[a-z]{2,}\S*|//[\w-]+(?:\.[\w-]+)+/\S*)$", re.I)
 _UUID = re.compile(r"^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$", re.I)
 _PHONE = re.compile(r"^\+?[\d\s().-]{6,24}$")
 _POSTAL_STRICT = re.compile(
@@ -68,7 +69,10 @@ _GROUPED_NUM = re.compile(r"[+-]?\d{1,3}(?P<sep>[ ,.'’])\d{3}(?:(?P=sep)\d{3})
 _COMMA_DEC = re.compile(r"[+-]?\d+,\d+")
 _CURRENCY = re.compile(r"[$€£¥₹]|\b(?:usd|eur|gbp)\b", re.I)
 
-_HINT_ID = re.compile(r"(^|[_\s.-])(id|uuid|guid|key|pk)($|[_\s.-])|^#$")
+_HINT_ID = re.compile(r"(^|[_\s.-])(id|uuid|guid|pk)($|[_\s.-])|^#$|_key$|^key_|_(number|code|no|num)$")
+_UNIT_NUM = re.compile(r"(?P<num>[+-]?\d[\d,.]*)(?P<space>\s*)(?P<unit>[°µ]?[^\W\d_][^\d]{0,14}?)\.?")
+_NOT_UNITS = frozenset({"st", "nd", "rd", "th", "e", "x"})  # ordinals, exponents, multipliers
+LIST_SEPARATORS: tuple[str, ...] = (", ", ",", "|", ";", " / ")
 _HINT_PHONE = re.compile(r"phone|tel|mobile|cell|fax")
 _HINT_POSTAL = re.compile(r"zip|postal|post_?code|postcode|code_?postal|(^|_)cp($|_)|plz")
 
@@ -102,15 +106,93 @@ def parse_number(value: Any) -> float:
         return float(num.replace(m.group("dec"), ".") if m.group("dec") else num)
     if _COMMA_DEC.fullmatch(t):
         return float(t.replace(",", "."))
-    return np.nan
+    number, _ = split_unit(t)
+    return number
 
 
-def parse_numeric(s: pd.Series) -> pd.Series:
-    """Vectorised :func:`parse_number` over a Series (parses each distinct value once)."""
+def normalize_unit(unit: str) -> str:
+    """``"Seasons"`` -> ``"season"``, ``"mins"`` -> ``"min"``, ``"KG"`` -> ``"kg"`` (plural ``s`` dropped past 3 letters)."""
+    u = unit.strip().rstrip(".").lower()
+    return u[:-1] if len(u) > 3 and u.endswith("s") and not u.endswith("ss") else u
+
+
+def split_unit(value: Any) -> tuple[float, str | None]:
+    """``"90 min"`` -> ``(90.0, "min")``; anything else -> ``(nan, None)``."""
+    if not isinstance(value, str):
+        return np.nan, None
+    m = _UNIT_NUM.fullmatch(value.strip())
+    if not m:
+        return np.nan, None
+    unit = normalize_unit(m.group("unit"))
+    if unit in _NOT_UNITS or (len(unit) == 1 and not m.group("space")):  # "5A" is a code, "100 m" a length
+        return np.nan, None
+    number = parse_number(m.group("num"))
+    return (number, unit) if np.isfinite(number) else (np.nan, None)
+
+
+def unit_counts(s: pd.Series) -> dict[str, int]:
+    """How many values carry each (normalized) unit, most frequent first."""
+    counts: dict[str, int] = {}
+    for value, n in hashable(s.dropna()).value_counts().items():
+        unit = split_unit(value)[1]
+        if unit is not None:
+            counts[unit] = counts.get(unit, 0) + int(n)
+    return dict(sorted(counts.items(), key=lambda kv: -kv[1]))
+
+
+def parse_numeric(s: pd.Series, dominant_unit_only: bool = True) -> pd.Series:
+    """Vectorised :func:`parse_number` over a Series (parses each distinct value once).
+
+    Numbers written with units (``"90 min"``) are parsed too. When several units are mixed
+    (``"90 min"`` and ``"2 Seasons"``), only values in the most frequent unit (or without unit)
+    are kept unless ``dominant_unit_only`` is False: numbers in different units are not comparable.
+    """
     s = hashable(s)
     uniques = s.dropna().unique()
     mapping = {u: parse_number(u) for u in uniques}
+    if dominant_unit_only:
+        units = unit_counts(s)
+        if len(units) > 1:
+            main = next(iter(units))
+            mapping = {u: v if split_unit(u)[1] in (None, main) else np.nan for u, v in mapping.items()}
     return s.map(mapping).astype("float64")
+
+
+def list_separator(t: pd.Series) -> str | None:
+    """The separator of a multi-label column (``"Comedies, Dramas"``), or None.
+
+    A real list has a varying number of short labels per row, labels recur across rows, and a
+    label shows up both first and later in lists (order carries no meaning). That rejects composite
+    values (``"Paris, France"``), names containing the separator (``"Washed / Wet"``,
+    ``"Acme Co., Ltd"``: the second part is never first) and prose with commas.
+    """
+    for sep in LIST_SEPARATORS:
+        has = t.str.contains(sep, regex=False)
+        if has.mean() < 0.15:
+            continue
+        parts = t.str.split(sep, regex=False)
+        counts = parts.str.len()
+        if counts.nunique() < 2:
+            continue
+        labels = parts.explode().str.strip()
+        labels = labels[labels != ""]
+        if labels.str.split().str.len().mean() > 4 or labels.str.len().mean() > 40:
+            continue
+        freq = labels.map(labels.value_counts())
+        if (freq >= 2).mean() >= 0.4 and _position_mixing(parts) >= 0.1:
+            return sep
+    return None
+
+
+def _position_mixing(parts: pd.Series) -> float:
+    """Share of recurring labels seen both first and later in their lists."""
+    first, later, counts = set(), set(), {}
+    for labels in parts:
+        for i, label in enumerate(x.strip() for x in labels if x.strip()):
+            (first if i == 0 else later).add(label)
+            counts[label] = counts.get(label, 0) + 1
+    recurring = [label for label, n in counts.items() if n >= 2]
+    return sum(label in first and label in later for label in recurring) / max(len(recurring), 1)
 
 
 def _bool_token(v: Any) -> bool | None:
@@ -284,11 +366,17 @@ def _string_type(strs: pd.Series, s: pd.Series, name: str, cfg: StoneConfig, n_n
     digits_only = t.str.fullmatch(r"\d+")
     leading_zero_code = _ratio(digits_only) >= r and _ratio(t.str.match(r"0\d")) >= 0.05 and t.str.len().nunique() == 1
     phone_hint = bool(_HINT_PHONE.search(name))
-    num = parse_numeric(t)
+    num = parse_numeric(t, dominant_unit_only=False)
     m = _ratio(num.notna())
     if m >= r and not leading_zero_code and not phone_hint:
-        out = _result("numeric_string", s, m, f"{m:.0%} of values are numbers stored as text")
-        out["numeric"] = _numeric_type(num.dropna(), s, name, cfg, "parsed numbers")["semantic_type"]
+        units = unit_counts(t)
+        reason = f"{m:.0%} of values are numbers stored as text"
+        if units:
+            total = sum(units.values())
+            listed = ", ".join(f"{u} {100 * c / total:.0f}%" for u, c in list(units.items())[:4])
+            reason = f"numbers with units ({listed})" + (": mixed units, not comparable" if len(units) > 1 else "")
+        out = _result("numeric_string", s, m, reason, units=units)
+        out["numeric"] = _numeric_type(parse_numeric(t).dropna(), s, name, cfg, "parsed numbers")["semantic_type"]
         return out
 
     has_digit = t.str.contains(r"\d", regex=True)
@@ -306,14 +394,17 @@ def _string_type(strs: pd.Series, s: pd.Series, name: str, cfg: StoneConfig, n_n
     if m >= r:
         return _result("phone", s, m, f"{m:.0%} of values look like phone numbers")
 
+    sep = list_separator(t)
+    if sep is not None:
+        return _result(MULTI_LABEL, s, 0.8, f"lists of labels separated by {sep.strip() or repr(sep)!s} "
+                       f"(e.g. {truncate(str(t[t.str.contains(sep, regex=False)].iloc[0]), 40)!r})", sep=sep)
+
     words = t.str.split().str.len()
     avg_words, avg_len = float(words.mean()), float(t.str.len().mean())
     if uniq_ratio >= cfg.id_unique_ratio and (n_nonnull >= 20 or _HINT_ID.search(name)):
         if avg_words <= 2.5 and avg_len <= 40:
             return _result("id", s, 0.8, f"{uniq_ratio:.0%} unique short labels (names / codes)")
-    if (avg_words >= cfg.text_min_avg_words or avg_len >= cfg.text_min_avg_length) and (
-        uniq_ratio > 0.3 or nunique > cfg.max_categories
-    ):
+    if (avg_words >= cfg.text_min_avg_words or avg_len >= cfg.text_min_avg_length) and uniq_ratio > 0.3:
         return _result("text", s, 0.85, f"free text (avg {avg_words:.1f} words, {avg_len:.0f} chars)")
     order = ordinal_order(t.unique()) if nunique <= cfg.ordinal_max_levels else None
     if order:
@@ -344,7 +435,15 @@ def _suggest(info: dict[str, Any], s: pd.Series, name: str) -> list[dict[str, st
     """Conversion suggestions (should-be-category / numeric / datetime / boolean)."""
     stype, col, out = info["semantic_type"], repr(name), []
     texty = is_text_dtype(s)
-    if stype == "numeric_string":
+    units = info.get("units") or {}
+    if stype == "numeric_string" and len(units) > 1:
+        total = sum(units.values())
+        out.append({
+            "flag": "mixed-units",
+            "note": ", ".join(f"{u} {100 * c / total:.0f}%" for u, c in list(units.items())[:4]),
+            "code": f"df[[{name + '_value'!r}, {name + '_unit'!r}]] = df[{col}].str.extract(r'([\\d.,]+)\\s*(\\D+)')",
+        })
+    elif stype == "numeric_string":
         out.append({
             "flag": "should-be-numeric",
             "code": f"df[{col}] = elessar.types.parse_numeric(df[{col}])",
@@ -363,6 +462,8 @@ def _suggest(info: dict[str, Any], s: pd.Series, name: str) -> list[dict[str, st
             "flag": "should-be-boolean",
             "code": f"df[{col}] = df[{col}].str.strip().str.lower().map({mapping!r})",
         })
+    if stype == MULTI_LABEL:
+        out.append({"flag": "multi-label", "code": f"labels = df[{col}].str.get_dummies(sep={info['sep']!r})"})
     if stype in ("categorical", "ordinal-candidate") and texty:
         nonnull = max(int(s.notna().sum()), 1)
         if hashable(s).nunique() / nonnull <= 0.5:

@@ -19,12 +19,16 @@ from .config import StoneConfig
 from .types import (
     CATEGORY_TYPES,
     DATETIME_TYPES,
+    LIST_SEPARATORS,
+    MULTI_LABEL,
     NUMERIC_TYPES,
     STRING_PATTERN_TYPES,
     as_boolean,
     as_datetime,
     as_numeric,
     infer_type,
+    list_separator,
+    parse_numeric,
     python_kinds,
 )
 
@@ -461,7 +465,7 @@ def column_stats(s: pd.Series, semantic_type: str | None = None, config: StoneCo
             out.update(numeric_stats(as_numeric(s), cfg))
         elif stype == "numeric_string":
             out.update(numeric_stats(as_numeric(s), cfg))
-            out["n_unparsable"] = int(s.notna().sum() - as_numeric(s).notna().sum())
+            out["n_unparsable"] = int(s.notna().sum() - parse_numeric(s, dominant_unit_only=False).notna().sum())
         if stype in CATEGORY_TYPES or stype == "ordinal-candidate":
             out.update(categorical_stats(s, cfg))
         if stype == "boolean":
@@ -476,7 +480,35 @@ def column_stats(s: pd.Series, semantic_type: str | None = None, config: StoneCo
             out.update(structure_stats(s, cfg))
         elif stype == "id":
             out.update(id_stats(s))
+        elif stype == MULTI_LABEL:
+            out.update(multilabel_stats(s, cfg))
     return out
+
+
+def split_labels(s: pd.Series, sep: str) -> pd.Series:
+    """Each non-missing cell as a list of stripped, non-empty labels."""
+    parts = s.dropna().astype(str).str.split(sep, regex=False)
+    return parts.map(lambda labels: [x.strip() for x in labels if x.strip()])
+
+
+def multilabel_stats(s: pd.Series, config: StoneConfig | None = None) -> dict[str, Any]:
+    """Lists of labels per cell: separator, labels per row, distinct labels and the most frequent ones."""
+    cfg = config or StoneConfig()
+    strs = s.dropna().astype(str)
+    sep = list_separator(sample(strs, 5_000, cfg.random_state).str.strip()) or LIST_SEPARATORS[0]
+    parts = split_labels(s, sep)
+    counts = parts.str.len()
+    vc = parts.explode().dropna().value_counts()
+    n = max(len(parts), 1)
+    return {
+        "separator": sep,
+        "n_labels": int(len(vc)),
+        "labels_per_row_mean": float(counts.mean()) if len(counts) else 0.0,
+        "labels_per_row_max": int(counts.max()) if len(counts) else 0,
+        "pct_single_label": 100.0 * float((counts == 1).mean()) if len(counts) else 0.0,
+        "top_labels": [{"label": _value(k), "count": int(v), "pct_rows": 100.0 * v / n}
+                       for k, v in vc.head(cfg.top_n).items()],
+    }
 
 
 def flatten(stats_dict: dict[str, Any]) -> dict[str, Any]:

@@ -184,6 +184,16 @@ def fmt_num(x: Any, digits: int = 4) -> str:
     return f"{f:,.{digits}g}" if abs(f) < 1000 else f"{f:,.1f}"
 
 
+def fmt_p(p: Any) -> str:
+    """Compact p-value: 0.032, 4e-07, < 1e-300 (exact zero after underflow), n/a."""
+    f = finite(p)
+    if f is None:
+        return "n/a"
+    if f == 0:
+        return "< 1e-300"
+    return f"{f:.2g}" if f >= 1e-3 else f"{f:.0e}"
+
+
 def fmt_bytes(n: float | None) -> str:
     if n is None:
         return "-"

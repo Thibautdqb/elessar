@@ -127,3 +127,48 @@ def test_ordered_vocabularies(labels: list[str]) -> None:
 def test_short_codes_are_categorical() -> None:
     tickets = pd.Series([f"A/{i % 700}" if i % 3 else str(300_000 + i % 650) for i in range(900)])
     assert infer_type(tickets)["semantic_type"] == "categorical"
+
+
+def test_numbers_with_units() -> None:
+    from elessar.types import parse_numeric, split_unit
+
+    assert split_unit("90 min") == (90.0, "min") and split_unit("2 Seasons") == (2.0, "season")
+    assert split_unit("1,234 km") == (1234.0, "km") and split_unit("100 m") == (100.0, "m")
+    for code in ("5A", "3rd", "4T/2010", "Paris"):
+        assert split_unit(code)[1] is None
+    weight = infer_type(pd.Series([f"{w:.1f} kg" for w in rng.normal(70, 10, 200)], name="w"))
+    assert weight["semantic_type"] == "numeric_string" and weight["units"] == {"kg": 200}
+    mixed = pd.Series(rng.choice(["90 min", "101 min", "1 Season", "3 Seasons"], 200, p=[0.35, 0.35, 0.15, 0.15]), name="duration")
+    info = infer_type(mixed)
+    assert info["semantic_type"] == "numeric_string" and set(info["units"]) == {"min", "season"}
+    assert info["suggestions"][0]["flag"] == "mixed-units"
+    values = parse_numeric(mixed)
+    assert set(values.dropna().unique()) <= {90.0, 101.0}  # only the main unit is kept: units are not comparable
+    df = pd.DataFrame({"duration": mixed})
+    exec(info["suggestions"][0]["code"])  # the suggested fix runs as-is
+    assert set(df["duration_unit"].str.strip()) <= {"min", "Season", "Seasons"}
+
+
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [
+        ([", ".join(rng.choice(["Comedy", "Drama", "Action", "Horror", "Docs"], rng.integers(1, 4), replace=False))
+          for _ in range(300)], "multi_label"),
+        (["|".join(rng.choice(list("ABCDEFG"), rng.integers(1, 4), replace=False)) for _ in range(300)], "multi_label"),
+        (list(rng.choice(["Paris, France", "Lyon, France", "Austin, USA", "Boston, USA"], 300)), "categorical"),
+        (list(rng.choice(["Washed / Wet", "Natural / Dry", "Pulped natural / honey", "Other"], 300)), "categorical"),
+        ([f"Company {i % 40} Co., Ltd" if i % 3 else f"Firm {i % 25}" for i in range(300)], "categorical"),
+        ([f"//cdn.example.com/images/pic{i}.jpg" for i in range(300)], "url"),
+        (list(rng.choice([f"Event {i} Men's Basketball" for i in range(80)], 3_000)), "categorical"),
+    ],
+)
+def test_lists_urls_and_labels(values: list[str], expected: str) -> None:
+    assert infer_type(pd.Series(values))["semantic_type"] == expected
+
+
+def test_identifier_name_hints() -> None:
+    assert infer_type(pd.Series(rng.integers(0, 12, 500), name="key"))["semantic_type"] != "categorical"
+    volcano = pd.Series(rng.choice(rng.integers(200_000, 400_000, 900), 10_000), name="volcano_number")
+    info = infer_type(volcano)
+    assert info["semantic_type"] == "categorical" and "identifier" in info["reason"]
+    assert infer_type(pd.Series(rng.integers(0, 9, 500), name="number"))["semantic_type"] != "categorical"
