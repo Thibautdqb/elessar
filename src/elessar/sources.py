@@ -584,7 +584,7 @@ def load(
     cfg = config or StoneConfig()
     started = time.perf_counter()
     if engine == "dask" and not has_dask():
-        raise LoadError("engine='dask' needs dask -> pip install 'elessar[big]'")
+        raise LoadError("engine='dask' needs dask -> pip install 'dask[dataframe]'")
     opts = {"sheet": sheet, "table": table, "sep": sep, "encoding": encoding, "columns": columns, "nrows": nrows}
     if isinstance(source, Source):
         return source

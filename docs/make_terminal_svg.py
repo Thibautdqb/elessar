@@ -1,56 +1,70 @@
-"""Build docs/terminal.svg: an animated terminal session running elessar on a real CSV.
+"""Build docs/terminal.svg: elessar installed and run in a terminal, then its report opening in a browser.
 
-The output shown is the real output of the ``elessar`` command line (an excerpt of it), so the
-animation never drifts from what the tool prints. Pure SVG + CSS: no script, no external font,
-rendered by GitHub; ``prefers-reduced-motion`` gets a static frame.
+Everything shown is real: the terminal lines are the output of the ``elessar`` command line on the
+given CSV, and the browser shows a screenshot of the ``report.html`` that run wrote (taken with
+headless Chrome or Chromium, which must be installed). Pure SVG + CSS: no script, rendered by
+GitHub; ``prefers-reduced-motion`` gets a static frame.
 
 Usage:  python docs/make_terminal_svg.py titanic.csv Survived docs/terminal.svg
 """
 
 from __future__ import annotations
 
+import base64
 import html
+import io
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
-WIDTH_CHARS = 92
+from PIL import Image
+
+WIDTH, HEIGHT = 900, 560
+WIDTH_CHARS = 100
 FONT_SIZE = 13
 LINE_H = 18
-CHAR_W = 7.85  # generous monospace advance at 13px, used only to size the window
 PAD_X, TOP = 22, 58
-VISIBLE = 30
-HOLD = 5.0  # seconds the final screen stays before the loop restarts
+VISIBLE = 27
+SHOT_WIDTH = 1180  # CSS width of the report page when photographed
+SHOT_HEIGHT = 7_400  # how much of the report the browser scrolls through
+BROWSER_BAR = 74  # tab strip + address bar
+SCROLL_SECONDS = 26.0
+HOLD = 3.0
 
 BG, BAR, FG, DIM = "#0d1117", "#161b22", "#d1d7e0", "#7d8590"
 COLORS = {"prompt": "#3fb950", "cmd": "#e6edf3", "title": "#79c0ff", "high": "#ff7b72", "medium": "#e3b341",
           "info": "#79c0ff", "good": "#3fb950", "warn": "#ffa657"}
 
 
-def run_elessar(csv: str, target: str) -> list[str]:
-    """Real run (plots included) from a scratch directory, so paths print as ``elessar_report/``."""
-    with tempfile.TemporaryDirectory() as tmp:
-        out = subprocess.run(
-            [sys.executable, "-m", "elessar", str(Path(csv).resolve()), "--target", target, "--width", str(WIDTH_CHARS),
-             "-o", "elessar_report"],
-            check=True, capture_output=True, text=True, cwd=tmp,
-        ).stdout
+def run_elessar(csv: str, target: str, workdir: Path) -> list[str]:
+    """Real run (charts and report included) in ``workdir``, so paths print as ``elessar_report/``."""
+    out = subprocess.run(
+        [sys.executable, "-m", "elessar", str(Path(csv).resolve()), "--target", target, "--width", str(WIDTH_CHARS),
+         "-o", "elessar_report", "--open", "none"],
+        check=True, capture_output=True, text=True, cwd=workdir,
+    ).stdout
     return out.rstrip("\n").splitlines()
 
 
-def excerpt(lines: list[str]) -> list[str]:
-    """Overview, the first alerts, the column summary, one column's details, correlations, target."""
-    def index(prefix: str) -> int:
-        return next(i for i, line in enumerate(lines) if line.startswith(prefix))
+def screenshot(page: Path) -> Image.Image:
+    """The top of the report, as the browser shows it."""
+    chrome = next((c for c in ("google-chrome", "chromium", "chromium-browser") if shutil.which(c)), None)
+    if chrome is None:
+        raise SystemExit("needs google-chrome or chromium for the report screenshot")
+    shot = page.parent / "shot.png"
+    subprocess.run([chrome, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1",
+                    f"--window-size={SHOT_WIDTH},{SHOT_HEIGHT}", f"--screenshot={shot}", page.resolve().as_uri()],
+                   check=True, capture_output=True)
+    return Image.open(shot).convert("RGB")
 
-    alerts, summary, details = index("ALERTS"), index("COLUMN SUMMARY"), index("COLUMN DETAILS")
-    corr, target, plots = index("CORRELATIONS"), index("TARGET ANALYSIS"), index("PLOTS")
-    column = next(i for i in range(details, corr) if lines[i].startswith("▸ Age"))
-    block_end = next(i for i in range(column + 1, corr) if not lines[i].strip())
-    return (lines[:alerts + 12] + ["  …", ""] + lines[summary:details] + lines[details:details + 2]
-            + lines[column:block_end] + ["…", ""] + lines[corr:target] + lines[target:plots] + lines[plots:plots + 3])
+
+def excerpt(lines: list[str]) -> list[str]:
+    """The overview and the first alerts: what a person sees before the browser opens."""
+    alerts = next(i for i, line in enumerate(lines) if line.startswith("ALERTS"))
+    return lines[:alerts + 11] + ["  …"]
 
 
 def color_line(line: str) -> list[tuple[str, str | None, bool]]:
@@ -62,15 +76,7 @@ def color_line(line: str) -> list[tuple[str, str | None, bool]]:
     m = re.match(r"^(  )(HIGH|MEDIUM|info)( .*)$", line)
     if m:
         return [(m.group(1), None, False), (m.group(2), COLORS[m.group(2).lower()], True), (m.group(3), None, False)]
-    if line.startswith("▸"):
-        return [(line, "#e6edf3", True)]
-    segments: list[tuple[str, str | None, bool]] = []
-    for part in re.split(r"(LEAKAGE\?|(?<=\s)\*(?=\s|$)|not normal|\byes\b)", line):
-        if not part:
-            continue
-        color = {"LEAKAGE?": COLORS["high"], "*": COLORS["good"], "not normal": COLORS["warn"], "yes": COLORS["good"]}
-        segments.append((part, color.get(part), part == "LEAKAGE?"))
-    return segments
+    return [(line, None, False)]
 
 
 def tspans(segments: list[tuple[str, str | None, bool]]) -> str:
@@ -81,44 +87,38 @@ def tspans(segments: list[tuple[str, str | None, bool]]) -> str:
     return "".join(out)
 
 
-def build(output: list[str], csv_name: str, target: str) -> str:
+def build(output: list[str], shot: Image.Image, csv_name: str, target: str) -> str:
     reveals: list[tuple[str, float, str]] = []  # (css class, appear time, animated property)
     rows: list[tuple[float, str]] = []  # (appear time, svg text content)
-    t = 0.6
 
-    def keyframes(name: str, appear: float, prop: str = "opacity") -> None:
-        """Hidden until ``appear``, then visible until the loop fades out (``fill-opacity`` for tspans)."""
-        reveals.append((name, appear, prop))
-
-    def type_command(command: str, start: float, speed: float = 0.045) -> float:
+    def type_command(command: str, start: float, speed: float = 0.04) -> float:
         """A prompt line whose characters appear one by one; returns the time typing ends."""
         n = len(rows)
-        keyframes(f"l{n}", start)
+        reveals.append((f"l{n}", start, "opacity"))
         chars = []
         for i, ch in enumerate(command):
             name = f"c{n}_{i}"
-            keyframes(name, start + 0.35 + i * speed, "fill-opacity")
+            reveals.append((name, start + 0.35 + i * speed, "fill-opacity"))
             chars.append(f'<tspan class="{name}">{html.escape(ch)}</tspan>')
         rows.append((start, f'<tspan fill="{COLORS["prompt"]}">❯ </tspan><tspan fill="{COLORS["cmd"]}">{"".join(chars)}</tspan>'))
         return start + 0.35 + len(command) * speed
 
     def print_line(segments: list[tuple[str, str | None, bool]], at: float) -> None:
-        keyframes(f"l{len(rows)}", at)
+        reveals.append((f"l{len(rows)}", at, "opacity"))
         rows.append((at, tspans(segments)))
 
-    t = type_command("pip install git+https://github.com/thibautdqb/elessar", t) + 0.4
-    print_line([("Successfully installed elessar", DIM, False)], t)
-    t += 0.6
-    t = type_command(f"elessar {csv_name} --target {target}", t) + 0.5
+    t = type_command("pip install git+https://github.com/thibautdqb/elessar", 0.6) + 0.5
+    print_line([("Successfully installed elessar-0.3.0", DIM, False)], t)
+    t += 0.7
+    t = type_command(f"elessar {csv_name} --target {target}", t) + 0.6
     for line in output:
-        pause = 0.35 if re.match(r"^[A-Z]", line) else 0.075
-        t += pause
+        t += 0.3 if re.match(r"^[A-Z]", line) else 0.06
         print_line(color_line(line), t)
-    t += 0.4
-    final_prompt = len(rows)
-    keyframes(f"l{final_prompt}", t)
-    rows.append((t, f'<tspan fill="{COLORS["prompt"]}">❯ </tspan><tspan class="cursor">▋</tspan>'))
-    total = t + HOLD
+    t += 0.5
+    print_line([("Recap: ", DIM, False), ("elessar_report/report.html", COLORS["title"], False)], t)
+    t_open = t + 0.9
+    t_scroll = t_open + 1.8
+    total = t_scroll + SCROLL_SECONDS + HOLD
 
     def pct(at: float) -> str:
         return f"{100 * min(max(at / total, 0), 1):.3f}%"
@@ -127,41 +127,77 @@ def build(output: list[str], csv_name: str, target: str) -> str:
     css = [f"@keyframes {name}{{0%,{pct(at - 0.001)}{{{prop}:0}}{pct(at)},{fade}{{{prop}:1}}100%{{{prop}:0}}}}"
            f".{name}{{animation:{name} {total:.2f}s infinite}}" for name, at, prop in reveals]
 
-    # scrolling: once the window is full, every new line moves the content up by one line
+    # terminal scrolling: once the window is full, each new line moves the content up by one line
     scroll = ["0%{transform:translateY(0)}"]
     for i, (appear, _) in enumerate(rows):
         if i >= VISIBLE:
             shift = -(i - VISIBLE + 1) * LINE_H
             scroll.append(f"{pct(appear - 0.04)}{{transform:translateY({shift + LINE_H}px)}}"
                           f"{pct(appear)}{{transform:translateY({shift}px)}}")
-    last_shift = -(len(rows) - VISIBLE) * LINE_H if len(rows) > VISIBLE else 0
-    scroll.append(f"99.9%{{transform:translateY({last_shift}px)}}100%{{transform:translateY(0)}}")
+    last = -(len(rows) - VISIBLE) * LINE_H if len(rows) > VISIBLE else 0
+    scroll.append(f"99.9%{{transform:translateY({last}px)}}100%{{transform:translateY(0)}}")
     css.append(f"@keyframes scroll{{{''.join(scroll)}}}.content{{animation:scroll {total:.2f}s infinite}}")
+
+    # the browser window: pops in over the terminal, then the page scrolls slowly
+    page_w = WIDTH - 2
+    scale = page_w / shot.width
+    page_h = round(shot.height * scale)
+    view_h = HEIGHT - BROWSER_BAR - 1
+    travel = page_h - view_h
+    css.append(f"@keyframes browser{{0%,{pct(t_open - 0.01)}{{opacity:0;transform:translateY(18px) scale(.97)}}"
+               f"{pct(t_open + 0.5)},{fade}{{opacity:1;transform:translateY(0) scale(1)}}100%{{opacity:0}}}}"
+               f".browser{{transform-box:fill-box;transform-origin:50% 60%;animation:browser {total:.2f}s infinite}}")
+    css.append(f"@keyframes page{{0%,{pct(t_scroll)}{{transform:translateY(0)}}"
+               f"{pct(t_scroll + SCROLL_SECONDS)},100%{{transform:translateY(-{travel}px)}}}}"
+               f".page{{animation:page {total:.2f}s infinite ease-in-out}}")
     css.append("@keyframes blink{0%,49%{fill-opacity:1}50%,100%{fill-opacity:0}}.cursor{animation:blink 1s step-end infinite}")
     css.append("@media (prefers-reduced-motion: reduce){*{animation:none!important;opacity:1!important}"
-               ".content{transform:none!important}}")
+               ".content,.page{transform:none!important}.browser{opacity:1!important;transform:none!important}}")
 
-    body = []
-    for i, (_, content) in enumerate(rows):
-        body.append(f'<text class="l{i}" x="{PAD_X}" y="{TOP + i * LINE_H}" xml:space="preserve">{content}</text>')
+    buf = io.BytesIO()
+    shot.resize((page_w, page_h), Image.LANCZOS).save(buf, "JPEG", quality=70, optimize=True, progressive=True)
+    data = base64.b64encode(buf.getvalue()).decode("ascii")
 
-    width = round(PAD_X * 2 + WIDTH_CHARS * CHAR_W)
-    height = TOP + VISIBLE * LINE_H + 8
+    body = [f'<text class="l{i}" x="{PAD_X}" y="{TOP + i * LINE_H}" xml:space="preserve">{content}</text>'
+            for i, (_, content) in enumerate(rows)]
     font = "ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono','DejaVu Sans Mono',monospace"
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-label="elessar analysing {html.escape(csv_name)} in a terminal">
-<title>elessar analysing {html.escape(csv_name)} in a terminal</title>
+    ui = "-apple-system,'Segoe UI',Inter,Lato,Helvetica,Arial,sans-serif"
+    label = f"elessar installed and run on {csv_name} in a terminal, then its HTML report opening in a browser"
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{HEIGHT}" viewBox="0 0 {WIDTH} {HEIGHT}" role="img" aria-label="{html.escape(label)}">
+<title>{html.escape(label)}</title>
 <style>
 text{{font-family:{font};font-size:{FONT_SIZE}px;fill:{FG};white-space:pre;opacity:0}}
+.ui{{font-family:{ui};opacity:1}}
 {chr(10).join(css)}
 </style>
-<defs><clipPath id="screen"><rect x="0" y="40" width="{width}" height="{height - 40}"/></clipPath></defs>
-<rect width="{width}" height="{height}" rx="10" fill="{BG}"/>
-<path d="M0 10a10 10 0 0 1 10-10h{width - 20}a10 10 0 0 1 10 10v26h-{width}z" fill="{BAR}"/>
+<defs>
+<clipPath id="screen"><rect x="0" y="40" width="{WIDTH}" height="{HEIGHT - 40}"/></clipPath>
+<clipPath id="viewport"><rect x="1" y="{BROWSER_BAR}" width="{page_w}" height="{view_h}"/></clipPath>
+<clipPath id="window"><rect width="{WIDTH}" height="{HEIGHT}" rx="10"/></clipPath>
+</defs>
+<rect width="{WIDTH}" height="{HEIGHT}" rx="10" fill="{BG}"/>
+<path d="M0 10a10 10 0 0 1 10-10h{WIDTH - 20}a10 10 0 0 1 10 10v26h-{WIDTH}z" fill="{BAR}"/>
 <circle cx="20" cy="18" r="6" fill="#ff5f57"/><circle cx="40" cy="18" r="6" fill="#febc2e"/><circle cx="60" cy="18" r="6" fill="#28c840"/>
-<text x="{width / 2}" y="22" text-anchor="middle" style="opacity:1;fill:{DIM};font-size:12px">elessar — zsh</text>
+<text x="{WIDTH / 2}" y="22" text-anchor="middle" style="opacity:1;fill:{DIM};font-size:12px">elessar — zsh</text>
 <g clip-path="url(#screen)"><g class="content">
 {chr(10).join(body)}
 </g></g>
+<g class="browser" clip-path="url(#window)">
+<rect width="{WIDTH}" height="{HEIGHT}" rx="10" fill="#f4f3ef"/>
+<rect width="{WIDTH}" height="{BROWSER_BAR}" fill="#dfe1e5"/>
+<circle cx="20" cy="18" r="6" fill="#ff5f57"/><circle cx="40" cy="18" r="6" fill="#febc2e"/><circle cx="60" cy="18" r="6" fill="#28c840"/>
+<path d="M84 36v-20a8 8 0 0 1 8-8h196a8 8 0 0 1 8 8v20z" fill="#ffffff"/>
+<text class="ui" x="102" y="27" style="font-size:12px;fill:#1f1f1f">{html.escape(csv_name)} · elessar</text>
+<text class="ui" x="276" y="27" style="font-size:12px;fill:#5f6368">×</text>
+<rect y="36" width="{WIDTH}" height="{BROWSER_BAR - 36}" fill="#ffffff"/>
+<text class="ui" x="22" y="60" style="font-size:14px;fill:#5f6368">‹  ›  ↻</text>
+<rect x="96" y="44" width="{WIDTH - 120}" height="24" rx="12" fill="#f1f3f4"/>
+<text class="ui" x="114" y="60" style="font-size:12.5px;fill:#3c4043">file:///home/you/elessar_report/report.html</text>
+<line x1="0" y1="{BROWSER_BAR - 0.5}" x2="{WIDTH}" y2="{BROWSER_BAR - 0.5}" stroke="#dadce0"/>
+<g clip-path="url(#viewport)"><g class="page">
+<image x="1" y="{BROWSER_BAR}" width="{page_w}" height="{page_h}" href="data:image/jpeg;base64,{data}"/>
+</g></g>
+</g>
 </svg>
 """
 
@@ -170,7 +206,11 @@ def main() -> None:
     if len(sys.argv) != 4:
         raise SystemExit(__doc__)
     csv, target, out = sys.argv[1:]
-    svg = build(excerpt(run_elessar(csv, target)), "train.csv", target)
+    with tempfile.TemporaryDirectory() as tmp:
+        work = Path(tmp)
+        lines = run_elessar(csv, target, work)
+        shot = screenshot(work / "elessar_report" / "report.html")
+    svg = build(excerpt(lines), shot, "train.csv", target)
     Path(out).write_text(svg, encoding="utf-8")
     print(f"wrote {out} ({len(svg) / 1024:.0f} KB)")
 

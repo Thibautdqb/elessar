@@ -6,10 +6,10 @@
 
 One function call (`elessar.see(df)`, or `elessar.see("sales.parquet")`) or one command (`elessar data.csv`) gives you the semantic type of every column, full descriptive statistics, the best-fitting distribution, associations between all columns with significance tests, target and leakage analysis, data-quality alerts with the code to fix them, and report-ready charts.
 
-*About the name: in Tolkien's legend, the Elessar is the green Elfstone through which whatever is seen is made whole again.*
+*In Tolkien's legend, the Elessar is the green Elfstone through which whatever is seen is made whole again.*
 
 <p align="center">
-  <img src="docs/terminal.svg" alt="elessar analysing the Titanic dataset in a terminal: install, run, then the report scrolls by (overview, alerts, column summary, correlations, target analysis)" width="766">
+  <img src="docs/terminal.svg" alt="elessar installed and run on the Titanic dataset in a terminal, then its HTML report opening in a browser and scrolling (key findings, overall statistics, target analysis, feature selection, distributions, outliers)" width="900">
 </p>
 
 Pass a `DataFrame`, a file or almost anything tabular to `see()`, or a file to the `elessar` command, and get in your terminal and in an HTML report:
@@ -29,21 +29,19 @@ Pass a `DataFrame`, a file or almost anything tabular to `see()`, or a file to t
 - **any input, any size**: CSV, Parquet, Excel, JSON, SQLite, SAS, Stata… or polars, pyarrow, dask, NumPy objects;
   files bigger than memory are **streamed in parallel**, with exact counts over every row
 
-It is built for scripts and the terminal: plain-text output that fits your terminal width, files on disk, no display needed (except to click the target, if you ask for it). It depends on `pandas`, `numpy`, `scipy`, `matplotlib` and `scikit-learn`; Parquet, Excel and dask are optional extras.
+It is built for scripts and the terminal: plain-text output that fits your terminal width, files on disk, no display needed (except to click the target, if you ask for it). One `pip install` brings everything: pandas, NumPy, SciPy, Matplotlib, scikit-learn, dask, pyarrow (Parquet) and openpyxl / python-calamine (Excel).
 
-> **Big files and dask.** If [dask](https://www.dask.org) is installed (`pip install "elessar[big]"`), elessar uses it
-> automatically for files too big to load whole: dask splits the file into blocks that are read and summarised
-> on every core. Nothing to configure; without dask the same files are streamed in one process, more slowly.
-> `engine="pandas"` / `--engine pandas` turns it off, `engine="dask"` requires it.
+> **Big files and dask.** [dask](https://www.dask.org) is installed with elessar and used automatically for files
+> too big to load whole: dask splits the file into blocks that are read and summarised on every core. Nothing to
+> configure. `engine="pandas"` / `--engine pandas` streams in a single process instead.
 
 ## Install
 
 ```bash
-pip install git+https://github.com/thibautdqb/elessar              # core: CSV, JSON, SQLite, SAS, Stata, pickle
-pip install "elessar[all] @ git+https://github.com/thibautdqb/elessar"  # + Parquet / Feather, Excel, dask
+pip install git+https://github.com/thibautdqb/elessar
 ```
 
-Extras: `parquet` (pyarrow), `excel` (openpyxl, python-calamine), `big` (dask + pyarrow), `all`. Requires Python ≥ 3.10.
+Everything comes with it (Parquet, Excel, dask, scikit-learn). Requires Python ≥ 3.10.
 
 ## Quickstart
 
@@ -126,8 +124,8 @@ and paths: a file, a URL, a glob pattern (`logs/2024-*.csv`) or a folder.
 |---|---|---|
 | delimited text | `.csv .tsv .tab .txt .dat .psv` | delimiter (`,` `;` tab `\|`) and encoding (UTF-8, cp1252, Latin-1) sniffed |
 | JSON | `.json .jsonl .ndjson` | records, columns or lines |
-| Parquet, Feather / Arrow, ORC | `.parquet .pq .feather .arrow .orc` | `[parquet]` extra |
-| Excel, OpenDocument | `.xlsx .xlsm .xls .xlsb .ods` | `[excel]` extra; first sheet with data, or `sheet=` |
+| Parquet, Feather / Arrow, ORC | `.parquet .pq .feather .arrow .orc` | |
+| Excel, OpenDocument | `.xlsx .xlsm .xls .xlsb .ods` | first sheet with data, or `sheet=` |
 | SQLite | `.sqlite .db` | biggest table, or `table=` |
 | SAS, Stata, SPSS, HDF5, pickle, XML | `.sas7bdat .xpt .dta .sav .h5 .pkl .xml` | |
 
@@ -437,13 +435,13 @@ named `out_dir/<NN>_<column>_<kind>.png`.
 
 ```bash
 git clone https://github.com/thibautdqb/elessar && cd elessar
-pip install -e ".[dev,all]"
+pip install -e ".[dev]"
 pytest
 python examples/demo.py
 ```
 
-The animated terminal at the top is generated from a real run of the command line:
-`python docs/make_terminal_svg.py train.csv Survived docs/terminal.svg`.
+The animation at the top is generated from a real run of the command line and a screenshot of the report it
+wrote (needs Chrome or Chromium): `python docs/make_terminal_svg.py train.csv Survived docs/terminal.svg`.
 
 ## License
 
