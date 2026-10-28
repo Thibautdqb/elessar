@@ -242,8 +242,11 @@ class _Recap:
             self.add("callout", [bold("Sampled profile. "), ("", f"The table has {o['n_rows']:,} rows: statistics, tests "
                                  f"and charts use a uniform random sample of {o['n_rows_profiled']:,} rows "
                                  f"({100 * o['n_rows_profiled'] / o['n_rows']:.1f}%). Row counts, missing values, "
-                                 "min / max / mean / std, distinct counts and duplicate rows are exact over every row ("),
-                                 ("link", "exact"), ("", "exact figures"), ("", ").")])
+                                 "min / max / mean / std, distinct counts, duplicate rows and type checks are exact over "
+                                 "every row ("), ("link", "exact"), ("", "exact figures"),
+                                 ("", "); time series are analysed on their exact per-period aggregates, never on the "
+                                      "sample. Row-order statistics (lag-1 autocorrelation, monotonicity) compare "
+                                      "consecutive sampled rows.")])
         toc = (["findings", "overall"] + (["target"] if v.target else []) + (["selection"] if v.selection else [])
                + (["timeseries"] if v.timeseries else []) + (["distributions"] if self.fitted() else [])
                + (["outliers"] if (v.outliers or {}).get("columns") else [])
@@ -295,6 +298,31 @@ class _Recap:
                            f"{r['pct_missing']:.1f}%", _int(r["n_unique"]), _txt(r["top_value"], 30),
                            "-" if pd.isna(r["top_pct"]) else f"{r['top_pct']:.1f}%", _num(r["entropy"], 3)]
                           for c, r in cat.iterrows()], "data")
+        self.typing_table()
+
+    def typing_table(self) -> None:
+        v, o = self.v, self.v.overview
+        self.add("h", 3, "How each column was typed", "typing")
+        typing = o.get("typing")
+        if typing:
+            steps = " → ".join(f"{r['rows']:,}" for r in typing["rounds"])
+            self.add("p", f"Big table: the types were decided before reading every row, on {typing['rows_used']:,} rows "
+                          f"drawn progressively ({steps} rows; "
+                          + ("contiguous blocks, so that time order is kept" if typing["sampling"] == "blocks"
+                             else "many short blocks at random positions") + f"). Stopped: {typing['stopped']}. "
+                          "The full pass then checked every row against these types.")
+        self.add("p", [("i", "Each column goes down a decision tree of explicit questions. Certain: every threshold "
+                              "test is decided at 95% confidence (Wilson interval of the observed share) and no label "
+                              "is likely unseen (Good-Turing unseen mass below 1%). Probable: an identifier, empty or "
+                              "constant column, which only every row can prove. Uncertain: a test too close to its "
+                              "threshold, too few values, or an ambiguous date order.")])
+        rows = []
+        for i, (name, d) in enumerate(v.columns.items()):
+            path = d.get("path") or []
+            rows.append([[("link", f"col-{i}"), code(name)], d.get("semantic_type", ""),
+                         [(f"cert-{d.get('certainty', 'certain')}", d.get("certainty", "-"))],
+                         d.get("certainty_reason", ""), path[-1] if path else "-", str(len(path))])
+        self.add("table", ["column", "type", "certainty", "why", "decided by", "questions"], rows, "data")
 
     def selection_section(self) -> None:
         v, sel = self.v, self.v.selection
@@ -339,16 +367,56 @@ class _Recap:
                             f"{ts['start']:%Y-%m-%d} → {ts['end']:%Y-%m-%d}, {ts['n_steps']:,} steps"
                             + (f", {ts['n_missing_steps']:,} missing steps" if ts.get("n_missing_steps") else "")
                             + ("" if ts["sorted"] else "; rows are not in time order") + ".")])
+        basis = (f"every row, aggregated per {ts.get('frequency_analysed')}" if ts.get("exact") else "the profiled rows")
+        notes = []
+        if ts.get("n_trimmed_periods"):
+            notes.append(f"{ts['n_trimmed_periods']} incomplete edge period(s) left out (their counts are biased low)")
+        self.add("p", [("i", f"Computed on {basis}. Trend: Mann-Kendall test with the Hamed-Rao correction for "
+                              "autocorrelation (the uncorrected p-value of an autocorrelated series is far too small), "
+                              "slope by Sen's estimator. Stationarity: ADF (H0 unit root) and KPSS (H0 stationary), "
+                              "with and without a linear trend, read together, on the seasonally adjusted series when there "
+                              "is a seasonality. Seasonality: a period natural to the frequency is screened on the "
+                              "autocorrelation of the detrended series, then kept when its seasonal strength "
+                              "(1 - var(remainder) / var(seasonal + remainder)) reaches 0.25: an effect size, since a "
+                              "test would be invalidated by the autocorrelation." + (" " + "; ".join(notes) + "." if notes else ""))])
         rows = []
         for c, a in ts["analyses"].items():
-            adf = a.get("adf") or {}
-            rows.append([[code(c)], f"{a.get('n', 0):,}", a.get("trend", "-") + (
-                f" (tau {a['trend_tau']:+.2f}, p {fmt_p(a['trend_p'])})" if a.get("trend_tau") is not None else ""),
-                adf.get("verdict", "-") + (f" (ADF {adf['statistic']:.2f}, 5% crit {adf['critical']['5%']:.2f})"
-                                           if "statistic" in adf else ""),
-                "-" if a.get("acf_lag1") is None else f"{a['acf_lag1']:.2f}",
-                f"{a['period']} ({a['seasonality']}, {a['seasonal_strength']:.2f})" if a.get("period") else a.get("seasonality", "-")])
+            st = a.get("stationarity") or {}
+            adf, kpss = st.get("adf") or {}, st.get("kpss") or {}
+            mk = a.get("mann_kendall") or {}
+            trend = a.get("trend", "-")
+            if mk.get("p_value") is not None and np.isfinite(mk.get("p_value", np.nan)):
+                trend += (f" (tau {mk['tau']:+.2f}, p {fmt_p(mk['p_value'])}"
+                          + (f"; uncorrected {fmt_p(mk['p_value_naive'])}" if mk.get("variance_inflation", 1) > 1.05 else "")
+                          + f", slope {_num(mk['slope'])}/step)")
+            stat_txt = st.get("verdict", "-")
+            if "statistic" in adf and "statistic" in kpss:
+                stat_txt += f" (ADF {adf['statistic']:.2f} vs {adf['critical']['5%']:.2f}; KPSS {kpss['statistic']:.3f}, " \
+                            f"p {'≤' if kpss['statistic'] >= 0.739 else '≥' if kpss['statistic'] <= 0.347 else '≈'} " \
+                            f"{kpss['p_value']:.2f})"
+            rows.append([[code(c)], f"{a.get('n', 0):,}", trend, stat_txt,
+                         "-" if a.get("acf_lag1") is None else f"{a['acf_lag1']:.2f}",
+                         f"{a['period']} ({a['seasonality']}, {a['seasonal_strength']:.2f})" if a.get("period")
+                         else a.get("seasonality", "-")])
         self.add("table", ["series", "steps", "trend", "stationarity", "lag-1 autocorr.", "seasonality"], rows, "data")
+        panel = ts.get("panel")
+        if panel:
+            drawn = (f"about {100 * ts['entity_fraction']:.0f}% of the {ts.get('entity')} values kept by hashing their key"
+                     if ts.get("entity_fraction") not in (None, 1.0) else "")
+            self.add("h", 3, f"Per {ts.get('entity')} ({panel['n_analysed']} of {panel['n_entities']} drawn at random, "
+                             "each with its whole history)", None)
+            if drawn:
+                self.add("p", [("i", f"The table is streamed: {drawn} (a Bernoulli sample of entities), every row of "
+                                     "each kept one.")])
+            self.add("p", f"Series length per {ts.get('entity')}: median {panel['length']['median']:.0f} steps "
+                          f"(min {panel['length']['min']}, max {panel['length']['max']}). Trend shares are after a "
+                          "Benjamini-Hochberg correction over the entities; the mean series above mixes each "
+                          "entity's dynamics with changes in which entities are present.")
+            self.add("table", ["value", "series", "significant upward trend", "significant downward trend",
+                               "stationarity verdicts", "median lag-1 autocorr."],
+                     [[[code(c)], str(p["n_series"]), f"{p['pct_increasing']:.0f}%", f"{p['pct_decreasing']:.0f}%",
+                       ", ".join(f"{k} {v:.0f}%" for k, v in p["stationarity"].items()), f"{p['median_lag1']:.2f}"]
+                      for c, p in panel["per_value"].items()], "data")
         self.figures(self.charts(("timeseries",)) + self.charts(("acf", "decomposition"), ts["main"]))
         self.add("h", 3, "Treatment", None)
         self.add("table", ["step", "what to do", "code"],
@@ -622,6 +690,11 @@ class _Recap:
     def column_body(self, name: str, d: dict[str, Any]) -> list[Block]:
         st = d.get("stats", {})
         body: list[Block] = [("p", [("i", f"{d.get('pandas_dtype')} · {d.get('reason')}")])]
+        path = d.get("path") or []
+        if path:
+            body.append(("p", [bold("Decision path: "), ("", " → ".join(path[:-1]) + (" → " if len(path) > 1 else "")),
+                               bold(path[-1] + f" yes: {d.get('semantic_type')}"),
+                               ("", f"  ({d.get('certainty', '-')}: {d.get('certainty_reason', '')})")]))
         alerts = d.get("alerts") or []
         if alerts:
             body.append(("ul", [[(f"sev-{a['severity']}", a["severity"].upper()), ("", " " + a["message"])]
@@ -718,7 +791,7 @@ def _md_inline(inline: Inline, table: bool = False) -> str:
             out.append(f"**{_md_escape(text, table)}**")
         elif style == "i":
             out.append(f"*{_md_escape(text, table)}*")
-        elif style.startswith("sev-"):
+        elif style.startswith(("sev-", "cert-")):
             out.append(f"**{_md_escape(text, table)}**")
         elif style not in ("link", "file"):
             out.append(_md_escape(text, table))
@@ -782,7 +855,7 @@ def _html_inline(inline: Inline) -> str:
             continue
         t = html.escape(text)
         piece = {"code": f"<code>{t}</code>", "b": f"<strong>{t}</strong>", "i": f"<em>{t}</em>"}.get(style, t)
-        if style.startswith("sev-"):
+        if style.startswith(("sev-", "cert-")):
             piece = f'<span class="chip {html.escape(style)}">{t}</span>'
         if link:
             piece, link = f'<a href="{html.escape(link)}">{piece}</a>', None
@@ -890,6 +963,8 @@ tr.sev-info td:first-child {{ color:var(--info); }}
 .chip {{ display:inline-block; font-size:11px; font-weight:700; letter-spacing:.04em; padding:1px 7px; border-radius:99px; }}
 .chip.sev-high {{ background:#fde2e1; color:var(--high); }} .chip.sev-medium {{ background:#fdf0d5; color:var(--medium); }}
 .chip.sev-info {{ background:#dbe9fb; color:var(--info); }}
+.chip.cert-certain {{ background:#d3f1e5; color:#0f7a52; }} .chip.cert-probable {{ background:#dbe9fb; color:var(--info); }}
+.chip.cert-uncertain {{ background:#fdf0d5; color:var(--medium); }}
 figure {{ margin:14px 0; }}
 .figures:not(.grid) figure img, details figure img {{ width:auto; max-width:100%; max-height:760px; margin:0 auto; }}
 figure img {{ width:100%; height:auto; display:block; border:1px solid var(--line); border-radius:10px; background:#fcfcfb; }}

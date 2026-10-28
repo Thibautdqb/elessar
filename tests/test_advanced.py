@@ -4,13 +4,15 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from elessar import StoneConfig, see
 from elessar.multivariate import kmo, multivariate, pca_analysis
 from elessar.outliers import column_outliers
 from elessar.preparation import BKTree, composite, edit_distance, group_categories, magnitude_mix, misspellings
 from elessar.selection import feature_selection
-from elessar.timeseries import adf_test, analyze_series, detect
+from elessar.timeseries import (adf_test, analyze_series, bartlett_se, detect, kpss_test, mann_kendall,
+                                stationarity)
 
 CFG = StoneConfig()
 
@@ -103,11 +105,39 @@ def test_panel_event_log_and_year_month() -> None:
     assert detect(pd.DataFrame({"x": range(50)}), {"x": "numeric_discrete"}) is None
 
 
-def test_adf() -> None:
+def test_adf_kpss_and_combined_verdict() -> None:
     rng = np.random.default_rng(5)
-    assert adf_test(rng.normal(size=500))["stationary"]
-    assert not adf_test(np.cumsum(rng.normal(size=500)))["stationary"]
+    noise = rng.normal(size=500)
+    walk = np.cumsum(rng.normal(size=500))
+    trend = 0.02 * np.arange(500) + rng.normal(size=500)
+    assert adf_test(noise)["reject_unit_root"] and not adf_test(walk)["reject_unit_root"]
+    assert not kpss_test(noise)["reject_stationarity"] and kpss_test(walk)["reject_stationarity"]
+    assert stationarity(noise)["verdict"] == "stationary"
+    assert stationarity(walk)["verdict"] == "unit root"
+    assert stationarity(trend)["verdict"] == "trend-stationary"
     assert analyze_series(pd.Series(np.ones(30)), "day", CFG)["verdict"] == "too short or constant"
+
+
+def test_mann_kendall_corrects_for_autocorrelation() -> None:
+    rng = np.random.default_rng(6)
+    false_positive = 0
+    for _ in range(40):  # AR(1) with phi 0.8 and no trend: the naive test rejects far too often
+        e = rng.normal(size=300)
+        y = np.zeros(300)
+        for i in range(1, 300):
+            y[i] = 0.8 * y[i - 1] + e[i]
+        mk = mann_kendall(y)
+        assert mk["variance_inflation"] >= 1 and mk["p_value"] >= mk["p_value_naive"]
+        false_positive += mk["p_value"] < 0.05
+    assert false_positive <= 12  # the naive version rejects in most of these series
+    up = mann_kendall(0.05 * np.arange(200) + rng.normal(size=200))
+    assert up["trend"] == "increasing" and abs(up["slope"] - 0.05) < 0.01
+
+
+def test_bartlett_band_widens_with_lag() -> None:
+    r = np.array([1.0, 0.8, 0.6, 0.4])
+    se = bartlett_se(r, 100)
+    assert se[1] == pytest.approx(0.1) and se[2] > se[1] and se[3] > se[2]
 
 
 # ------------------------------------------------------------------------------------------- selection

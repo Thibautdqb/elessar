@@ -6,7 +6,8 @@ import datetime as dt
 import ipaddress
 import json
 import re
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -271,158 +272,541 @@ def python_kinds(s: pd.Series) -> dict[str, int]:
     return {str(k): int(v) for k, v in s.dropna().map(_kind).value_counts().items()}
 
 
-def _result(stype: str, s: pd.Series, confidence: float, reason: str, **extra: Any) -> dict[str, Any]:
-    return {
-        "semantic_type": stype,
-        "pandas_dtype": str(s.dtype),
-        "confidence": round(float(confidence), 3),
-        "reason": reason,
-        "suggestions": [],
-        **extra,
-    }
+# ------------------------------------------------------------------------------------------- the decision tree
+#
+# Typing is an explicit decision tree. The root routes a column by its storage (empty, constant,
+# bool, datetime, category, number, text...), then the column goes down an ordered list of
+# yes / no questions (``NUMERIC_RULES``, ``TEXT_RULES``) until one answers yes. Every column keeps
+# its path through the tree, so the report can say *why* it got its type.
+#
+# Certainty. When the tree only sees part of the column (a sample), a decision such as "92% of
+# the values are dates, threshold 90%" may not hold on every row. Each threshold test therefore
+# records the Wilson 95% interval of the observed share: a decision whose interval crosses its
+# threshold, on any question along the path, is *uncertain* and is re-examined on more rows.
+# Shares of distinct values are not proportions of independent draws (they shrink as the sample
+# grows): a decision is uncertain when such a share sits within 5 points of its threshold.
+# Decisions that rest on the set of distinct values (labels, levels) are uncertain while the
+# Good-Turing estimate of the unseen probability mass (values seen once / values seen) is above
+# 1%: some labels have probably not been seen yet. Uniqueness (identifiers) cannot be proven on
+# a sample at all: such decisions are *probable* and checked on every row by the full pass.
+
+Z95 = 1.959963984540054
+UNSEEN_MASS = 0.01
+MIN_VALUES = 30
 
 
-def _ratio(mask: pd.Series | np.ndarray) -> float:
+def wilson(k: float, n: int, z: float = Z95) -> tuple[float, float]:
+    """Wilson score interval of a proportion k / n."""
+    if n <= 0:
+        return 0.0, 1.0
+    p = k / n
+    centre = (p + z * z / (2 * n)) / (1 + z * z / n)
+    half = z * np.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / (1 + z * z / n)
+    return float(max(0.0, centre - half)), float(min(1.0, centre + half))
+
+
+def good_turing_unseen(values: pd.Series) -> float:
+    """Estimated probability that the next value is one never seen so far (Good-Turing: f1 / n)."""
+    counts = values.value_counts()
+    n = int(counts.sum())
+    return float((counts == 1).sum()) / n if n else 1.0
+
+
+@dataclass
+class Test:
+    """One threshold question answered on the way down the tree."""
+
+    rule: str
+    share: float
+    n: int
+    threshold: float
+
+    @property
+    def passed(self) -> bool:
+        return self.share >= self.threshold
+
+    @property
+    def interval(self) -> tuple[float, float]:
+        return wilson(self.share * self.n, self.n)
+
+    @property
+    def close_call(self) -> bool:
+        lo, hi = self.interval
+        return lo < self.threshold <= hi
+
+
+class Walk:
+    """One column going down the tree: the data it carries, the questions asked, the answers."""
+
+    def __init__(self, s: pd.Series, cfg: StoneConfig, sampled: bool) -> None:
+        self.s, self.cfg, self.sampled = s, cfg, sampled
+        self.name = _name_tokens(s.name)
+        self.path: list[str] = []
+        self.tests: list[Test] = []
+        self.ambiguity: str | None = None
+        self.cardinality: pd.Series | None = None  # values whose label set must be complete
+        self.identifier = False
+        self.verify: str | None = None  # "empty" / "constant": only all the rows can prove it
+
+    def ask(self, question: str) -> None:
+        self.path.append(question)
+
+    def near(self, rule: str, value: float, threshold: float, margin: float = 0.05) -> None:
+        """A sample statistic that is not a proportion of independent draws (the share of distinct values
+        shrinks as the sample grows): only flag it when it sits within ``margin`` of its threshold."""
+        if self.sampled and abs(value - threshold) < margin and not self.ambiguity:
+            self.ambiguity = f"{rule}: {value:.1%} on the sample, too close to the {threshold:.0%} threshold to decide"
+
+    def share(self, rule: str, share: float, n: int, threshold: float) -> bool:
+        test = Test(rule, float(share), int(n), float(threshold))
+        self.tests.append(test)
+        return test.passed
+
+    def leaf(self, stype: str, confidence: float, reason: str, **extra: Any) -> dict[str, Any]:
+        out = {"semantic_type": stype, "pandas_dtype": str(self.s.dtype), "confidence": round(float(confidence), 3),
+               "reason": reason, "suggestions": [], "path": list(self.path), **extra}
+        out["certainty"], out["certainty_reason"] = self.certainty()
+        return out
+
+    def certainty(self) -> tuple[str, str]:
+        if self.ambiguity:
+            return "uncertain", self.ambiguity
+        if not self.sampled:
+            return "certain", "decided on every value"
+        close = [t for t in self.tests if t.close_call]
+        if close:
+            t = close[0]
+            lo, hi = t.interval
+            return "uncertain", (f"{t.rule}: {t.share:.1%} of {t.n:,} values, 95% CI [{lo:.1%}, {hi:.1%}] crosses the "
+                                 f"{t.threshold:.0%} threshold")
+        if self.cardinality is not None:
+            unseen = good_turing_unseen(self.cardinality)
+            if unseen > UNSEEN_MASS:
+                return "uncertain", (f"labels may be missing: Good-Turing unseen mass {unseen:.1%} "
+                                     f"(> {UNSEEN_MASS:.0%})")
+        if self.identifier:
+            return "probable", "uniqueness can only be proven on every row: checked by the full pass"
+        if self.verify:
+            return "probable", f"{self.verify} on the sample: checked on every row by the full pass"
+        n = int(self.s.notna().sum())
+        if n < MIN_VALUES:
+            return "uncertain", f"only {n} non-missing values"
+        return "certain", "every test is decided at 95% confidence"
+
+
+Rule = tuple[str, Callable[[Walk, Any], "dict[str, Any] | None"]]
+
+
+# ---------------------------------------------------------------------------------------- numeric branch
+class _Num:
+    """What the numeric rules look at: the finite values of a float view of the column."""
+
+    def __init__(self, x: pd.Series, how: str) -> None:
+        self.how = how
+        self.finite = x[np.isfinite(x)]
+        self.n = len(self.finite)
+        self.nunique = int(self.finite.nunique())
+        self.is_int = bool(np.all(np.mod(self.finite, 1) == 0))
+        self.uniq_ratio = self.nunique / self.n if self.n else 0.0
+        self.lo = float(self.finite.min()) if self.n else 0.0
+        self.hi = float(self.finite.max()) if self.n else 0.0
+
+
+def _n_binary(w: Walk, v: _Num) -> dict[str, Any] | None:
+    if v.nunique == 2 and set(np.unique(v.finite)) <= {0.0, 1.0}:
+        return w.leaf("boolean", 0.9, f"{v.how}: only 0/1 values")
+    return None
+
+
+def _n_dates(w: Walk, v: _Num) -> dict[str, Any] | None:
+    hinted = bool(_HINT_ID.search(w.name))
+    if (hinted and not DATE_HINT.search(w.name)) or v.nunique < 2 or not (v.is_int or v.lo >= 1e8):
+        return None
+    with quiet():
+        fmt = detect_date(v.finite, w.name)
+    if fmt is None:
+        return None
+    w.share("dates written as numbers", fmt.ratio, v.n, 0.9)
+    if fmt.ambiguous:
+        w.ambiguity = f"also readable as {', '.join(fmt.ambiguous)}"
+    return w.leaf("datetime_string", fmt.ratio, f"{v.how}: dates stored as numbers ({fmt.label})", date_format=fmt)
+
+
+def _n_id_named(w: Walk, v: _Num) -> dict[str, Any] | None:
+    if not (v.is_int and _HINT_ID.search(w.name) and v.uniq_ratio < w.cfg.id_unique_ratio):
+        return None
+    if v.uniq_ratio >= 0.8 and (v.hi - v.lo + 1) <= 1.5 * v.nunique:
+        w.identifier = True
+        return w.leaf("id", 0.7, f"{v.how}: name looks like an id, mostly unique consecutive integers")
+    # a grouping key needs no complete set of values (unlike labels): no Good-Turing check here
+    return w.leaf("categorical", 0.7, f"{v.how}: repeated identifier ({v.nunique} ids), a grouping key")
+
+
+def _n_id_values(w: Walk, v: _Num) -> dict[str, Any] | None:
+    if not v.is_int:
+        return None
+    w.near("share of distinct values", v.uniq_ratio, w.cfg.id_unique_ratio)
+    if v.uniq_ratio < w.cfg.id_unique_ratio:
+        return None
+    hinted = bool(_HINT_ID.search(w.name))
+    consecutive = v.n >= 20 and (v.hi - v.lo + 1) <= 1.5 * v.nunique
+    monotonic = v.n >= 20 and v.nunique == v.n and (v.finite.is_monotonic_increasing or v.finite.is_monotonic_decreasing)
+    if hinted or consecutive or monotonic:
+        w.identifier = True
+        why = "name looks like an id" if hinted else "unique, (nearly) consecutive integers"
+        return w.leaf("id", 0.9 if hinted else 0.8, f"{v.how}: {why}")
+    return None
+
+
+def _n_scale(w: Walk, v: _Num) -> dict[str, Any] | None:
+    cfg = w.cfg
+    small = 2 <= v.nunique <= cfg.ordinal_max_int_levels and v.lo in (0.0, 1.0) and v.hi - v.lo + 1 == v.nunique
+    if not (v.is_int and small and v.n >= 20):
+        return None
+    w.cardinality = v.finite
+    if abs(float(v.finite.skew())) < 1:  # counts (children, passengers...) are right-skewed; rating scales are not
+        return w.leaf("ordinal-candidate", 0.6,
+                      f"{v.how}: {v.nunique} consecutive small integers ({v.lo:g}..{v.hi:g}), maybe a scale")
+    return w.leaf("numeric_discrete", 0.8, f"{v.how}: small right-skewed integers ({v.lo:g}..{v.hi:g}), a count")
+
+
+def _n_integers(w: Walk, v: _Num) -> dict[str, Any] | None:
+    if not v.is_int:
+        return None
+    if v.nunique > w.cfg.discrete_max_levels:
+        return w.leaf("numeric_continuous", 0.7, f"{v.how}: integer-valued with many levels ({v.nunique})")
+    w.cardinality = v.finite
+    return w.leaf("numeric_discrete", 0.85, f"{v.how}: integer values ({v.nunique} distinct)")
+
+
+def _n_few_reals(w: Walk, v: _Num) -> dict[str, Any] | None:
+    if v.nunique <= min(w.cfg.discrete_max_levels, 20) and v.uniq_ratio < 0.05:
+        w.cardinality = v.finite
+        return w.leaf("numeric_discrete", 0.7, f"{v.how}: only {v.nunique} distinct non-integer values")
+    return None
+
+
+def _n_continuous(w: Walk, v: _Num) -> dict[str, Any] | None:
+    if v.n == 0:
+        return w.leaf("numeric_continuous", 0.5, f"{v.how}: only infinite values")
+    return w.leaf("numeric_continuous", 0.9, f"{v.how}: {v.nunique} distinct real values")
+
+
+NUMERIC_RULES: tuple[Rule, ...] = (
+    ("only 0 and 1?", _n_binary),
+    ("dates written as numbers (YYYYMMDD, Unix time...)?", _n_dates),
+    ("an identifier by its name?", _n_id_named),
+    ("unique, consecutive or sorted integers?", _n_id_values),
+    ("a small scale of consecutive integers?", _n_scale),
+    ("integers?", _n_integers),
+    ("a handful of distinct real values?", _n_few_reals),
+    ("real numbers", _n_continuous),
+)
+
+
+def _numeric_branch(w: Walk, x: pd.Series, how: str) -> dict[str, Any]:
+    v = _Num(x, how)
+    for question, rule in NUMERIC_RULES:
+        w.ask(question)
+        out = rule(w, v)
+        if out is not None:
+            return out
+    raise AssertionError("the last numeric rule always answers")
+
+
+# ------------------------------------------------------------------------------------------- text branch
+class _Text:
+    """What the text rules look at: stripped strings (a sample of them) and the column's cardinality."""
+
+    def __init__(self, strs: pd.Series, n_nonnull: int, nunique: int) -> None:
+        self.t = strs.str.strip()
+        self.n = len(self.t)
+        self.n_nonnull, self.nunique = n_nonnull, nunique
+        self.uniq_ratio = nunique / n_nonnull
+        self._cache: dict[str, Any] = {}
+
+    def match(self, rx: re.Pattern) -> float:
+        return _ratio(self.t.str.match(rx).fillna(False).to_numpy(dtype=bool))
+
+    def get(self, key: str, fn: Callable[[], Any]) -> Any:
+        if key not in self._cache:
+            self._cache[key] = fn()
+        return self._cache[key]
+
+    @property
+    def leading_zero_code(self) -> bool:
+        t = self.t
+        return self.get("lzc", lambda: _ratio(t.str.fullmatch(r"\d+")) >= 0.9
+                        and _ratio(t.str.match(r"0\d")) >= 0.05 and t.str.len().nunique() == 1)
+
+
+def _t_boolean(w: Walk, v: _Text) -> dict[str, Any] | None:
+    lowered = set(v.t.str.lower().unique())
+    if len(lowered) == 2 and any(x in TRUE_TOKENS for x in lowered) and any(x in FALSE_TOKENS for x in lowered):
+        return w.leaf("boolean", 0.95, f"two boolean-like labels: {sorted(lowered)}")
+    return None
+
+
+def _t_json(w: Walk, v: _Text) -> dict[str, Any] | None:
+    starts = v.t.str[:1].isin(["{", "["])
+    if _ratio(starts) < w.cfg.pattern_match_ratio:
+        return None
+    ok = _ratio([_is_json(x) for x in v.t[starts]]) * _ratio(starts)
+    if w.share("valid JSON", ok, v.n, w.cfg.pattern_match_ratio):
+        return w.leaf("json_like", ok, f"{ok:.0%} of values parse as JSON")
+    return None
+
+
+def _t_pattern(stype: str, rx: re.Pattern) -> Callable[[Walk, _Text], dict[str, Any] | None]:
+    def rule(w: Walk, v: _Text) -> dict[str, Any] | None:
+        m = v.match(rx)
+        if m > 0 and w.share(f"{stype} pattern", m, v.n, w.cfg.pattern_match_ratio):
+            return w.leaf(stype, m, f"{m:.0%} of values look like {stype}s")
+        return None
+    return rule
+
+
+def _t_ip(w: Walk, v: _Text) -> dict[str, Any] | None:
+    ip = _ratio([_is_ip(x) for x in v.t])
+    if ip > 0 and w.share("IP addresses", ip, v.n, w.cfg.pattern_match_ratio):
+        return w.leaf("ip_address", ip, f"{ip:.0%} of values are IP addresses")
+    return None
+
+
+def _t_uuid(w: Walk, v: _Text) -> dict[str, Any] | None:
+    m = v.match(_UUID)
+    if m > 0 and w.share("UUIDs", m, v.n, w.cfg.pattern_match_ratio):
+        w.identifier = True
+        return w.leaf("id", m, f"{m:.0%} of values are UUIDs")
+    return None
+
+
+def _t_postal(w: Walk, v: _Text) -> dict[str, Any] | None:
+    r = w.cfg.pattern_match_ratio
+    hint = bool(_HINT_POSTAL.search(w.name))
+    m = v.match(_POSTAL_STRICT)
+    if m >= r or (hint and _ratio(v.t.str.match(_POSTAL_STRICT) | v.t.str.match(_POSTAL_DIGITS)) >= r):
+        w.share("postal-code pattern", max(m, r), v.n, r)
+        return w.leaf("postal_code", max(m, 0.8), "postal-code pattern" + (" and column name" if hint else ""))
+    return None
+
+
+def _t_compact_dates(w: Walk, v: _Text) -> dict[str, Any] | None:
+    digits = _ratio(v.t.str.fullmatch(r"\d+|-|\?|").fillna(False))
+    if digits < 0.99 or (_HINT_ID.search(w.name) and not DATE_HINT.search(w.name)):
+        return None
+    with quiet():
+        fmt = detect_date(v.t, w.name)
+    if fmt is None:
+        return None
+    w.share("dates written as digits", fmt.ratio, v.n, 0.9)
+    if fmt.ambiguous:
+        w.ambiguity = f"also readable as {', '.join(fmt.ambiguous)}"
+    return w.leaf("datetime_string", fmt.ratio, f"dates written as {fmt.label}", date_format=fmt)
+
+
+def _t_numbers(w: Walk, v: _Text) -> dict[str, Any] | None:
+    if v.leading_zero_code or _HINT_PHONE.search(w.name):
+        return None
+    num = parse_numeric(v.t, dominant_unit_only=False)
+    m = _ratio(num.notna())
+    if not w.share("numbers written as text", m, v.n, w.cfg.pattern_match_ratio):
+        return None
+    units = unit_counts(v.t)
+    reason = f"{m:.0%} of values are numbers stored as text"
+    if units:
+        total = sum(units.values())
+        listed = ", ".join(f"{u} {100 * c / total:.0f}%" for u, c in list(units.items())[:4])
+        reason = f"numbers with units ({listed})" + (": mixed units, not comparable" if len(units) > 1 else "")
+    out = w.leaf("numeric_string", m, reason, units=units)
+    out["numeric"] = _numeric_branch(Walk(w.s, w.cfg, w.sampled), parse_numeric(v.t).dropna(),
+                                     "parsed numbers")["semantic_type"]
+    return out
+
+
+def _t_dates(w: Walk, v: _Text) -> dict[str, Any] | None:
+    r = w.cfg.pattern_match_ratio
+    if _ratio(v.t.str.contains(r"\d", regex=True)) < r or v.leading_zero_code:
+        return None
+    with quiet():
+        fmt = detect_date(v.t, w.name, min_ratio=r)
+    if fmt is None:
+        return None
+    w.share("dates", fmt.ratio, v.n, r)
+    if fmt.ambiguous:
+        w.ambiguity = f"day / month order ambiguous: also readable as {', '.join(fmt.ambiguous)}"
+    amb = f"; also valid as {', '.join(fmt.ambiguous)}" if fmt.ambiguous else ""
+    return w.leaf("datetime_string", fmt.ratio, f"{fmt.ratio:.0%} of values are {fmt.label}{amb}", date_format=fmt)
+
+
+def _t_phone(w: Walk, v: _Text) -> dict[str, Any] | None:
+    hint = bool(_HINT_PHONE.search(w.name))
+    digit_count = v.t.str.count(r"\d")
+    like = v.t.str.match(_PHONE) & digit_count.between(7, 15)
+    like &= v.t.str.contains(r"^\+|\d[\s().-]+\d", regex=True) | hint
+    m = _ratio(like)
+    if m > 0 and w.share("phone numbers", m, v.n, w.cfg.pattern_match_ratio):
+        return w.leaf("phone", m, f"{m:.0%} of values look like phone numbers")
+    return None
+
+
+def _t_lists(w: Walk, v: _Text) -> dict[str, Any] | None:
+    sep = list_separator(v.t)
+    if sep is None:
+        return None
+    example = truncate(str(v.t[v.t.str.contains(sep, regex=False)].iloc[0]), 40)
+    w.cardinality = v.t.str.split(sep, regex=False).explode().str.strip()
+    return w.leaf(MULTI_LABEL, 0.8, f"lists of labels separated by {sep.strip() or repr(sep)!s} (e.g. {example!r})",
+                  sep=sep)
+
+
+def _words(v: _Text) -> tuple[float, float]:
+    return v.get("words", lambda: (float(v.t.str.split().str.len().mean()), float(v.t.str.len().mean())))
+
+
+def _t_unique_labels(w: Walk, v: _Text) -> dict[str, Any] | None:
+    avg_words, avg_len = _words(v)
+    w.near("share of distinct labels", v.uniq_ratio, w.cfg.id_unique_ratio)
+    if v.uniq_ratio >= w.cfg.id_unique_ratio and (v.n_nonnull >= 20 or _HINT_ID.search(w.name)):
+        if avg_words <= 2.5 and avg_len <= 40:
+            w.identifier = True
+            return w.leaf("id", 0.8, f"{v.uniq_ratio:.0%} unique short labels (names / codes)")
+    return None
+
+
+def _t_free_text(w: Walk, v: _Text) -> dict[str, Any] | None:
+    avg_words, avg_len = _words(v)
+    if (avg_words >= w.cfg.text_min_avg_words or avg_len >= w.cfg.text_min_avg_length) and v.uniq_ratio > 0.3:
+        return w.leaf("text", 0.85, f"free text (avg {avg_words:.1f} words, {avg_len:.0f} chars)")
+    return None
+
+
+def _t_ordered(w: Walk, v: _Text) -> dict[str, Any] | None:
+    order = ordinal_order(v.t.unique()) if v.nunique <= w.cfg.ordinal_max_levels else None
+    if order:
+        w.cardinality = v.t
+        return w.leaf("ordinal-candidate", 0.75, f"ordered-looking labels: {' < '.join(order)}", order=order)
+    return None
+
+
+def _t_categorical(w: Walk, v: _Text) -> dict[str, Any] | None:
+    if v.nunique <= w.cfg.max_categories or v.uniq_ratio < 0.5:
+        w.cardinality = v.t
+        return w.leaf("categorical", 0.85, f"{v.nunique} distinct labels")
+    if _words(v)[0] < 2:
+        return w.leaf("categorical", 0.6, f"high-cardinality codes ({v.nunique} distinct short labels)")
+    return None
+
+
+def _t_fallback(w: Walk, v: _Text) -> dict[str, Any] | None:
+    return w.leaf("text", 0.6, f"high-cardinality strings ({v.nunique} distinct)")
+
+
+TEXT_RULES: tuple[Rule, ...] = (
+    ("two boolean-like labels?", _t_boolean),
+    ("JSON objects or arrays?", _t_json),
+    ("e-mail addresses?", _t_pattern("email", _EMAIL)),
+    ("URLs?", _t_pattern("url", _URL)),
+    ("IP addresses?", _t_ip),
+    ("UUIDs?", _t_uuid),
+    ("postal codes?", _t_postal),
+    ("dates written as digits (YYMMDD...)?", _t_compact_dates),
+    ("numbers written as text?", _t_numbers),
+    ("dates?", _t_dates),
+    ("phone numbers?", _t_phone),
+    ("lists of labels?", _t_lists),
+    ("unique short labels (an identifier)?", _t_unique_labels),
+    ("free text?", _t_free_text),
+    ("labels on a known ordered scale?", _t_ordered),
+    ("labels (categories)?", _t_categorical),
+    ("high-cardinality strings", _t_fallback),
+)
+
+
+def _text_branch(w: Walk, strs: pd.Series, n_nonnull: int, nunique: int) -> dict[str, Any]:
+    v = _Text(strs, n_nonnull, nunique)
+    for question, rule in TEXT_RULES:
+        w.ask(question)
+        out = rule(w, v)
+        if out is not None:
+            return out
+    raise AssertionError("the last text rule always answers")
+
+
+def _ratio(mask: pd.Series | np.ndarray | list) -> float:
     return float(np.mean(mask)) if len(mask) else 0.0
 
 
-def _numeric_type(x: pd.Series, s: pd.Series, name: str, cfg: StoneConfig, how: str) -> dict[str, Any]:
-    """Classify a float view ``x`` (no NaN) of the original column ``s``."""
-    finite = x[np.isfinite(x)]
-    n = len(finite)
-    if n == 0:
-        return _result("numeric_continuous", s, 0.5, f"{how}: only infinite values")
-    nunique = finite.nunique()
-    is_int = bool(np.all(np.mod(finite, 1) == 0))
-    uniq_ratio = nunique / n
-    lo, hi = float(finite.min()), float(finite.max())
-    if nunique == 2 and set(np.unique(finite)) <= {0.0, 1.0}:
-        return _result("boolean", s, 0.9, f"{how}: only 0/1 values")
-    hinted = bool(_HINT_ID.search(name))
-    if (not hinted or DATE_HINT.search(name)) and nunique >= 2 and (is_int or lo >= 1e8):
-        with quiet():
-            fmt = detect_date(finite, name)
-        if fmt is not None:
-            return _result("datetime_string", s, fmt.ratio, f"{how}: dates stored as numbers ({fmt.label})", date_format=fmt)
-    if is_int and hinted and uniq_ratio < cfg.id_unique_ratio:
-        if uniq_ratio >= 0.8 and (hi - lo + 1) <= 1.5 * nunique:
-            return _result("id", s, 0.7, f"{how}: name looks like an id, mostly unique consecutive integers")
-        return _result("categorical", s, 0.7, f"{how}: repeated identifier ({nunique} ids), a grouping key")
-    if is_int and uniq_ratio >= cfg.id_unique_ratio:
-        consecutive = n >= 20 and (hi - lo + 1) <= 1.5 * nunique
-        monotonic = n >= 20 and nunique == n and (finite.is_monotonic_increasing or finite.is_monotonic_decreasing)
-        if hinted or consecutive or monotonic:
-            why = "name looks like an id" if hinted else "unique, (nearly) consecutive integers"
-            return _result("id", s, 0.9 if hinted else 0.8, f"{how}: {why}")
-    consecutive_small = 2 <= nunique <= cfg.ordinal_max_int_levels and lo in (0.0, 1.0) and hi - lo + 1 == nunique
-    if is_int and consecutive_small and n >= 20:
-        skew = float(finite.skew())
-        if abs(skew) < 1:  # counts (children, passengers...) are right-skewed; rating scales are not
-            return _result(
-                "ordinal-candidate", s, 0.6, f"{how}: {nunique} consecutive small integers ({lo:g}..{hi:g}), maybe a scale"
-            )
-        return _result("numeric_discrete", s, 0.8, f"{how}: small right-skewed integers ({lo:g}..{hi:g}), a count")
-    if is_int:
-        if nunique > cfg.discrete_max_levels:
-            return _result("numeric_continuous", s, 0.7, f"{how}: integer-valued with many levels ({nunique})")
-        return _result("numeric_discrete", s, 0.85, f"{how}: integer values ({nunique} distinct)")
-    if nunique <= min(cfg.discrete_max_levels, 20) and uniq_ratio < 0.05:
-        return _result("numeric_discrete", s, 0.7, f"{how}: only {nunique} distinct non-integer values")
-    return _result("numeric_continuous", s, 0.9, f"{how}: {nunique} distinct real values")
+def _result(stype: str, s: pd.Series, confidence: float, reason: str, **extra: Any) -> dict[str, Any]:
+    """A decision made outside the tree (e.g. after an error)."""
+    return {"semantic_type": stype, "pandas_dtype": str(s.dtype), "confidence": round(float(confidence), 3),
+            "reason": reason, "suggestions": [], "path": [], "certainty": "uncertain", "certainty_reason": reason,
+            **extra}
 
 
-def _string_type(strs: pd.Series, s: pd.Series, name: str, cfg: StoneConfig, n_nonnull: int, nunique: int) -> dict:
-    """Classify a column whose non-null values are all strings."""
-    t = strs.str.strip()
-    r = cfg.pattern_match_ratio
-    uniq_ratio = nunique / n_nonnull
-
-    def match(rx: re.Pattern) -> float:
-        return _ratio(t.str.match(rx).fillna(False).to_numpy(dtype=bool))
-
-    lowered = set(t.str.lower().unique())
-    if len(lowered) == 2 and any(v in TRUE_TOKENS for v in lowered) and any(v in FALSE_TOKENS for v in lowered):
-        return _result("boolean", s, 0.95, f"two boolean-like labels: {sorted(lowered)}")
-
-    starts = t.str[:1].isin(["{", "["])
-    if _ratio(starts) >= r:
-        ok = _ratio([_is_json(v) for v in t[starts]]) * _ratio(starts)
-        if ok >= r:
-            return _result("json_like", s, ok, f"{ok:.0%} of values parse as JSON")
-    for stype, rx in (("email", _EMAIL), ("url", _URL)):
-        m = match(rx)
-        if m >= r:
-            return _result(stype, s, m, f"{m:.0%} of values look like {stype}s")
-    ip = _ratio([_is_ip(v) for v in t])
-    if ip >= r:
-        return _result("ip_address", s, ip, f"{ip:.0%} of values are IP addresses")
-    m = match(_UUID)
-    if m >= r:
-        return _result("id", s, m, f"{m:.0%} of values are UUIDs")
-
-    postal_hint = bool(_HINT_POSTAL.search(name))
-    m = match(_POSTAL_STRICT)
-    if m >= r or (postal_hint and _ratio(t.str.match(_POSTAL_STRICT) | t.str.match(_POSTAL_DIGITS)) >= r):
-        return _result("postal_code", s, max(m, 0.8), "postal-code pattern" + (" and column name" if postal_hint else ""))
-
-    if _ratio(t.str.fullmatch(r"\d+|-|\?|").fillna(False)) >= 0.99 and (not _HINT_ID.search(name) or DATE_HINT.search(name)):
-        with quiet():
-            fmt = detect_date(t, name)
-        if fmt is not None:
-            return _result("datetime_string", s, fmt.ratio, f"dates written as {fmt.label}", date_format=fmt)
-
-    digits_only = t.str.fullmatch(r"\d+")
-    leading_zero_code = _ratio(digits_only) >= r and _ratio(t.str.match(r"0\d")) >= 0.05 and t.str.len().nunique() == 1
-    phone_hint = bool(_HINT_PHONE.search(name))
-    num = parse_numeric(t, dominant_unit_only=False)
-    m = _ratio(num.notna())
-    if m >= r and not leading_zero_code and not phone_hint:
-        units = unit_counts(t)
-        reason = f"{m:.0%} of values are numbers stored as text"
-        if units:
-            total = sum(units.values())
-            listed = ", ".join(f"{u} {100 * c / total:.0f}%" for u, c in list(units.items())[:4])
-            reason = f"numbers with units ({listed})" + (": mixed units, not comparable" if len(units) > 1 else "")
-        out = _result("numeric_string", s, m, reason, units=units)
-        out["numeric"] = _numeric_type(parse_numeric(t).dropna(), s, name, cfg, "parsed numbers")["semantic_type"]
+# ------------------------------------------------------------------------------------------- the root
+def _root(s: pd.Series, cfg: StoneConfig, sampled: bool) -> dict[str, Any]:
+    """Route by storage, then down the numeric or the text branch."""
+    w = Walk(s, cfg, sampled)
+    nonnull = s.dropna()
+    w.ask("any non-missing value?")
+    if len(nonnull) == 0:
+        w.verify = "empty"
+        return w.leaf("empty", 1.0, "no non-missing values")
+    hs = hashable(nonnull)
+    nunique = int(hs.nunique())
+    w.ask("a single distinct value?")
+    if nunique == 1:
+        w.verify = "constant"
+        return w.leaf("constant", 1.0, f"single value: {str(hs.iloc[0])[:40]!r}")
+    dtype = s.dtype
+    w.ask(f"how is it stored? ({dtype})")
+    if pd.api.types.is_bool_dtype(dtype):
+        return w.leaf("boolean", 1.0, "bool dtype")
+    if pd.api.types.is_datetime64_any_dtype(dtype):
+        return w.leaf("datetime", 1.0, "datetime dtype")
+    if isinstance(dtype, pd.CategoricalDtype):
+        if dtype.ordered:
+            return w.leaf("ordinal-candidate", 0.95, "ordered categorical dtype", order=[str(c) for c in dtype.categories])
+        sub = _root(nonnull.astype(object), cfg, sampled)
+        if sub["semantic_type"] in NUMERIC_TYPES | {"text", "id", "email", "url", "phone", "postal_code", "ip_address"}:
+            sub["pandas_dtype"] = str(dtype)
+            sub["path"] = w.path + sub["path"]
+            return sub
+        w.cardinality = hs
+        return w.leaf("categorical", 1.0, f"category dtype ({nunique} levels)")
+    if pd.api.types.is_complex_dtype(dtype):
+        return w.leaf("mixed", 0.5, "complex numbers")
+    if pd.api.types.is_timedelta64_dtype(dtype):
+        out = _numeric_branch(w, nonnull.dt.total_seconds(), "timedelta (seconds)")
+        if out["semantic_type"] in ("id", "boolean", "datetime_string"):
+            out["semantic_type"] = "numeric_continuous"
         return out
+    if pd.api.types.is_numeric_dtype(dtype):
+        return _numeric_branch(w, as_numeric(nonnull), f"{dtype} dtype")
+    if not is_text_dtype(s):
+        return w.leaf("categorical", 0.5, f"unrecognised dtype {dtype}, treated as labels")
 
-    has_digit = t.str.contains(r"\d", regex=True)
-    if _ratio(has_digit) >= r and not leading_zero_code:
-        with quiet():
-            fmt = detect_date(t, name, min_ratio=r)
-        if fmt is not None:
-            amb = f"; also valid as {', '.join(fmt.ambiguous)}" if fmt.ambiguous else ""
-            return _result("datetime_string", s, fmt.ratio, f"{fmt.ratio:.0%} of values are {fmt.label}{amb}",
-                           date_format=fmt)
-
-    digit_count = t.str.count(r"\d")
-    phone_like = t.str.match(_PHONE) & digit_count.between(7, 15)
-    phone_like &= t.str.contains(r"^\+|\d[\s().-]+\d", regex=True) | phone_hint
-    m = _ratio(phone_like)
-    if m >= r:
-        return _result("phone", s, m, f"{m:.0%} of values look like phone numbers")
-
-    sep = list_separator(t)
-    if sep is not None:
-        return _result(MULTI_LABEL, s, 0.8, f"lists of labels separated by {sep.strip() or repr(sep)!s} "
-                       f"(e.g. {truncate(str(t[t.str.contains(sep, regex=False)].iloc[0]), 40)!r})", sep=sep)
-
-    words = t.str.split().str.len()
-    avg_words, avg_len = float(words.mean()), float(t.str.len().mean())
-    if uniq_ratio >= cfg.id_unique_ratio and (n_nonnull >= 20 or _HINT_ID.search(name)):
-        if avg_words <= 2.5 and avg_len <= 40:
-            return _result("id", s, 0.8, f"{uniq_ratio:.0%} unique short labels (names / codes)")
-    if (avg_words >= cfg.text_min_avg_words or avg_len >= cfg.text_min_avg_length) and uniq_ratio > 0.3:
-        return _result("text", s, 0.85, f"free text (avg {avg_words:.1f} words, {avg_len:.0f} chars)")
-    order = ordinal_order(t.unique()) if nunique <= cfg.ordinal_max_levels else None
-    if order:
-        return _result("ordinal-candidate", s, 0.75, f"ordered-looking labels: {' < '.join(order)}", order=order)
-    if nunique <= cfg.max_categories or uniq_ratio < 0.5:
-        return _result("categorical", s, 0.85, f"{nunique} distinct labels")
-    if avg_words < 2:
-        return _result("categorical", s, 0.6, f"high-cardinality codes ({nunique} distinct short labels)")
-    return _result("text", s, 0.6, f"high-cardinality strings ({nunique} distinct)")
+    seen = sample(nonnull, 5_000, cfg.random_state)
+    if len(seen) < len(nonnull):
+        w.sampled = True  # patterns are checked on a sample of the values
+    kinds = python_kinds(seen) if pd.api.types.is_object_dtype(dtype) else {"str": len(seen)}
+    w.ask("what Python objects are in the cells?")
+    if set(kinds) <= {"dict", "list"}:
+        return w.leaf("json_like", 1.0, "cells contain Python " + "/".join(sorted(kinds)) + " objects")
+    if len(kinds) > 1 and not set(kinds) <= {"number", "bool"}:
+        mix = ", ".join(f"{k}={v}" for k, v in sorted(kinds.items(), key=lambda kv: -kv[1]))
+        return w.leaf("mixed", 1.0, f"several Python types: {mix}", kinds=kinds)
+    only = next(iter(kinds))
+    if only == "bool":
+        return w.leaf("boolean", 1.0, "Python bool objects")
+    if only == "number":
+        return _numeric_branch(w, as_numeric(nonnull), "numbers in object column")
+    if only == "datetime":
+        return w.leaf("datetime", 0.95, "Python date/datetime objects")
+    if only != "str":
+        return w.leaf("categorical", 0.5, f"{only} objects, treated as labels")
+    return _text_branch(w, seen.astype(str), len(nonnull), nunique)
 
 
 def _is_json(v: str) -> bool:
@@ -488,70 +872,18 @@ def _suggest(info: dict[str, Any], s: pd.Series, name: str) -> list[dict[str, st
     return out
 
 
-def infer_type(s: pd.Series, config: StoneConfig | None = None) -> dict[str, Any]:
-    """Infer the semantic type of one column.
+def infer_type(s: pd.Series, config: StoneConfig | None = None, sampled: bool = False) -> dict[str, Any]:
+    """Infer the semantic type of one column by walking the decision tree.
 
-    Returns a dict with ``semantic_type``, ``pandas_dtype``, ``confidence`` (0-1),
-    ``reason`` and ``suggestions`` (list of ``{flag, code}``).
+    Returns a dict with ``semantic_type``, ``pandas_dtype``, ``confidence`` (0-1), ``reason``,
+    ``suggestions`` (list of ``{flag, code}``), ``path`` (the questions asked, in order) and
+    ``certainty`` (``certain`` / ``probable`` / ``uncertain``) with ``certainty_reason``.
+    ``sampled``: the series is a sample of a bigger column (certainty then accounts for it).
     """
     cfg = config or StoneConfig()
-    info = _infer(s, cfg)
+    info = _root(s, cfg, sampled)
     info["suggestions"] = _suggest(info, s, str(s.name))
     return info
-
-
-def _infer(s: pd.Series, cfg: StoneConfig) -> dict[str, Any]:
-    name = _name_tokens(s.name)
-    nonnull = s.dropna()
-    if len(nonnull) == 0:
-        return _result("empty", s, 1.0, "no non-missing values")
-    hs = hashable(nonnull)
-    nunique = int(hs.nunique())
-    if nunique == 1:
-        return _result("constant", s, 1.0, f"single value: {str(hs.iloc[0])[:40]!r}")
-    dtype = s.dtype
-
-    if pd.api.types.is_bool_dtype(dtype):
-        return _result("boolean", s, 1.0, "bool dtype")
-    if pd.api.types.is_datetime64_any_dtype(dtype):
-        return _result("datetime", s, 1.0, "datetime dtype")
-    if isinstance(dtype, pd.CategoricalDtype):
-        if dtype.ordered:
-            return _result("ordinal-candidate", s, 0.95, "ordered categorical dtype", order=[str(c) for c in dtype.categories])
-        sub = _infer(nonnull.astype(object), cfg)
-        if sub["semantic_type"] in NUMERIC_TYPES | {"text", "id", "email", "url", "phone", "postal_code", "ip_address"}:
-            sub["pandas_dtype"] = str(dtype)
-            return sub
-        return _result("categorical", s, 1.0, f"category dtype ({nunique} levels)")
-    if pd.api.types.is_complex_dtype(dtype):
-        return _result("mixed", s, 0.5, "complex numbers")
-    if pd.api.types.is_timedelta64_dtype(dtype):
-        out = _numeric_type(nonnull.dt.total_seconds(), s, name, cfg, "timedelta (seconds)")
-        out["semantic_type"] = "numeric_continuous" if out["semantic_type"] in ("id", "boolean") else out["semantic_type"]
-        return out
-    if pd.api.types.is_numeric_dtype(dtype):
-        return _numeric_type(as_numeric(nonnull), s, name, cfg, f"{dtype} dtype")
-
-    if not is_text_dtype(s):
-        return _result("categorical", s, 0.5, f"unrecognised dtype {dtype}, treated as labels")
-
-    sampled = sample(nonnull, 5_000, cfg.random_state)
-    kinds = python_kinds(sampled) if pd.api.types.is_object_dtype(dtype) else {"str": len(sampled)}
-    if set(kinds) <= {"dict", "list"}:
-        return _result("json_like", s, 1.0, "cells contain Python " + "/".join(sorted(kinds)) + " objects")
-    if len(kinds) > 1 and not set(kinds) <= {"number", "bool"}:
-        mix = ", ".join(f"{k}={v}" for k, v in sorted(kinds.items(), key=lambda kv: -kv[1]))
-        return _result("mixed", s, 1.0, f"several Python types: {mix}", kinds=kinds)
-    only = next(iter(kinds))
-    if only == "bool":
-        return _result("boolean", s, 1.0, "Python bool objects")
-    if only == "number":
-        return _numeric_type(as_numeric(nonnull), s, name, cfg, "numbers in object column")
-    if only == "datetime":
-        return _result("datetime", s, 0.95, "Python date/datetime objects")
-    if only != "str":
-        return _result("categorical", s, 0.5, f"{only} objects, treated as labels")
-    return _string_type(sampled.astype(str), s, name, cfg, len(nonnull), nunique)
 
 
 def see_types(df: pd.DataFrame | pd.Series, config: StoneConfig | None = None) -> pd.DataFrame:
@@ -580,6 +912,6 @@ def see_types(df: pd.DataFrame | pd.Series, config: StoneConfig | None = None) -
 
 
 __all__ = [
-    "SEMANTIC_TYPES", "as_boolean", "as_datetime", "as_numeric", "see_types", "infer_type",
-    "ordinal_order", "parse_number", "parse_numeric", "python_kinds",
+    "NUMERIC_RULES", "SEMANTIC_TYPES", "TEXT_RULES", "as_boolean", "as_datetime", "as_numeric", "good_turing_unseen",
+    "infer_type", "ordinal_order", "parse_number", "parse_numeric", "python_kinds", "see_types", "wilson",
 ]

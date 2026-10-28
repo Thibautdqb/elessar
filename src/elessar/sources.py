@@ -7,21 +7,23 @@ JSON lines, Parquet, Feather / Arrow, ORC, Excel / ODS, pickle, HDF5, SAS, Stata
 XML, compressed or not.
 
 A table with more than ``StoneConfig.max_rows`` rows, or too big for the available memory, is
-never loaded whole: it is streamed once in chunks (see :mod:`elessar.scan`), in parallel with
-dask when installed, to get exact counts and a uniform random sample the profile runs on.
+never loaded whole. Its column types are first decided progressively on as few rows as the
+evidence allows (:mod:`elessar.progressive`); one full pass then reads every row in chunks, in
+parallel (dask splits CSV files, Parquet splits by row group), guided by those types
+(:mod:`elessar.scan`): exact figures and type checks over every row, a uniform random sample for
+the row-level profile, and for time-indexed tables the exact per-period series and whole
+entities of a panel. File formats themselves are read by :mod:`elessar.readers`.
 """
 
 from __future__ import annotations
 
-import csv
-import glob
 import io
 import os
 import sqlite3
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Iterator
+from typing import Any, Callable
 from urllib.parse import urlparse
 
 import numpy as np
@@ -30,28 +32,11 @@ import pandas as pd
 from ._utils import fmt_bytes, quiet
 from .config import StoneConfig
 from .parallel import TaskError, n_workers, run_tasks, shared
-from .scan import FullScan, Part, finalize, merge, reduce_chunk, scan_chunks
-
-COMPRESSIONS = (".gz", ".bz2", ".zip", ".xz", ".zst", ".tar")
-FORMATS = {
-    ".csv": "csv", ".tsv": "csv", ".tab": "csv", ".txt": "csv", ".dat": "csv", ".psv": "csv", ".data": "csv",
-    ".json": "json", ".jsonl": "jsonl", ".ndjson": "jsonl",
-    ".parquet": "parquet", ".pq": "parquet", ".parq": "parquet",
-    ".feather": "feather", ".arrow": "feather", ".ipc": "feather",
-    ".orc": "orc",
-    ".xlsx": "excel", ".xlsm": "excel", ".xls": "excel", ".xlsb": "excel", ".ods": "excel",
-    ".pkl": "pickle", ".pickle": "pickle",
-    ".h5": "hdf", ".hdf": "hdf", ".hdf5": "hdf",
-    ".sas7bdat": "sas", ".xpt": "sas",
-    ".dta": "stata",
-    ".sav": "spss", ".zsav": "spss",
-    ".sqlite": "sqlite", ".sqlite3": "sqlite", ".db": "sqlite",
-    ".xml": "xml",
-}
-STREAMABLE = {"csv", "jsonl", "parquet", "sas", "stata", "sqlite"}
-EXTRAS = {"parquet": "pyarrow", "feather": "pyarrow", "orc": "pyarrow", "excel": "openpyxl", "hdf": "tables",
-          "spss": "pyreadstat", "xml": "lxml"}
-_DEFAULT_SEP = {".tsv": "\t", ".tab": "\t", ".psv": "|"}
+from .progressive import CsvProbe, FrameProbe, HeadProbe, ParquetProbe, Probe, TypePlan, progressive_types
+from .readers import (COMPRESSIONS, STREAMABLE, LoadError, _chunk_iter, _csv_kwargs, _expand, _head_bytes,  # noqa: F401
+                      _is_url, _read_csv, _read_whole, _sqlite_table, _suffixes, detect_format, has_header, sniff_csv)
+from .scan import FullScan, Part, ScanPlan, finalize, merge, reduce_chunk, scan_chunks
+from .timeseries import aggregation_unit, finest_unit
 
 
 @dataclass
@@ -59,21 +44,20 @@ class Source:
     """A table ready to profile.
 
     ``df`` holds every row, or a uniform random sample of them when ``full`` is set; ``full``
-    then carries the exact figures over all rows. ``origin`` describes where it came from.
+    then carries the exact figures over all rows (and, for a time-indexed table, the exact series
+    per period and whole entities of a panel), and ``plan`` the column types decided before the
+    pass, progressively (:mod:`elessar.progressive`). ``origin`` describes where it came from.
     """
 
     df: pd.DataFrame
     name: str | None = None
     origin: dict[str, Any] = field(default_factory=dict)
     full: FullScan | None = None
+    plan: TypePlan | None = None  # how the types of a streamed table were decided
 
     @property
     def n_rows(self) -> int:
         return self.full.n_rows if self.full is not None else len(self.df)
-
-
-class LoadError(ValueError):
-    """The input could not be turned into a table (unknown format, missing optional package...)."""
 
 
 # ------------------------------------------------------------------------------------------- helpers
@@ -105,145 +89,7 @@ def hash_cap(cfg: StoneConfig) -> int:
     return int(cfg.max_hashed_rows) if cfg.max_hashed_rows else max(1_000_000, int(available_memory() * 0.25 / 16))
 
 
-def _is_url(text: str) -> bool:
-    return urlparse(text).scheme in ("http", "https", "ftp", "s3", "gs", "gcs", "az", "abfs", "hf")
-
-
-def _suffixes(path: str) -> list[str]:
-    name = urlparse(path).path if _is_url(path) else path
-    return [s.lower() for s in Path(name).suffixes]
-
-
-def detect_format(path: str) -> str:
-    suffixes = [s for s in _suffixes(path) if s not in COMPRESSIONS]
-    if suffixes and suffixes[-1] in FORMATS:
-        return FORMATS[suffixes[-1]]
-    if not _is_url(path) and os.path.isfile(path):
-        with open(path, "rb") as fh:
-            head = fh.read(16)
-        if head.startswith(b"PAR1"):
-            return "parquet"
-        if head.startswith(b"SQLite format 3"):
-            return "sqlite"
-        if head.startswith(b"ARROW1"):
-            return "feather"
-        if head.startswith(b"PK\x03\x04") and not _suffixes(path)[-1:] == [".zip"]:
-            return "excel"
-        if head.lstrip().startswith((b"{", b"[")):
-            return "json"
-    return "csv"
-
-
-def _missing_extra(fmt: str, exc: Exception) -> LoadError:
-    pkg = EXTRAS.get(fmt)
-    hint = f" -> pip install {pkg}" if pkg else ""
-    return LoadError(f"cannot read {fmt} data ({exc}){hint}")
-
-
-def _head_bytes(path: str, n: int = 1 << 16) -> bytes:
-    """First ``n`` decompressed bytes of a local or remote file."""
-    try:
-        from pandas.io.common import get_handle
-
-        with get_handle(path, "rb", compression="infer", is_text=False) as handles:
-            return handles.handle.read(n)
-    except Exception:  # noqa: BLE001
-        if _is_url(path):
-            return b""
-        with open(path, "rb") as fh:
-            return fh.read(n)
-
-
-def sniff_csv(path: str, sep: str | None = None, encoding: str | None = None) -> dict[str, Any]:
-    """Delimiter and encoding of a delimited text file, from its first 64 kB."""
-    head = _head_bytes(path)
-    if encoding is None:
-        for enc in ("utf-8-sig", "cp1252", "latin-1"):
-            try:
-                head.decode(enc)
-            except UnicodeDecodeError:
-                if enc == "utf-8-sig" and len(head) >= (1 << 16) - 4:
-                    try:  # a multi-byte character cut by the 64 kB boundary is not a decoding error
-                        head[:-4].decode(enc)
-                    except UnicodeDecodeError:
-                        continue
-                    encoding = enc
-                    break
-                continue
-            encoding = enc
-            break
-    text = head.decode(encoding or "utf-8", errors="replace")
-    if sep is None:
-        ext = next((s for s in reversed(_suffixes(path)) if s not in COMPRESSIONS), "")
-        lines = [ln for ln in text.splitlines()[:50] if ln.strip()]
-        if len(lines) > 1 and not text.endswith("\n"):
-            lines = lines[:-1]  # the last line may be cut
-        try:
-            sep = csv.Sniffer().sniff("\n".join(lines), delimiters=",;\t|").delimiter
-        except csv.Error:
-            sep = _DEFAULT_SEP.get(ext)
-        if sep is None:
-            counts = {d: lines[0].count(d) for d in ",;\t|"} if lines else {}
-            sep = max(counts, key=counts.get) if counts and max(counts.values()) else ","
-    return {"sep": sep, "encoding": encoding or "utf-8"}
-
-
-def has_header(path: str, sep: str, encoding: str) -> bool:
-    """False when the first line is data: most numeric columns are 'named' by a number."""
-    try:
-        head = pd.read_csv(path, sep=sep, encoding=encoding, nrows=200)
-    except Exception:  # noqa: BLE001 - let the real read report the problem
-        return True
-    numeric = [c for c in head.columns if pd.api.types.is_numeric_dtype(head[c].dtype)]
-    named_by_number = [c for c in numeric if pd.notna(pd.to_numeric(str(c).strip(), errors="coerce"))]
-    return not (len(named_by_number) >= 2 and len(named_by_number) >= 0.6 * len(numeric))
-
-
-def _csv_kwargs(path: str, opts: dict[str, Any]) -> dict[str, Any]:
-    sniffed = sniff_csv(path, opts.get("sep"), opts.get("encoding"))
-    kw: dict[str, Any] = {"sep": sniffed["sep"], "encoding": sniffed["encoding"], "low_memory": False}
-    if not has_header(path, kw["sep"], kw["encoding"]):
-        kw["header"] = None
-    if opts.get("columns"):
-        kw["usecols"] = opts["columns"]
-    return kw
-
-
-def _read_csv(path: str, kw: dict[str, Any], **more: Any) -> Any:
-    try:
-        return pd.read_csv(path, **kw, **more)
-    except UnicodeDecodeError:
-        return pd.read_csv(path, **{**kw, "encoding": "latin-1"}, **more)
-    except pd.errors.ParserError:  # ragged lines: keep what can be read, report the rest
-        return pd.read_csv(path, **{k: v for k, v in kw.items() if k != "low_memory"}, engine="python",
-                           on_bad_lines="warn", **more)
-
-
 # ------------------------------------------------------------------------------------------- planning
-def _expand(path: str) -> list[str]:
-    """Files behind a path, glob pattern or folder (local), or the URL itself."""
-    if _is_url(path):
-        return [path]
-    p = Path(path).expanduser()
-    if p.is_file():
-        return [str(p)]
-    if p.is_dir():
-        files = sorted(str(f) for f in p.rglob("*") if f.is_file() and not f.name.startswith((".", "_"))
-                       and detect_format(str(f)) in FORMATS.values() and any(s in FORMATS for s in _suffixes(str(f))))
-        if not files:
-            raise LoadError(f"no readable table in folder {path}")
-        fmts = {detect_format(f) for f in files}
-        if len(fmts) > 1:  # keep the most common format
-            main = max(fmts, key=lambda fm: sum(detect_format(f) == fm for f in files))
-            files = [f for f in files if detect_format(f) == main]
-        return files
-    matches = sorted(glob.glob(str(p), recursive=True))
-    files = [m for m in matches if os.path.isfile(m)]
-    if files:
-        return files
-    raise LoadError(f"no such file: {path}")
-
-
 def _estimate(files: list[str], fmt: str, opts: dict[str, Any], cfg: StoneConfig) -> dict[str, Any]:
     """Rows and in-memory bytes the files would take, from a small head (cheap)."""
     size = sum(os.path.getsize(f) for f in files if not _is_url(f) and os.path.exists(f))
@@ -293,116 +139,6 @@ def _too_big(est: dict[str, Any], cfg: StoneConfig) -> bool:
 
 
 # ------------------------------------------------------------------------------------------- readers
-def _sqlite_table(con: sqlite3.Connection) -> str:
-    names = [r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type IN ('table','view') "
-                                        "AND name NOT LIKE 'sqlite_%' ORDER BY name")]
-    if not names:
-        raise LoadError("the SQLite database has no table")
-    sizes = {}
-    for n in names:
-        try:
-            sizes[n] = con.execute(f'SELECT COUNT(*) FROM "{n}"').fetchone()[0]
-        except sqlite3.Error:
-            sizes[n] = -1
-    return max(names, key=lambda n: sizes[n])  # the biggest table
-
-
-def _read_whole(path: str, fmt: str, opts: dict[str, Any], info: dict[str, Any]) -> pd.DataFrame:
-    nrows = opts.get("nrows")
-    try:
-        if fmt == "csv":
-            kw = _csv_kwargs(path, opts)
-            info.update(sep=kw["sep"], encoding=kw["encoding"], headerless="header" in kw)
-            return _read_csv(path, kw, nrows=nrows)
-        if fmt == "json":
-            try:
-                return pd.read_json(path)
-            except ValueError:
-                return pd.read_json(path, lines=True)
-        if fmt == "jsonl":
-            return pd.read_json(path, lines=True, nrows=nrows)
-        if fmt == "parquet":
-            return pd.read_parquet(path, columns=opts.get("columns"))
-        if fmt == "feather":
-            return pd.read_feather(path, columns=opts.get("columns"))
-        if fmt == "orc":
-            return pd.read_orc(path, columns=opts.get("columns"))
-        if fmt == "excel":
-            return _read_excel(path, opts, info)
-        if fmt == "pickle":
-            obj = pd.read_pickle(path)
-            return obj if isinstance(obj, pd.DataFrame) else _from_object(obj, opts, info)
-        if fmt == "hdf":
-            return pd.read_hdf(path, key=opts.get("table"))
-        if fmt == "sas":
-            return pd.read_sas(path)
-        if fmt == "stata":
-            return pd.read_stata(path)
-        if fmt == "spss":
-            return pd.read_spss(path)
-        if fmt == "sqlite":
-            with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as con:
-                table = opts.get("table") or _sqlite_table(con)
-                info["table"] = table
-                return pd.read_sql_query(f'SELECT * FROM "{table}"', con)
-        if fmt == "xml":
-            try:
-                return pd.read_xml(path)
-            except ImportError:
-                return pd.read_xml(path, parser="etree")
-    except ImportError as exc:
-        raise _missing_extra(fmt, exc) from exc
-    raise LoadError(f"unsupported format {fmt!r}")
-
-
-def _read_excel(path: str, opts: dict[str, Any], info: dict[str, Any]) -> pd.DataFrame:
-    engine = None
-    try:
-        import python_calamine  # noqa: F401 - much faster than openpyxl when installed
-
-        engine = "calamine"
-    except ImportError:
-        pass
-    sheets = pd.read_excel(path, sheet_name=None if opts.get("sheet") is None else [opts["sheet"]], engine=engine,
-                           nrows=opts.get("nrows"))
-    info["sheets"] = list(sheets)
-    name = opts.get("sheet")
-    if name is None:  # the first sheet that has data
-        name = next((n for n, d in sheets.items() if d.shape[0] and d.shape[1]), next(iter(sheets)))
-    info["sheet"] = name
-    return sheets[name]
-
-
-def _chunk_iter(path: str, fmt: str, opts: dict[str, Any], cfg: StoneConfig, info: dict[str, Any]) -> Iterator[pd.DataFrame]:
-    """Chunks of a streamable file, read one after the other."""
-    size = cfg.chunk_rows
-    if fmt == "csv":
-        kw = _csv_kwargs(path, opts)
-        info.update(sep=kw["sep"], encoding=kw["encoding"], headerless="header" in kw)
-        kw.pop("low_memory")
-        yield from _read_csv(path, kw, chunksize=size)
-    elif fmt == "jsonl":
-        yield from pd.read_json(path, lines=True, chunksize=size)
-    elif fmt == "parquet":
-        import pyarrow.parquet as pq
-
-        for batch in pq.ParquetFile(path).iter_batches(batch_size=size, columns=opts.get("columns")):
-            yield batch.to_pandas()
-    elif fmt == "sas":
-        with pd.read_sas(path, chunksize=size) as reader:
-            yield from reader
-    elif fmt == "stata":
-        with pd.read_stata(path, chunksize=size) as reader:
-            yield from reader
-    elif fmt == "sqlite":
-        with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as con:
-            table = opts.get("table") or _sqlite_table(con)
-            info["table"] = table
-            yield from pd.read_sql_query(f'SELECT * FROM "{table}"', con, chunksize=size)
-    else:
-        raise LoadError(f"{fmt} cannot be streamed")
-
-
 # ------------------------------------------------------------------------------------------- dask
 def _dask_tasks(files: list[str], fmt: str, opts: dict[str, Any], cfg: StoneConfig,
                 info: dict[str, Any]) -> list[Callable[[], pd.DataFrame]] | None:
@@ -474,11 +210,11 @@ class _Compute:
 
 def _reduce_task(i: int) -> Part:
     st = shared()
-    return reduce_chunk(st["tasks"][i](), i, st["k"], st["seed"], max_key=st["max_key"])
+    return reduce_chunk(st["tasks"][i](), i, st["k"], st["seed"], max_key=st["max_key"], plan=st["plan"])
 
 
 def scan_parallel(tasks: list[Callable[[], pd.DataFrame]], k: int, cfg: StoneConfig, engine: str = "dask",
-                  est_rows: int | None = None) -> FullScan:
+                  est_rows: int | None = None, plan: ScanPlan | None = None) -> FullScan:
     """Reduce independent chunk loaders on every core, then merge the summaries.
 
     With ``est_rows`` (a rough row count), each chunk only sends back the sample candidates that
@@ -488,17 +224,17 @@ def scan_parallel(tasks: list[Callable[[], pd.DataFrame]], k: int, cfg: StoneCon
     workers = n_workers(cfg, 1 << 62, len(tasks))
     max_key = min(1.0, 1.5 * k / est_rows + 6 * np.sqrt(k) / est_rows) if est_rows else None
     while True:
-        state = {"tasks": tasks, "k": k, "seed": cfg.random_state, "max_key": max_key}
+        state = {"tasks": tasks, "k": k, "seed": cfg.random_state, "max_key": max_key, "plan": plan}
         parts = run_tasks(_reduce_task, range(len(tasks)), workers, state)
         failed = [p for p in parts if isinstance(p, TaskError)]
         if failed:
             raise LoadError(f"reading a chunk failed: {failed[0].error}")
         total = parts[0]
         for part in parts[1:]:
-            total = merge(total, part, k, hash_cap(cfg))
+            total = merge(total, part, k, hash_cap(cfg), plan.entity_budget if plan else 0)
         n_sample = 0 if total.sample is None else len(total.sample)
         if max_key is None or max_key >= 1.0 or n_sample >= min(k, total.n_rows):
-            return finalize(total, len(tasks), engine if workers == 1 else f"{engine}, {workers} processes")
+            return finalize(total, len(tasks), engine if workers == 1 else f"{engine}, {workers} processes", plan)
         max_key = None
 
 
@@ -559,11 +295,46 @@ class _Slice:
 
 
 def _scan_frame(df: pd.DataFrame, cfg: StoneConfig, info: dict[str, Any]) -> Source:
-    """A DataFrame bigger than ``max_rows``: exact pass + a sample taken from it (original dtypes and index)."""
-    full = scan_parallel(_df_tasks(df, cfg.chunk_rows), cfg.max_rows, cfg, "in memory", len(df))
+    """A DataFrame bigger than ``max_rows``: progressive typing, guided exact pass, and a sample taken
+    from it (original dtypes and index)."""
+    plan = progressive_types(FrameProbe(df), cfg)
+    sp = scan_plan(plan, cfg)
+    full = scan_parallel(_df_tasks(df, cfg.chunk_rows), cfg.max_rows, cfg, "in memory", len(df), sp)
     sample = df.iloc[full.sample.index.to_numpy()]
+    if full.panel_rows is not None:
+        full.panel_rows = df.iloc[full.panel_rows.index.to_numpy()]
     full.sample = pd.DataFrame(index=sample.index[:0])  # do not keep a second copy
-    return Source(sample, origin={**info, "engine": full.engine}, full=full)
+    return Source(sample, origin={**info, "engine": full.engine}, full=full, plan=plan)
+
+
+def scan_plan(plan: TypePlan, cfg: StoneConfig) -> ScanPlan:
+    """What the full pass computes, from the types decided beforehand."""
+    sp = ScanPlan(types=plan.types)
+    ts = plan.timeseries
+    if ts is None:
+        return sp
+    axis = ts["time_column"].split(" + ")
+    numeric = [c for c, d in plan.types.items() if c not in axis and c != ts.get("entity")
+               and d["semantic_type"] in ("numeric_continuous", "numeric_discrete", "numeric_string", "boolean")]
+    sp.time_column, sp.value_columns = ts["time_column"], numeric[:12]
+    if ts["kind"] == "event log":
+        sp.time_unit = aggregation_unit(ts["start"], ts["end"])
+    else:
+        sp.time_unit = finest_unit(ts["frequency"], ts["start"], ts["end"])
+    if ts["kind"] == "panel":
+        sp.entity, sp.entity_budget = ts["entity"], cfg.max_rows
+    return sp
+
+
+def _streamed(probe: Probe, run_pass: Callable[[ScanPlan], FullScan], cfg: StoneConfig, info: dict[str, Any],
+              name: str | None) -> Source:
+    """Progressive typing on a probe, then the full pass guided by the decided types."""
+    plan = progressive_types(probe, cfg)
+    full = run_pass(scan_plan(plan, cfg))
+    src = _from_scan(full, name, info)
+    if src.full is not None:
+        src.plan = plan
+    return src
 
 
 # ------------------------------------------------------------------------------------------- entry point
@@ -600,8 +371,9 @@ def load(
         if type(source).__module__.split(".")[0] == "dask" and hasattr(source, "to_delayed"):
             info["kind"] = "dask DataFrame"
             tasks: list[Callable[[], pd.DataFrame]] = [_Compute(p) for p in source.to_delayed()]
-            full = scan_parallel(tasks, cfg.max_rows, cfg)
-            src = _from_scan(full, None, info)
+            first = tasks[0]
+            src = _streamed(HeadProbe(lambda n: first().head(n)),
+                            lambda sp: scan_parallel(tasks, cfg.max_rows, cfg, "dask", None, sp), cfg, info, None)
         else:
             frame = _from_object(source, opts, info)
             if nrows is not None:
@@ -638,16 +410,17 @@ def _load_path(path: str, cfg: StoneConfig, opts: dict[str, Any], engine: str) -
                 tasks = _dask_tasks(files, fmt, opts, cfg, info)
             except Exception:  # noqa: BLE001 - fall back to sequential chunks
                 tasks = None
-        full = None
-        if tasks and len(tasks) > 1:
-            try:
-                full = scan_parallel(tasks, cfg.max_rows, cfg, how, est.get("rows"))
-            except Exception:  # noqa: BLE001 - e.g. a quoted newline cut by a block boundary
-                full = None
-        if full is None:
+
+        def run_pass(sp: ScanPlan) -> FullScan:
+            if tasks and len(tasks) > 1:
+                try:
+                    return scan_parallel(tasks, cfg.max_rows, cfg, how, est.get("rows"), sp)
+                except Exception:  # noqa: BLE001 - e.g. a quoted newline cut by a block boundary
+                    pass
             chunks = (chunk for f in files for chunk in _chunk_iter(f, fmt, opts, cfg, info))
-            full = scan_chunks(chunks, cfg.max_rows, cfg.random_state, hash_cap(cfg), "pandas chunks")
-        return _from_scan(full, name, info)
+            return scan_chunks(chunks, cfg.max_rows, cfg.random_state, hash_cap(cfg), "pandas chunks", sp)
+
+        return _streamed(_probe(files, fmt, opts, cfg, info), run_pass, cfg, info, name)
     frames = [_read_whole(f, fmt, opts, info) for f in files]
     with quiet():
         df = frames[0] if len(frames) == 1 else pd.concat(frames, ignore_index=True, sort=False)
@@ -660,6 +433,20 @@ def _load_path(path: str, cfg: StoneConfig, opts: dict[str, Any], engine: str) -
         src.name = name
         return src
     return Source(df, name=name, origin=info)
+
+
+def _probe(files: list[str], fmt: str, opts: dict[str, Any], cfg: StoneConfig, info: dict[str, Any]) -> Probe:
+    """Random access when the format allows it (uncompressed local text, Parquet), else the head only."""
+    try:
+        if fmt == "parquet":
+            return ParquetProbe(files, opts.get("columns"))
+        if fmt == "csv" and len(files) == 1 and not _is_url(files[0]) and not any(
+                x in COMPRESSIONS for x in _suffixes(files[0])):
+            kw = _csv_kwargs(files[0], opts)
+            return CsvProbe(files[0], kw)
+    except Exception:  # noqa: BLE001 - fall back to reading the head
+        pass
+    return HeadProbe(lambda n: next(iter(_chunk_iter(files[0], fmt, {**opts}, cfg, info))).head(n))
 
 
 def describe_origin(src: Source) -> str:

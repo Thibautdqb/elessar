@@ -133,14 +133,35 @@ Compressed files (`.gz .bz2 .zip .xz .zst`) are read directly; a file without a 
 its content.
 
 **Big tables.** A table with more than `max_rows` rows (default 1,000,000), or larger than half of the free
-memory, is never loaded whole. It is read once in chunks and every chunk is reduced to a small summary:
+memory, is never loaded whole. It goes through three steps.
+
+1. **Progressive typing.** The types are decided before the full read, on as few rows as the evidence allows:
+   - a first look at the head plus blocks from the middle and the end (the head alone is often misleading);
+   - every column goes down the typing decision tree (below), which says whether its decision is *certain*,
+     *probable* or *uncertain*;
+   - only the uncertain columns are typed again on twice as many rows, round after round, until every decision
+     is settled, stops changing, or `probe_max_rows` (200,000) is reached.
+
+   Rows are reached directly (byte offsets in a text file, row groups in Parquet) and never read twice. The
+   lines drawn from a text file are parsed together, so types come out as in a full read. **When the first look
+   finds a time axis, the extra rows are contiguous blocks, so series are never cut into scattered rows.**
+2. **One full pass guided by those types**, in chunks, on every core; every chunk is reduced to a small summary:
 
 - **exact over every row**: row count, missing values per column, min / max / mean / standard deviation (Chan's
-  parallel algorithm), zeros, negatives, infinities, frequencies of low-cardinality columns, **duplicate rows**
-  (64-bit row hashes);
+  parallel algorithm) on the values the types say they are (numbers written as text parsed, dates read with
+  their format), zeros, negatives, infinities, frequencies of low-cardinality columns, **duplicate rows**
+  (64-bit row hashes), also ignoring the identifier columns;
+- **type checks over every row**: values that do not fit their column's type, with their row numbers, and the
+  uniqueness of every identifier, which no sample can prove. A decision that does not survive is corrected
+  (an "identifier" that repeats becomes a grouping key) and reported;
+- for a time-indexed table, the **series aggregated per period over every row** (counts, means), and for a
+  panel the active entities per period and **whole entities drawn at random** (Bernoulli sampling on a hash of
+  the entity key), so temporal statistics never rest on a thinned sample;
 - **distinct counts**: exact below 4,096 values, estimated above (k-minimum-values sketch, ~1.6 % error);
 - a **uniform random sample** of `max_rows` rows without replacement (the rows with the smallest random keys),
-  in the original order and indexed by original row number, on which the full profile runs.
+  in the original order and indexed by original row number, on which the row-level profile runs.
+
+3. **The profile**, on the sample for row-level statistics and on the exact series for time.
 
 Chunks are independent, so they are reduced on every core: CSV files are split into byte ranges by **dask**
 (used automatically when it is installed), Parquet files by row group, in-memory frames by slice. Without dask,
@@ -212,6 +233,22 @@ anyway when you run interactively without `-t`). `python -m elessar` works too.
 
 ## What it computes
 
+**Typing, an explicit decision tree**: each column is routed by its storage (empty, constant, bool, datetime,
+category, numbers, text...), then goes down an ordered list of yes / no questions (numbers: *only 0 and 1? dates
+written as numbers? an identifier? a small scale? integers? a handful of reals?*; text: *booleans? JSON? e-mails?
+URLs? IPs? UUIDs? postal codes? compact dates? numbers? dates? phones? lists? identifiers? free text? an ordered
+scale? labels?*) until one answers yes. The report shows every column's path and the certainty of its decision:
+
+- *certain*: every value was seen, or, on a sample, each threshold test ("at least 90% of the values are
+  dates") holds at 95% confidence (the Wilson interval of the observed share does not cross the threshold) and
+  no label is likely unseen (Good-Turing estimate of the unseen probability mass, values seen once / values
+  seen, below 1%);
+- *probable*: an identifier, empty or constant column decided on a sample: only every row can prove it, and the
+  full pass does;
+- *uncertain*: a test whose interval crosses its threshold, a share of distinct values within 5 points of its
+  threshold (not a proportion of independent draws, so no interval is claimed for it), few values, or an
+  ambiguous day / month order.
+
 **Semantic types**: `empty`, `constant`, `boolean` (including 0/1, yes/no, true/false, y/n, oui/non), `id` (unique or near-unique, consecutive ints, UUIDs), `numeric_continuous`, `numeric_discrete` (counts, few levels), `categorical` (labels and high-cardinality codes), `ordinal-candidate` (low/medium/high, sizes, Likert, months, weekdays, quarters, 1-5 integer scales, ordered categoricals), `datetime`, `datetime_string`, `numeric_string` (`"1 234,5"`, `"12%"`, `"$3.2"`), `text`, `multi_label` (lists of labels in a cell: `"Comedies, Dramas"`), `email`, `url`, `phone`, `postal_code`, `ip_address`, `json_like`, `mixed`. Numbers written with units (`"90 min"`, `"60 kg"`) are parsed, and mixed units in one column (`min` and `Seasons`, `kg` and `lbs`) are flagged.
 
 **Dates, whatever the format**: ISO 8601 with or without time and zone; day-first or month-first with any separator (the order that parses every value wins, and a column where both work is reported as ambiguous); month names in English, French, German, Spanish, Italian, Portuguese, Dutch and Czech; compact digits as text or numbers (`YYYYMMDD`, `YYMMDD`, `DDMMYYYY`, `YYYYMM`, `YYYYMMDDHHMM(SS)`, Czech / Slovak birth numbers with month + 50); quarters (`2020Q1`) and ISO weeks (`2020-W05`); Unix timestamps in s / ms / µs / ns; Excel serial days when the column name says it is a date. Two-digit years never land in the future. The suggested conversion uses the exact format found, and `elessar.parse_dates(series)` does it in one call.
@@ -264,13 +301,27 @@ row, value, z and robust z. Action: *remove* when a few values are more than 10 
 errors), *reassign* (cap at the fences) when the tail is real but influential.
 
 **Time series**: a datetime column, dates as text, a datetime index, a `year` column, or `year` + `month` columns.
-Structure: single series (unique, regular timestamps), panel (unique per time × entity), event log (irregular or
-repeated: aggregated per period). Per series: trend (Kendall tau, Theil-Sen slope), stationarity (augmented
-Dickey-Fuller, lag by AIC, MacKinnon critical values), seasonality (autocorrelation peak among the periods natural
-to the frequency: 7 / 30 / 365 days, 24 / 168 hours, 12 months, 4 quarters…) and its strength from a classical
-decomposition. Treatment: ordering, gaps, aggregation, panel-safe lags, differencing, Fourier terms, window and
-lag sizes, **expanding-window validation folds computed on the real dates**, augmentation for the training folds
-(jittering, scaling, window slicing, magnitude warping).
+Structure: single series (unique, regular timestamps), panel (unique per time × entity, each entity covering
+at least a fifth of the time steps), event log (irregular or repeated timestamps: aggregated per period, the
+incomplete first and last periods left out because their counts are biased low). Per series:
+
+- **trend**: Mann-Kendall test with the **Hamed-Rao correction for autocorrelation** (the uncorrected p-value of
+  an autocorrelated series is far too small; the report shows both), Sen's slope;
+- **seasonality**: a period natural to the frequency (7 / 30 / 365 days, 24 / 168 hours, 12 months, 4
+  quarters…) is screened on the autocorrelation of the detrended series (a peak, a dip before it, two full
+  cycles) and kept when its **seasonal strength** from a classical decomposition reaches 0.25. The decision rests
+  on this effect size: a significance test would itself be invalidated by the autocorrelation;
+- **stationarity**: ADF (H0 unit root) and KPSS (H0 stationary), with and without a linear trend, read together
+  on the seasonally adjusted series: stationary, trend-stationary (detrend, do not difference), unit root
+  (difference) or inconclusive (break, changing variance, long memory);
+- for a **panel**, the same tests on each entity's own series (whole entities drawn at random), with the share of
+  entities with a significant trend after a Benjamini-Hochberg correction: a mean across entities would mix their
+  dynamics with the change in which entities are present.
+
+Treatment: ordering, gaps, aggregation, panel-safe lags, differencing or detrending as the tests say, Fourier
+terms, window and lag sizes, **expanding-window validation folds computed on the real dates**, augmentation for
+the training folds (jittering, scaling, window slicing, magnitude warping). The autocorrelation chart draws
+Bartlett's band.
 
 **Preparation plan**: *cleaning*: invalid values (placeholders, impossible values, infinities), wrong formats
 (numbers or dates as text, mixed types, stray spaces, a file without a header row), misspellings (case, accents,

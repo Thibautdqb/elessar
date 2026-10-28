@@ -24,15 +24,18 @@ from .plots import make_plots
 from .quality import advanced_alerts, alert, duplicates_text, check_quality, column_alerts, column_quality, correlation_alerts, group_alerts, row_order_alert, sort_alerts
 from . import recap
 from .report import Vision
-from .sources import describe_origin, load
+from .sources import Source, describe_origin, load
 from .stats import column_stats
 from .types import as_numeric, infer_type
 
 
-def see_column(series: pd.Series, config: StoneConfig | None = None, fit: bool = True) -> dict[str, Any]:
+def see_column(series: pd.Series, config: StoneConfig | None = None, fit: bool = True,
+               decided: dict[str, Any] | None = None) -> dict[str, Any]:
     """Everything about one column: type, statistics, distribution and alerts.
 
-    Never raises on bad data: a failing step is recorded under ``errors``.
+    ``decided``: a type decision already made (e.g. by progressive typing on a big table), used
+    instead of walking the decision tree again. Never raises on bad data: a failing step is
+    recorded under ``errors``.
     """
     cfg = config or StoneConfig()
     if not isinstance(series, pd.Series):
@@ -41,10 +44,11 @@ def see_column(series: pd.Series, config: StoneConfig | None = None, fit: bool =
     detail: dict[str, Any] = {"name": name, "errors": {}}
     with quiet():
         try:
-            info = infer_type(series, cfg)
+            info = dict(decided) if decided is not None else infer_type(series, cfg)
         except Exception as exc:  # noqa: BLE001
             info = {"semantic_type": "mixed", "pandas_dtype": str(series.dtype), "confidence": 0.0,
-                    "reason": "type inference failed", "suggestions": []}
+                    "reason": "type inference failed", "suggestions": [], "path": [], "certainty": "uncertain",
+                    "certainty_reason": "type inference failed"}
             detail["errors"]["types"] = repr(exc)
         detail.update(info)
         stype = info["semantic_type"]
@@ -66,7 +70,7 @@ def _column_task(col: str) -> tuple[dict[str, Any], dict[str, Any]]:
     """Everything about one column of the shared frame: details, then quality findings."""
     st = shared()
     s, cfg = st["df"][col], st["cfg"]
-    detail = see_column(s, cfg)
+    detail = see_column(s, cfg, decided=(st.get("decided") or {}).get(col))
     try:
         found = column_quality(s, detail, cfg)
     except Exception as exc:  # noqa: BLE001
@@ -75,6 +79,59 @@ def _column_task(col: str) -> tuple[dict[str, Any], dict[str, Any]]:
 
 
 _QUANTITY_KINDS = {"outliers", "skewed", "heaping", "zero_inflated", "capped"}
+
+
+def verify_types(df: pd.DataFrame, details: dict[str, dict[str, Any]], found: dict[str, dict[str, Any]],
+                 src: Source, cfg: StoneConfig) -> list[dict[str, Any]]:
+    """Confront the types decided on part of a streamed table with the full pass over every row.
+
+    Identifiers must be unique over every row, empty and constant columns must stay so, and every
+    value must fit its type; a decision that does not survive is corrected and reported.
+    """
+    full, plan = src.full, src.plan
+    out: list[dict[str, Any]] = []
+    if full is None or plan is None:
+        return out
+    n_rows = full.n_rows
+    for col, d in details.items():
+        stype = d["semantic_type"]
+        stats_full = full.columns.loc[col] if col in full.columns.index else None
+        redo = None
+        if stype == "id":
+            n_dup = full.id_duplicates.get(col)
+            if n_dup:
+                redo = {**d, "semantic_type": "categorical", "certainty": "certain",
+                        "reason": f"typed as an identifier on {plan.rows_used:,} rows, but {n_dup:,} values repeat over "
+                                  f"all {n_rows:,} rows: a grouping key",
+                        "certainty_reason": "checked on every row", "path": d.get("path", []) + ["unique over every row? no"]}
+                out.append(alert("medium", col, f"not an identifier after all: {n_dup:,} repeated values over all rows "
+                                 "(it looked unique on the rows used for typing)", kind="type_check"))
+            elif n_dup == 0:
+                d.update(certainty="certain", certainty_reason=f"unique over all {n_rows:,} rows (checked)")
+        elif stype in ("empty", "constant") and stats_full is not None:
+            ok = (stats_full["count"] == 0) if stype == "empty" else (stats_full["n_distinct"] <= 1)
+            if ok:
+                d.update(certainty="certain", certainty_reason=f"{stype} over all {n_rows:,} rows (checked)")
+            else:
+                redo = infer_type(df[col], cfg, sampled=True)
+                redo["path"] = d.get("path", []) + [f"{stype} over every row? no"]
+                out.append(alert("medium", col, f"not {stype} after all: it has values further in the file "
+                                 "(typed again on the sample)", kind="type_check"))
+        if redo is not None:
+            details[col] = see_column(df[col], cfg, decided=redo)
+            found[col] = column_quality(df[col], details[col], cfg)
+        bad = full.violations.get(col)
+        if bad:
+            ex = ", ".join(f"row {r:,}: {v!r}" for r, v in bad["examples"][:3])
+            out.append(alert("medium" if bad["pct"] >= 0.1 else "info", col,
+                             f"{bad['count']:,} values ({bad['pct']:.2g}%) over all rows do not fit the type "
+                             f"{details[col]['semantic_type']} (e.g. {ex})", kind="type_check"))
+    rounds = plan.rounds
+    left = plan.uncertain
+    out.append(alert("info", None, f"types decided progressively on {plan.rows_used:,} rows in {len(rounds)} round"
+                     f"{'s' if len(rounds) > 1 else ''} ({plan.stopped})"
+                     + (f"; still uncertain: {', '.join(left[:6])}" if left else ""), kind="typing"))
+    return out
 
 
 def _advanced_task(name: str) -> Any:
@@ -87,6 +144,10 @@ def _advanced_task(name: str) -> Any:
         if name == "outliers":
             return find_outliers(df, types, cfg)
         if name == "timeseries":
+            exact, info, panel = st.get("exact"), st.get("ts_info"), st.get("panel_df")
+            if exact is not None and info is not None:
+                frame = panel if info["kind"] == "panel" and panel is not None else df
+                return timeseries(frame, types, target, cfg, exact=exact, info=info)
             return timeseries(df, types, target, cfg)
         if name == "selection":
             info = detect_time(df, types)
@@ -97,12 +158,21 @@ def _advanced_task(name: str) -> Any:
 
 def advanced(
     df: pd.DataFrame, details: dict[str, dict[str, Any]], correlations: dict[str, pd.DataFrame], target: str | None,
-    cfg: StoneConfig, workers: int = 1,
+    cfg: StoneConfig, workers: int = 1, src: Source | None = None,
 ) -> tuple[dict[str, Any], dict[str, str]]:
-    """Multivariate statistics, outliers, time series and feature selection; errors per analysis."""
+    """Multivariate statistics, outliers, time series and feature selection; errors per analysis.
+
+    For a streamed table (``src.full``), the time series are analysed on the exact per-period series
+    computed over every row, and a panel on whole entities drawn at random.
+    """
     types = {c: d["semantic_type"] for c, d in details.items()}
     names = ["multivariate", "outliers", "timeseries"] + (["selection"] if target is not None else [])
     state = {"df": df, "types": types, "target": target, "cfg": cfg, "correlations": correlations}
+    full, plan = (src.full, src.plan) if src is not None else (None, None)
+    if full is not None and plan is not None and plan.timeseries is not None and full.series is not None:
+        state.update(exact={"series": full.series, "unit": full.time_unit, "entity_fraction": full.panel_fraction},
+                     ts_info=plan.timeseries,
+                     panel_df=prepare(full.panel_rows) if full.panel_rows is not None else None)
     results, errors = {}, {}
     for name, res in zip(names, run_tasks(_advanced_task, names, min(workers, len(names)), state)):
         if isinstance(res, TaskError):
@@ -115,14 +185,18 @@ def advanced(
 
 def analyze(
     df: pd.DataFrame, target: str | None, config: StoneConfig, workers: int = 1,
-    timings: dict[str, float] | None = None,
+    timings: dict[str, float] | None = None, decided: dict[str, dict[str, Any]] | None = None,
 ) -> tuple[dict[str, dict[str, Any]], dict[str, pd.DataFrame], dict[str, dict[str, Any]]]:
-    """Per-column details, correlations and per-column quality findings for a prepared DataFrame."""
+    """Per-column details, correlations and per-column quality findings for a prepared DataFrame.
+
+    ``decided``: column types already decided (progressive typing), used instead of the tree.
+    """
     started = time.perf_counter()
     details: dict[str, dict[str, Any]] = {}
     found: dict[str, dict[str, Any]] = {}
     cols = list(df.columns)
-    for col, res in zip(cols, run_tasks(_column_task, cols, workers, {"df": df, "cfg": config})):
+    state = {"df": df, "cfg": config, "decided": decided}
+    for col, res in zip(cols, run_tasks(_column_task, cols, workers, state)):
         if isinstance(res, TaskError):
             details[col] = {"name": col, "semantic_type": "mixed", "pandas_dtype": str(df[col].dtype),
                             "confidence": 0.0, "reason": "analysis failed", "suggestions": [], "stats": {},
@@ -218,13 +292,15 @@ def see(
     df = prepare(df)
     workers = n_workers(cfg, df.size, df.shape[1])
 
-    details, correlations, found = analyze(df, target, cfg, workers, timings)
+    decided = src.plan.types if src.plan is not None else None
+    details, correlations, found = analyze(df, target, cfg, workers, timings, decided)
+    type_alerts = verify_types(df, details, found, src, cfg) if src.plan is not None else []
     step = time.perf_counter()
     exact_dups = full.duplicate_rows if full is not None else None
     if full is not None and exact_dups is None:  # too many rows to hash: say so instead of showing the sample's count
         exact_dups = {"not_counted": True}
     quality = check_quality(df, details, correlations, cfg, target, found, exact_dups)
-    alerts = list(quality["alerts"])
+    alerts = list(quality["alerts"]) + type_alerts
     for d in details.values():
         alerts.extend(d["alerts"])
     if original and dedupe_names(original) != [str(c) for c in original]:
@@ -251,9 +327,9 @@ def see(
 
     step = time.perf_counter()
     adv_workers = n_workers(cfg, df.size * 4, 4)  # each analysis is heavy whatever the table size
-    extra, adv_errors = advanced(df, details, correlations, target, cfg, adv_workers)
-    for name, err in adv_errors.items():
-        alerts.append(alert("info", None, f"{name} analysis skipped after an error: {err[:120]}"))
+    extra, adv_errors = advanced(df, details, correlations, target, cfg, adv_workers, src)
+    for step_name, err in adv_errors.items():
+        alerts.append(alert("info", None, f"{step_name} analysis skipped after an error: {err[:120]}"))
     ts = extra.get("timeseries")
     axis = [c for c in (ts["time_column"].split(" + ") if ts else []) if c in details and c != target]
     for c in axis:  # a year is a position in time, not a quantity: no fit, no outliers, no transformation
@@ -318,6 +394,9 @@ def see(
         "n_rows_with_missing": int(df.isna().any(axis=1).sum()) if df.shape[1] else 0,
         "target": target,
         "source": describe_origin(src),
+        "typing": None if src.plan is None else {
+            "rows_used": src.plan.rows_used, "rounds": src.plan.rounds, "stopped": src.plan.stopped,
+            "sampling": src.plan.sampling},
         "workers": workers,
         "chart_workers": plot_workers,
     }

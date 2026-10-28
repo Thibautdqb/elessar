@@ -220,7 +220,7 @@ class Vision:
                               + (f", entity {ts['entity']}" if ts.get("entity") else ""))]
         for c, a in ts["analyses"].items():
             rows.append((truncate(c, 16), ", ".join(x for x in (
-                f"trend {a.get('trend')}", (a.get("adf") or {}).get("verdict", ""),
+                f"trend {a.get('trend')}", (a.get("stationarity") or {}).get("verdict", ""),
                 f"season {a['period']} ({a['seasonality']}, {a['seasonal_strength']:.2f})" if a.get("period") else "no season",
             ) if x)))
         rows += [(st["step"].lower(), st["advice"]) for st in ts["treatment"]]

@@ -643,8 +643,9 @@ def advanced_alerts(extra: dict[str, Any], prep: dict[str, Any], target: str | N
         extra_txt = ""
         if main.get("period"):
             extra_txt += f", {main['seasonality']} seasonality of period {main['period']}"
-        if (main.get("adf") or {}).get("stationary") is False:
-            extra_txt += ", not stationary"
+        verdict = (main.get("stationarity") or {}).get("verdict")
+        if verdict and verdict not in ("stationary", "insufficient data"):
+            extra_txt += f", {verdict}"
         what = {"single series": "a time series", "panel": f"a panel of time series (one per {ts.get('entity')})",
                 "event log": "timestamped events"}[ts["kind"]]
         out.append(alert("info", ts["time_column"], f"{what}, {ts['frequency']} steps{extra_txt} -> time-ordered "

@@ -279,7 +279,7 @@ def plot_series(writer: Any, ts: dict[str, Any], cfg: StoneConfig) -> None:
         a = ts["analyses"].get(v, {})
         tag = ", ".join(x for x in (f"trend {a.get('trend')}" if a.get("trend") not in (None, "none") else "",
                                     f"season {a['period']} ({a['seasonality']})" if a.get("period") else "",
-                                    (a.get("adf") or {}).get("verdict", "")) if x)
+                                    (a.get("stationarity") or {}).get("verdict", "")) if x)
         ax.set_title(f"{truncate(v, 40)}" + (f"   ·   {tag}" if tag else ""), fontsize=9.5)
         _format_axis(ax, "y")
         _time_axis(ax)
@@ -295,14 +295,14 @@ def plot_acf(writer: Any, ts: dict[str, Any], cfg: StoneConfig) -> None:
     max_lag = min(len(r) - 1, max(2 * period if period else 0, 40))
     fig, body = _figure(12, 3.8, f"Autocorrelation of {truncate(ts['main'], 40)}",
                         f"lag 1 = {main.get('acf_lag1', 0):.2f}" + (f"  ·  seasonal peak at lag {period}" if period else ""),
-                        "Bars outside the shaded band (95%) are significant autocorrelations; a peak at a seasonal lag "
-                        "reveals the period.")
+                        "Shaded: 95% band from Bartlett's formula (bars outside it are autocorrelations beyond those "
+                        "explained by the shorter lags); a peak at a seasonal lag reveals the period.")
     ax = body.add_subplot()
     lags = np.arange(1, max_lag + 1)
     ax.bar(lags, r[1:max_lag + 1], color=[HIGHLIGHT if period and lag == period else BLUE for lag in lags],
            width=0.8 if max_lag < 120 else 1.0)
-    band = main["acf_band"]
-    ax.axhspan(-band, band, color=BLUE_PALE, zorder=0)
+    se = 1.96 * np.asarray(main["acf_se"])[1:max_lag + 1]
+    ax.fill_between(lags, -se, se, color=BLUE_PALE, zorder=0, step="mid")
     ax.axhline(0, color=INK_2, lw=0.8)
     ax.set_xlabel("lag (steps)")
     ax.set_ylim(min(-0.3, float(r[1:max_lag + 1].min()) - 0.05), 1.02)

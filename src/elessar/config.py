@@ -41,6 +41,8 @@ class StoneConfig:
     max_rows: int = 1_000_000
     """Larger tables are profiled on a uniform random sample of this many rows; row counts, missing
     values, min/max/mean/std, distinct counts and duplicate rows stay exact over every row."""
+    probe_max_rows: int = 200_000
+    """Most rows progressive typing reads before the full pass (big tables only)."""
     chunk_rows: int = 250_000
     """Rows per chunk when a file is streamed (files too big to profile in one piece)."""
     max_hashed_rows: int | None = None

@@ -36,6 +36,8 @@ _STEP_SECONDS = [(1, "second"), (60, "minute"), (3600, "hour"), (86400, "day"), 
                  (30.44 * 86400, "month"), (91.31 * 86400, "quarter"), (365.25 * 86400, "year")]
 _PANDAS_FREQ = {"second": "s", "minute": "min", "hour": "h", "day": "D", "week": "W", "month": "MS", "quarter": "QS",
                 "year": "YS"}
+SEASONAL_STRENGTH_MIN = 0.25
+"""Seasonal strength 1 - var(remainder) / var(seasonal + remainder) needed to report a seasonality."""
 _ADF_CRIT = {"1%": (-3.43035, -6.5393, -16.786), "5%": (-2.86154, -2.8903, -4.234), "10%": (-2.56677, -1.5384, -2.809)}
 
 
@@ -133,10 +135,14 @@ def detect(df: pd.DataFrame, types: dict[str, str]) -> dict[str, Any] | None:
 
 
 # ------------------------------------------------------------------------------------------- statistics
-def adf_test(y: np.ndarray, max_lag: int | None = None) -> dict[str, Any]:
-    """Augmented Dickey-Fuller with a constant, lag chosen by AIC; MacKinnon critical values.
+_ADF_CRIT_TREND = {"1%": (-3.95877, -9.0531, -28.428), "5%": (-3.41049, -4.3904, -9.036), "10%": (-3.12705, -2.5856, -3.925)}
+_KPSS_CRIT = {"c": {0.10: 0.347, 0.05: 0.463, 0.025: 0.574, 0.01: 0.739},
+              "ct": {0.10: 0.119, 0.05: 0.146, 0.025: 0.176, 0.01: 0.216}}
 
-    Rejecting (statistic below the critical value) means no unit root: the series is stationary.
+
+def adf_test(y: np.ndarray, max_lag: int | None = None, trend: bool = False) -> dict[str, Any]:
+    """Augmented Dickey-Fuller (H0: unit root) with a constant, plus a linear trend when ``trend``;
+    lag order by AIC, MacKinnon (2010) finite-sample critical values.
     """
     y = np.asarray(y, dtype="float64")
     y = y[np.isfinite(y)][-5_000:]
@@ -146,11 +152,12 @@ def adf_test(y: np.ndarray, max_lag: int | None = None) -> dict[str, Any]:
     max_lag = max_lag if max_lag is not None else int(min(12 * (n / 100) ** 0.25, n // 4))
     dy = np.diff(y)
     best: tuple[float, float, int] | None = None
-    for lag in range(max_lag + 1):
-        rows = len(dy) - max_lag
-        if rows < 10:
-            break
-        cols = [np.ones(rows), y[max_lag:-1]] + [dy[max_lag - i:len(dy) - i] for i in range(1, lag + 1)]
+    rows = len(dy) - max_lag
+    if rows < 10:
+        return {"verdict": "insufficient data"}
+    for lag in range(max_lag + 1):  # same estimation sample for every lag, so the AICs are comparable
+        cols = [np.ones(rows), y[max_lag:-1]] + ([np.arange(rows, dtype="float64")] if trend else [])
+        cols += [dy[max_lag - i:len(dy) - i] for i in range(1, lag + 1)]
         x = np.column_stack(cols)
         target = dy[max_lag:]
         beta, *_ = np.linalg.lstsq(x, target, rcond=None)
@@ -163,10 +170,85 @@ def adf_test(y: np.ndarray, max_lag: int | None = None) -> dict[str, Any]:
             best = (aic, float(stat), lag)
     if best is None or not np.isfinite(best[1]):
         return {"verdict": "insufficient data"}
-    crit = {k: b + b1 / n + b2 / n**2 for k, (b, b1, b2) in _ADF_CRIT.items()}
-    stationary = best[1] < crit["5%"]
-    return {"statistic": best[1], "lag": best[2], "critical": crit, "stationary": bool(stationary),
-            "verdict": "stationary" if stationary else "not stationary (unit root)"}
+    table = _ADF_CRIT_TREND if trend else _ADF_CRIT
+    crit = {k: b + b1 / n + b2 / n**2 for k, (b, b1, b2) in table.items()}
+    reject = best[1] < crit["5%"]
+    return {"statistic": best[1], "lag": best[2], "critical": crit, "reject_unit_root": bool(reject), "trend": trend}
+
+
+def kpss_test(y: np.ndarray, trend: bool = False) -> dict[str, Any]:
+    """KPSS (H0: level-stationary, or trend-stationary with ``trend``), Bartlett-kernel long-run variance
+    with Schwert's lag rule; p-value interpolated in the Kwiatkowski et al. (1992) table (0.01-0.10)."""
+    y = np.asarray(y, dtype="float64")
+    y = y[np.isfinite(y)][-5_000:]
+    n = len(y)
+    if n < 20 or np.ptp(y) == 0:
+        return {"verdict": "insufficient data"}
+    t = np.arange(n, dtype="float64")
+    e = y - (np.polyval(np.polyfit(t, y, 1), t) if trend else y.mean())
+    s = np.cumsum(e)
+    lags = min(int(12 * (n / 100) ** 0.25), n - 1)
+    lrv = e @ e / n
+    for k in range(1, lags + 1):
+        lrv += 2 * (1 - k / (lags + 1)) * (e[k:] @ e[:-k]) / n
+    stat = float(s @ s / (n * n * lrv)) if lrv > 0 else np.nan
+    table = _KPSS_CRIT["ct" if trend else "c"]
+    levels, crits = np.array(list(table)), np.array(list(table.values()))
+    p = float(np.interp(stat, crits, levels, left=0.10, right=0.01)) if np.isfinite(stat) else np.nan  # crits increase
+    return {"statistic": stat, "p_value": p, "p_bounded": stat <= crits[0] or stat >= crits[-1],
+            "reject_stationarity": bool(np.isfinite(stat) and stat > table[0.05]), "lags": lags, "trend": trend}
+
+
+def stationarity(y: np.ndarray) -> dict[str, Any]:
+    """ADF and KPSS read together (each has the other's null): the usual 2 x 2 decision."""
+    adf_c, kpss_c = adf_test(y), kpss_test(y)
+    adf_t, kpss_t = adf_test(y, trend=True), kpss_test(y, trend=True)
+    if "statistic" not in adf_c or "statistic" not in kpss_c:
+        return {"verdict": "insufficient data", "adf": adf_c, "kpss": kpss_c}
+    if adf_c["reject_unit_root"] and not kpss_c["reject_stationarity"]:
+        verdict = "stationary"
+    elif adf_t.get("reject_unit_root") and not kpss_t.get("reject_stationarity", True):
+        verdict = "trend-stationary"
+    elif not adf_c["reject_unit_root"] and kpss_c["reject_stationarity"]:
+        verdict = "unit root"
+    else:
+        verdict = "inconclusive"
+    return {"verdict": verdict, "adf": adf_c, "kpss": kpss_c, "adf_trend": adf_t, "kpss_trend": kpss_t,
+            "stationary": verdict == "stationary"}
+
+
+def mann_kendall(y: np.ndarray, alpha: float = 0.05, max_n: int = 5_000) -> dict[str, Any]:
+    """Mann-Kendall trend test with the Hamed & Rao (1998) correction for autocorrelation, and the
+    Sen (Theil) slope. Without the correction, autocorrelated series give far too small p-values."""
+    v = np.asarray(y, dtype="float64")
+    v = v[np.isfinite(v)][-max_n:]
+    n = len(v)
+    if n < 10 or np.ptp(v) == 0:
+        return {"n": n, "trend": "none", "p_value": np.nan}
+    s = 0.0
+    for i in range(n - 1):  # S = sum of sign(x_j - x_i), j > i (O(n^2), vectorised by row)
+        s += np.sign(v[i + 1:] - v[i]).sum()
+    _, ties = np.unique(v, return_counts=True)
+    var_s = (n * (n - 1) * (2 * n + 5) - np.sum(ties * (ties - 1) * (2 * ties + 5))) / 18.0
+    idx = np.arange(n, dtype="float64")
+    with quiet():
+        slope = float(stats.theilslopes(v, idx)[0]) if n <= 2_000 else float(stats.theilslopes(v[::n // 2_000 + 1],
+                                                                                              idx[::n // 2_000 + 1])[0])
+    ranks = stats.rankdata(v - slope * idx)
+    r = acf(ranks, min(n - 2, max(1, n // 3)))[1:]
+    bound = stats.norm.ppf(1 - alpha / 2) / np.sqrt(n)
+    k = np.arange(1, len(r) + 1)
+    sig = np.abs(r) > bound
+    factor = 1 + 2 / (n * (n - 1) * (n - 2)) * np.sum(((n - k) * (n - k - 1) * (n - k - 2) * r)[sig])
+    factor = max(factor, 1.0)  # never claim more information than independent data
+    def z_of(var: float) -> float:
+        return (s - np.sign(s)) / np.sqrt(var) if var > 0 and s != 0 else 0.0
+    z, z_naive = z_of(var_s * factor), z_of(var_s)
+    p = float(2 * stats.norm.sf(abs(z)))
+    tau = s / (n * (n - 1) / 2)
+    return {"n": n, "tau": float(tau), "s": float(s), "slope": slope, "z": float(z), "p_value": p,
+            "p_value_naive": float(2 * stats.norm.sf(abs(z_naive))), "variance_inflation": float(factor),
+            "trend": "increasing" if p < alpha and s > 0 else "decreasing" if p < alpha and s < 0 else "none"}
 
 
 def acf(y: np.ndarray, max_lag: int) -> np.ndarray:
@@ -203,50 +285,135 @@ def _strength(part: np.ndarray, resid: np.ndarray) -> float:
     return float(max(0.0, 1 - np.var(resid[ok]) / den)) if den > 0 else 0.0
 
 
+def bartlett_se(r: np.ndarray, n: int) -> np.ndarray:
+    """Standard error of each autocorrelation under H0 "no correlation beyond lag k - 1" (Bartlett):
+    sqrt((1 + 2 sum_{j<k} r_j^2) / n). The white-noise band 1.96 / sqrt(n) is its lag-1 case."""
+    cum = np.concatenate([[0.0, 0.0], np.cumsum(r[1:-1] ** 2)])[:len(r)]  # sum over lags 1 .. k - 1
+    return np.sqrt((1 + 2 * cum) / n)
+
+
 def analyze_series(y: pd.Series, frequency: str, cfg: StoneConfig) -> dict[str, Any]:
-    """Trend, stationarity, autocorrelation and seasonality of one regularly spaced series."""
-    v = y.astype("float64").interpolate(limit_direction="both").to_numpy()
+    """Trend, stationarity, autocorrelation and seasonality of one regularly spaced series.
+
+    - trend: Mann-Kendall with the Hamed-Rao autocorrelation correction, Sen slope;
+    - stationarity: ADF and KPSS, with and without a linear trend, read together;
+    - seasonality: a candidate period is screened on the autocorrelation of the linearly detrended
+      series (a peak above the white-noise band at a period natural to the sampling frequency, a dip
+      before it, two full cycles), then kept when the seasonal strength of a classical decomposition
+      reaches 0.25. The decision rests on this effect size: a significance test of seasonality
+      would itself be invalidated by the autocorrelation;
+    - stationarity is then tested on the seasonally adjusted series.
+    """
+    raw = y.astype("float64")
+    n_gaps = int(raw.isna().sum())
+    v = raw.interpolate(limit_direction="both").to_numpy()
     n = len(v)
-    out: dict[str, Any] = {"n": n}
+    out: dict[str, Any] = {"n": n, "n_interpolated": n_gaps}
     if n < 12 or np.nanstd(v) == 0:
         out["verdict"] = "too short or constant"
         return out
+    mk = mann_kendall(v, cfg.alpha)
+    out.update(mann_kendall=mk, trend=mk["trend"], trend_tau=mk.get("tau"), trend_p=mk.get("p_value"),
+               trend_slope=mk.get("slope"))
     idx = np.arange(n)
-    with quiet():
-        tau, p = stats.kendalltau(idx[-20_000:], v[-20_000:])
-        step = max(1, n // 3_000)
-        slope = stats.theilslopes(v[::step], idx[::step])[0]
-    out.update(trend_tau=float(tau), trend_p=float(p), trend_slope=float(slope),
-               trend="increasing" if p < cfg.alpha and tau > 0 else "decreasing" if p < cfg.alpha and tau < 0 else "none")
-    out["adf"] = adf_test(v)
     candidates = [c for c in _PERIODS.get(frequency, []) if 2 <= c <= n // 2]
     max_lag = int(min(n // 2, max(candidates + [40]) * 1.2))
     r = acf(v, max_lag)
     out["acf"] = r
     out["acf_lag1"] = float(r[1]) if len(r) > 1 else None
-    band = 1.96 / np.sqrt(n)
-    out["acf_band"] = band
-    period, best = None, 0.0
+    out["acf_band"] = 1.96 / np.sqrt(n)
+    out["acf_se"] = bartlett_se(r, n)  # the band drawn on the autocorrelation chart
     detr = acf(v - np.polyval(np.polyfit(idx, v, 1), idx), max_lag)  # a trend would inflate every lag
-    for c in candidates:
+    white = 1.96 / np.sqrt(n)
+    period, best, parts = None, 0.0, None
+    for c in candidates:  # screening: a peak at a natural period, and a real cycle (a dip before it)
         w = max(1, c // 20)
-        if c + w >= len(detr):
+        if c + w >= len(detr) or n < 2 * c:
             continue
         peak = float(detr[c - w:c + w + 1].max())
-        dip = float(detr[max(1, c // 2):c].min())  # a real cycle dips between lag 0 and its period
-        if peak > max(best, band) and peak - dip >= 0.15:
-            period, best = c, peak
+        dip = float(detr[max(1, c // 2):c].min())
+        if peak > max(best, white) and peak - dip >= 0.15:
+            trial = decompose(v, c)
+            strength = _strength(trial["seasonal"], trial["resid"])
+            if strength >= SEASONAL_STRENGTH_MIN:  # decision on the effect size
+                period, best, parts = c, peak, trial
     out["period"] = period
     if period:
-        parts = decompose(v, period)
+        out["seasonal_acf"] = best
         out["seasonal_strength"] = _strength(parts["seasonal"], parts["resid"])
         out["trend_strength"] = _strength(parts["trend"], parts["resid"])
         out["decomposition"] = parts
         out["seasonality"] = "strong" if out["seasonal_strength"] >= 0.6 else "moderate" \
-            if out["seasonal_strength"] >= 0.3 else "weak"
+            if out["seasonal_strength"] >= 0.4 else "weak"
+        adjusted = v - parts["seasonal"]  # unit-root tests assume no seasonal pattern left
     else:
         out["seasonality"] = "none detected"
+        adjusted = v
+    st = stationarity(adjusted)
+    st["seasonally_adjusted"] = period is not None
+    out["stationarity"] = st
+    out["adf"] = st.get("adf", {})
     return out
+
+
+def panel_summary(df: pd.DataFrame, time: pd.Series, entity: str, values: list[str], types: dict[str, str],
+                  frequency: str, cfg: StoneConfig, max_entities: int = 200) -> dict[str, Any]:
+    """Per-entity analysis of a panel: each entity's own series, then the share of entities with a
+    significant trend (Benjamini-Hochberg over the entities), stationarity verdicts, seasonality.
+
+    A mean across entities would mix the entities' dynamics with the change in which entities are
+    present; per-entity statistics do not.
+    """
+    from .correlations import bh_adjust
+
+    frame = pd.DataFrame({"t": time, "e": hashable(df[entity])})
+    for c in values:
+        frame[c] = as_numeric(df[c], types[c])
+    frame = frame.dropna(subset=["t", "e"])
+    ents = frame["e"].unique()
+    rng = np.random.default_rng(cfg.random_state)
+    chosen = rng.choice(ents, size=min(len(ents), max_entities), replace=False)
+    out: dict[str, Any] = {"n_entities": int(len(ents)), "n_analysed": int(len(chosen)), "per_value": {}}
+    lengths = frame.groupby("e").size()
+    out["length"] = {"median": float(lengths.median()), "min": int(lengths.min()), "max": int(lengths.max())}
+    for c in values:
+        rows = []
+        for e in chosen:
+            ys = frame.loc[frame["e"] == e].sort_values("t")[c].dropna().to_numpy()
+            if len(ys) < 12 or np.ptp(ys) == 0:
+                continue
+            mk = mann_kendall(ys, cfg.alpha)
+            st = stationarity(ys) if len(ys) >= 20 else {"verdict": "insufficient data"}
+            r = acf(ys, 1)
+            rows.append({"p": mk["p_value"], "s": mk.get("s", 0.0), "verdict": st["verdict"],
+                         "lag1": float(r[1]) if len(r) > 1 else np.nan})
+        if not rows:
+            continue
+        t = pd.DataFrame(rows)
+        t["p_adj"] = bh_adjust(t["p"])
+        sig = t["p_adj"] < cfg.alpha
+        out["per_value"][c] = {
+            "n_series": int(len(t)),
+            "pct_increasing": 100.0 * float((sig & (t["s"] > 0)).mean()),
+            "pct_decreasing": 100.0 * float((sig & (t["s"] < 0)).mean()),
+            "stationarity": {k: 100.0 * v for k, v in t["verdict"].value_counts(normalize=True).items()},
+            "median_lag1": float(t["lag1"].median()),
+        }
+    return out
+
+
+def _trim_edges(series: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp, freq: str) -> tuple[pd.DataFrame, int]:
+    """Drop the first / last period when the data only covers part of it (their counts are biased low)."""
+    if len(series) < 3:
+        return series, 0
+    off = pd.tseries.frequencies.to_offset(_PANDAS_FREQ[freq])
+    first, last = series.index[0], series.index[-1]
+    drop = []
+    if start > first + (first + off - first) * 0.1:
+        drop.append(first)
+    if end < last + (last + off - last) * 0.9:
+        drop.append(last)
+    return series.drop(index=drop), len(drop)
 
 
 # ------------------------------------------------------------------------------------------- treatment
@@ -306,10 +473,22 @@ def treatment(info: dict[str, Any], main: dict[str, Any], n_steps: int) -> list[
                                                  "never across them",
                       "code": f"df = df.sort_values([{e!r}, {t!r}])\n"
                               f"df['lag_1'] = df.groupby({e!r})['<value>'].shift(1)"})
-    adf = main.get("adf") or {}
-    if adf.get("stationary") is False:
-        steps.append({"step": "Stationarity", "advice": "unit root (ADF): model the differences, or detrend",
+    verdict = (main.get("stationarity") or {}).get("verdict")
+    if verdict == "unit root":
+        steps.append({"step": "Stationarity", "advice": "unit root (ADF does not reject it, KPSS rejects stationarity): "
+                                                        "model the first differences",
                       "code": "df['<value>_diff'] = df['<value>'].diff()"})
+    elif verdict == "trend-stationary":
+        steps.append({"step": "Stationarity", "advice": "stationary around a linear trend (ADF and KPSS with a trend "
+                                                        "agree): remove the trend, do not difference (that would add "
+                                                        "noise)",
+                      "code": "t = np.arange(len(df))\ndf['<value>_detrended'] = df['<value>'] - "
+                              "np.polyval(np.polyfit(t, df['<value>'], 1), t)"})
+    elif verdict == "inconclusive":
+        steps.append({"step": "Stationarity", "advice": "ADF and KPSS disagree (both reject, or neither): a structural "
+                                                        "break, changing variance or long memory; compare models on "
+                                                        "levels and on differences",
+                      "code": "df['<value>_diff'] = df['<value>'].diff()  # try both versions in validation"})
     if period and main.get("seasonal_strength", 0) >= 0.3:
         steps.append({"step": "Seasonality", "advice": f"{main['seasonality']} seasonality of period {period} "
                                                        f"(strength {main['seasonal_strength']:.2f}): seasonal "
@@ -343,41 +522,84 @@ def treatment(info: dict[str, Any], main: dict[str, Any], n_steps: int) -> list[
     return steps
 
 
-def timeseries(df: pd.DataFrame, types: dict[str, str], target: str | None, cfg: StoneConfig) -> dict[str, Any] | None:
-    """Detect the time structure, then analyse the main series and propose its treatment."""
-    info = detect(df, types)
+def _value_columns(df: pd.DataFrame, info: dict[str, Any], types: dict[str, str], target: str | None) -> list[str]:
+    """The numeric columns worth following in time (the target first), at most six."""
+    t = info["time_column"]
+    numeric = [c for c in df.columns if c not in t.split(" + ") and c != info.get("entity")
+               and (types.get(c) in NUMERIC_TYPES or types.get(c) == "numeric_string")]
+    def spread(c: str) -> float:
+        x = as_numeric(df[c], types[c])
+        return -float(x.std() / (abs(x.mean()) + 1e-12))
+    return (([target] if target in numeric else []) + sorted([c for c in numeric if c != target], key=spread))[:6]
+
+
+def finest_unit(frequency: str, start: pd.Timestamp, end: pd.Timestamp, max_periods: int = 200_000) -> str:
+    """The sampling frequency itself, or the finest coarser unit that keeps at most ``max_periods``."""
+    span = max((end - start).total_seconds(), 1.0)
+    names = [u for _, u in _STEP_SECONDS]
+    for s, u in _STEP_SECONDS[names.index(frequency) if frequency in names else 0:]:
+        if span / s <= max_periods:
+            return u
+    return "year"
+
+
+def aggregation_unit(start: pd.Timestamp, end: pd.Timestamp) -> str:
+    """The calendar unit that turns events into a series of 30 to 400 periods."""
+    span = (end - start).total_seconds()
+    return next((u for s, u in _STEP_SECONDS if 30 <= span / s <= 400), "day")
+
+
+def timeseries(df: pd.DataFrame, types: dict[str, str], target: str | None, cfg: StoneConfig,
+               exact: dict[str, Any] | None = None, info: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    """Detect the time structure, then analyse the series and propose its treatment.
+
+    ``exact``: for a table streamed in chunks, the series aggregated per period over every row
+    (``{"series": frame, "unit": ...}``). Temporal statistics are then computed on it, never on a
+    thinned random sample (thinning destroys autocorrelation); ``df`` is only used for the
+    per-entity analysis of a panel (whole entities drawn at random).
+    """
+    info = dict(info) if info is not None else detect(df, types)
     if info is None:
         return None
     t = info["time_column"]
-    time = _time_columns(df, types)[t]
-    if getattr(time.dt, "tz", None) is not None:
-        time = time.dt.tz_convert(None)
-    numeric = [c for c in df.columns if c not in t.split(" + ") and c != info.get("entity")
-               and (types.get(c) in NUMERIC_TYPES or types.get(c) == "numeric_string")]
-    values = ([target] if target in numeric else []) + sorted(
-        [c for c in numeric if c != target],
-        key=lambda c: -float(as_numeric(df[c], types[c]).std() / (abs(as_numeric(df[c], types[c]).mean()) + 1e-12)))
-    values = values[:6]
-    frame = pd.DataFrame({c: as_numeric(df[c], types[c]) for c in values}, index=df.index)
-    frame.insert(0, "__time", time)
-    frame = frame.dropna(subset=["__time"]).sort_values("__time")
+    values = _value_columns(df, info, types, target)
     freq = info["frequency"]
-    if info["kind"] == "event log":
-        span = (info["end"] - info["start"]).total_seconds()
-        unit = next((u for s, u in _STEP_SECONDS if span / s <= 400 and span / s >= 30), "day")
-        info["aggregated_to"] = unit
-        grouped = frame.set_index("__time").resample(_PANDAS_FREQ[unit])
-        series = grouped.mean() if values else pd.DataFrame(index=grouped.size().index)
-        series["rows"] = grouped.size()
-        values = ["rows"] + values
-        freq = unit
-    elif info["kind"] == "panel":
-        series = frame.groupby("__time")[values].mean() if values else frame.groupby("__time").size().to_frame("rows")
-        if not values:
-            values = ["rows"]
+    if exact is not None:
+        series = exact["series"].copy()
+        freq = exact["unit"]
+        if info["kind"] == "event log":
+            info["aggregated_to"] = freq
+        values = [c for c in ["rows"] + values if c in series] if info["kind"] == "event log" else \
+            [c for c in values if c in series] or ["rows"]
+        info["exact"] = True
+        info["entity_fraction"] = exact.get("entity_fraction")
+        if len(series):  # the true range, over every row (the detection only saw part of the table)
+            info["start"], info["end"] = series.index.min(), series.index.max()
     else:
-        series = frame.drop_duplicates("__time").set_index("__time")[values]
-    if info["kind"] != "event log" and info["regularity"] >= 0.8:
+        time = _time_columns(df, types)[t]
+        if getattr(time.dt, "tz", None) is not None:
+            time = time.dt.tz_convert(None)
+        frame = pd.DataFrame({c: as_numeric(df[c], types[c]) for c in values}, index=df.index)
+        frame.insert(0, "__time", time)
+        frame = frame.dropna(subset=["__time"]).sort_values("__time")
+        if info["kind"] == "event log":
+            freq = aggregation_unit(info["start"], info["end"])
+            info["aggregated_to"] = freq
+            grouped = frame.set_index("__time").resample(_PANDAS_FREQ[freq])
+            series = grouped.mean() if values else pd.DataFrame(index=grouped.size().index)
+            series["rows"] = grouped.size()
+            values = ["rows"] + values
+        elif info["kind"] == "panel":
+            grouped = frame.groupby("__time")
+            series = grouped[values].mean() if values else grouped.size().to_frame("rows")
+            series["active entities"] = frame.assign(e=hashable(df[info["entity"]])).groupby("__time")["e"].nunique()
+            values = values or ["rows"]
+        else:
+            series = frame.drop_duplicates("__time").set_index("__time")[values]
+        info["exact"] = True  # every row was used
+    if info["kind"] == "event log":
+        series, info["n_trimmed_periods"] = _trim_edges(series, info["start"], info["end"], freq)
+    if info["kind"] != "event log" and info["regularity"] >= 0.8 and exact is None:
         try:
             full = series.asfreq(_PANDAS_FREQ[freq]) if freq not in ("month", "quarter", "year") else series
             info["n_missing_steps"] = int(len(full) - len(series)) if len(full) >= len(series) else 0
@@ -399,10 +621,18 @@ def timeseries(df: pd.DataFrame, types: dict[str, str], target: str | None, cfg:
     analyses = {c: analyses[c] for c in values}
     main_col = values[0] if values else None
     main = analyses.get(main_col, {}) if main_col else {}
+    if info["kind"] == "panel" and info.get("entity") in df.columns:
+        try:
+            time = _time_columns(df, types)[t]
+            info["panel"] = panel_summary(df, time, info["entity"], [v for v in values if v in df.columns], types,
+                                          freq, cfg)
+        except Exception:  # noqa: BLE001 - the per-entity summary is a complement, never a blocker
+            info["panel"] = None
     info.update(series=series, values=values, main=main_col, analyses=analyses, n_steps=len(series),
-                folds=_splits(series.index.to_series(), len(series), main.get("period")),
+                frequency_analysed=freq, folds=_splits(series.index.to_series(), len(series), main.get("period")),
                 treatment=treatment(info, main, len(series)))
     return info
 
 
-__all__ = ["acf", "adf_test", "analyze_series", "decompose", "detect", "timeseries"]
+__all__ = ["acf", "adf_test", "aggregation_unit", "analyze_series", "bartlett_se", "decompose", "detect",
+           "kpss_test", "mann_kendall", "panel_summary", "stationarity", "timeseries"]
