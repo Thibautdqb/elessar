@@ -43,8 +43,9 @@ class StoneConfig:
     values, min/max/mean/std, distinct counts and duplicate rows stay exact over every row."""
     chunk_rows: int = 250_000
     """Rows per chunk when a file is streamed (files too big to profile in one piece)."""
-    max_hashed_rows: int = 30_000_000
-    """Duplicate rows are counted exactly up to this many rows (8 bytes of memory per row)."""
+    max_hashed_rows: int | None = None
+    """Duplicate rows are counted exactly up to this many rows (16 bytes of memory per row); None = as
+    many as a quarter of the available memory allows."""
     memory_fraction: float = 0.5
     """Share of the available RAM a table may take once loaded; bigger files are streamed."""
 

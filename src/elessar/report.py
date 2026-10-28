@@ -208,7 +208,7 @@ class Vision:
                 ("borderline", ", ".join(map(str, sel["borderline"])) or "-"),
                 ("drop", ", ".join(map(str, sel["drop"])) or "-")]
         if sel.get("excluded_leaks"):
-            rows.append(("leakage suspects", ", ".join(sel["excluded_leaks"])))
+            rows.append(("set aside", "leakage suspects: " + ", ".join(sel["excluded_leaks"])))
         return self._wrap(rows, w)
 
     def _timeseries_lines(self, w: int) -> list[str]:
@@ -271,7 +271,7 @@ class Vision:
             ("memory", fmt_bytes(o["memory_bytes"]) + (f"  (suggested dtypes save ~{fmt_bytes(saving)})" if saving else "")),
             ("pandas dtypes", _kv(o["pandas_dtypes"])),
             ("semantic types", _kv(o["semantic_types"])),
-            ("duplicate rows", f"{o['n_duplicate_rows']:,} ({o['pct_duplicate_rows']:.1f}%)"),
+            ("duplicate rows", o.get("duplicates_text") or f"{o['n_duplicate_rows']:,} ({o['pct_duplicate_rows']:.1f}%)"),
             ("missing cells", f"{o['pct_missing_cells']:.1f}%  ({o['n_rows_with_missing']:,} rows with at least one)"),
         ]
         if self.target:
@@ -451,7 +451,7 @@ def _overview_md(o: dict[str, Any]) -> dict[str, str]:
         "potential saving": fmt_bytes(o.get("potential_saving_bytes") or 0),
         "pandas dtypes": _kv(o["pandas_dtypes"], 50),
         "semantic types": _kv(o["semantic_types"], 50),
-        "duplicate rows": f"{o['n_duplicate_rows']:,} ({o['pct_duplicate_rows']:.1f}%)",
+        "duplicate rows": o.get("duplicates_text") or f"{o['n_duplicate_rows']:,} ({o['pct_duplicate_rows']:.1f}%)",
         "missing cells": f"{o['pct_missing_cells']:.1f}%",
         **({"target": o["target"]} if o.get("target") else {}),
     }

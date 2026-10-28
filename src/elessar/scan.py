@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 from ._utils import dedupe_names, hashable, quiet
+from .types import _HINT_ID as ID_NAME
 
 KMV_K = 4096
 VALUE_COUNT_CAP = 1000
@@ -54,6 +55,8 @@ class Part:
     keys: np.ndarray = field(default_factory=lambda: np.empty(0))
     chunk_rows: dict[int, int] = field(default_factory=dict)
     row_hashes: list[np.ndarray] | None = field(default_factory=list)
+    key_hashes: list[np.ndarray] | None = None  # rows without their identifier columns
+    id_columns: list[str] = field(default_factory=list)
     n_hashed: int = 0
 
 
@@ -87,6 +90,13 @@ def _numeric_values(s: pd.Series) -> np.ndarray | None:
     return None
 
 
+def _unique(s: pd.Series) -> bool:
+    try:
+        return bool(s.notna().sum() > 0 and hashable(s).nunique() == s.notna().sum())
+    except TypeError:
+        return False
+
+
 def reduce_chunk(chunk: pd.DataFrame, chunk_id: int, k: int, seed: int = 42, hash_rows: bool = True,
                  max_key: float | None = None) -> Part:
     """Summarise chunk number ``chunk_id`` (chunks are numbered in table order, from 0).
@@ -97,6 +107,9 @@ def reduce_chunk(chunk: pd.DataFrame, chunk_id: int, k: int, seed: int = 42, has
     part = Part(n_rows=len(chunk), chunk_rows={chunk_id: len(chunk)})
     chunk = chunk.set_axis(dedupe_names(list(chunk.columns)), axis=1)
     row_hash: np.ndarray | None = None
+    key_hash: np.ndarray | None = None
+    # row identifiers: an id-like name and one value per row (a repeated account number is a grouping key)
+    ids = [c for c in chunk.columns if ID_NAME.search(str(c)) and _unique(chunk[c])]
     with quiet():
         for name in chunk.columns:
             s = chunk[name]
@@ -121,6 +134,8 @@ def reduce_chunk(chunk: pd.DataFrame, chunk_id: int, k: int, seed: int = 42, has
                 col.min, col.max = s.min(), s.max()
             hashed = _hash(s)
             row_hash = hashed if row_hash is None else (row_hash * _MIX) ^ hashed
+            if name not in ids:
+                key_hash = hashed if key_hash is None else (key_hash * _MIX) ^ hashed
             present = notna.to_numpy()
             if present.any():
                 distinct = np.sort(pd.unique(hashed[present]))
@@ -130,6 +145,8 @@ def reduce_chunk(chunk: pd.DataFrame, chunk_id: int, k: int, seed: int = 42, has
         if hash_rows and row_hash is not None:
             part.row_hashes = [row_hash]
             part.n_hashed = len(chunk)
+            if ids and key_hash is not None:
+                part.key_hashes, part.id_columns = [key_hash], ids
         else:
             part.row_hashes = None
     rng = np.random.default_rng([seed, chunk_id])
@@ -199,6 +216,8 @@ def merge(a: Part, b: Part, k: int, max_hashed_rows: int) -> Part:
     if a.row_hashes is not None and b.row_hashes is not None and a.n_hashed + b.n_hashed <= max_hashed_rows:
         out.row_hashes = a.row_hashes + b.row_hashes
         out.n_hashed = a.n_hashed + b.n_hashed
+        if a.key_hashes is not None and b.key_hashes is not None and a.id_columns == b.id_columns:
+            out.key_hashes, out.id_columns = a.key_hashes + b.key_hashes, a.id_columns
     else:
         out.row_hashes = None
     return out
@@ -241,6 +260,11 @@ def finalize(part: Part, n_chunks: int = 0, engine: str = "") -> FullScan:
         hashes = np.sort(hashes)
         n_dup = int((hashes[1:] == hashes[:-1]).sum())  # rows equal to an earlier row
         dup = {"count": n_dup, "pct": 100.0 * n_dup / n if n else 0.0}
+        if part.key_hashes:
+            keys = np.sort(np.concatenate(part.key_hashes))
+            n_key = int((keys[1:] == keys[:-1]).sum())
+            dup.update(count_ignoring_ids=n_key, pct_ignoring_ids=100.0 * n_key / n if n else 0.0,
+                       id_columns=part.id_columns)
     sample = part.sample if part.sample is not None else pd.DataFrame()
     if len(sample):
         sizes = np.zeros(max(part.chunk_rows) + 1, dtype="int64")

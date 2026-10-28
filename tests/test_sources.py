@@ -158,3 +158,24 @@ def test_see_takes_a_path_and_reports_the_sample(frame: pd.DataFrame, tmp_path: 
     assert any(a.get("kind") == "sampled" for a in v.alerts)
     html = v.recap["html"].read_text()
     assert "Exact figures over all" in html and "Sampled profile" in html
+
+
+def test_duplicates_ignoring_identifiers_exact_and_in_sample(tmp_path: Path) -> None:
+    rng = np.random.default_rng(9)
+    base = pd.DataFrame({"amount": rng.normal(0, 1000, 3000).round(2), "account": rng.integers(0, 50, 3000)})
+    copies = base.sample(150, random_state=1)
+    df = pd.concat([base, copies], ignore_index=True)
+    df.insert(0, "trans_id", rng.permutation(len(df)) + 10_000)  # every row has its own id
+    path = tmp_path / "trans.csv"
+    df.to_csv(path, index=False)
+    small = see(path, plots=False, verbose=False)
+    dr = small.quality["duplicate_rows"]
+    assert dr["count"] == 0 and dr["count_ignoring_ids"] == 150 and dr["id_columns"] == ["trans_id"]
+    assert any(a.get("kind") == "duplicates_ids" for a in small.alerts)
+    big = see(path, plots=False, verbose=False, config=StoneConfig(max_rows=1_000, chunk_rows=700))
+    dr = big.quality["duplicate_rows"]
+    assert big.full is not None and dr["exact_over_all_rows"] and dr["count_ignoring_ids"] == 150
+    assert "ignoring trans_id" in big.overview["duplicates_text"]
+    capped = see(path, plots=False, verbose=False, config=StoneConfig(max_rows=1_000, chunk_rows=700, max_hashed_rows=1_000),
+                 engine="pandas")
+    assert capped.quality["duplicate_rows"].get("not_counted") and "in the sample" in capped.overview["duplicates_text"]

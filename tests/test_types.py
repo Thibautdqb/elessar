@@ -172,3 +172,13 @@ def test_identifier_name_hints() -> None:
     info = infer_type(volcano)
     assert info["semantic_type"] == "categorical" and "identifier" in info["reason"]
     assert infer_type(pd.Series(rng.integers(0, 9, 500), name="number"))["semantic_type"] != "categorical"
+
+
+def test_account_numbers_are_identifiers_not_amounts() -> None:
+    from elessar import see_types
+
+    rng = np.random.default_rng(3)
+    df = pd.DataFrame({"account": rng.choice(rng.integers(10_000_000, 99_999_999, 300), 2000).astype(float),
+                       "amount": rng.lognormal(5, 1, 2000)})
+    t = see_types(df)["semantic_type"]
+    assert t["account"] in ("id", "categorical") and t["amount"] == "numeric_continuous"

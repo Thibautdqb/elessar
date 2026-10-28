@@ -66,16 +66,31 @@ def _hashable_frame(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame({c: hashable(df[c]) for c in df.columns}, index=df.index)
 
 
-def duplicate_rows(df: pd.DataFrame) -> dict[str, Any]:
-    """Count of fully duplicated rows (beyond the first occurrence) and example indices."""
+def _duplicated(df: pd.DataFrame) -> pd.Series:
+    try:
+        return _hashable_frame(df).duplicated(keep="first")
+    except TypeError:  # values that hash but do not compare (e.g. mixed exotic objects)
+        return _hashable_frame(df).astype(str).duplicated(keep="first")
+
+
+def duplicate_rows(df: pd.DataFrame, id_columns: list[str] | None = None) -> dict[str, Any]:
+    """Count of fully duplicated rows (beyond the first occurrence) and example indices.
+
+    With ``id_columns``, also the rows that only differ by their identifiers: the same record
+    entered twice under two ids, which a plain duplicate check never sees.
+    """
     if df.empty or df.shape[1] == 0:
         return {"count": 0, "pct": 0.0, "example_indices": []}
-    try:
-        dup = _hashable_frame(df).duplicated(keep="first")
-    except TypeError:  # values that hash but do not compare (e.g. mixed exotic objects)
-        dup = _hashable_frame(df).astype(str).duplicated(keep="first")
+    dup = _duplicated(df)
     n = int(dup.sum())
-    return {"count": n, "pct": 100.0 * n / len(df), "example_indices": [_idx(i) for i in df.index[dup][:10]]}
+    out = {"count": n, "pct": 100.0 * n / len(df), "example_indices": [_idx(i) for i in df.index[dup][:10]]}
+    ids = [c for c in (id_columns or []) if c in df.columns]
+    if ids and len(ids) < df.shape[1]:
+        key = _duplicated(df.drop(columns=ids))
+        n_key = int(key.sum())
+        out.update(count_ignoring_ids=n_key, pct_ignoring_ids=100.0 * n_key / len(df), id_columns=ids,
+                   examples_ignoring_ids=[_idx(i) for i in df.index[key & ~dup][:10]])
+    return out
 
 
 def _idx(i: Any) -> Any:
@@ -214,7 +229,10 @@ def dtype_optimization(s: pd.Series, stype: str) -> dict[str, Any] | None:
     col = repr(str(s.name))
     suggestion = None
     with quiet():
-        if pd.api.types.is_integer_dtype(s.dtype) and not pd.api.types.is_bool_dtype(s.dtype) and s.notna().all():
+        if stype == "datetime_string":  # dates stored as text or as numbers: a datetime column, not a smaller int
+            new = as_datetime(s)
+            suggestion = ("datetime64", new, f"df[{col}] = elessar.parse_dates(df[{col}])")
+        elif pd.api.types.is_integer_dtype(s.dtype) and not pd.api.types.is_bool_dtype(s.dtype) and s.notna().all():
             kind = "unsigned" if len(s) and s.min() >= 0 else "integer"
             new = pd.to_numeric(s, downcast=kind)
             if new.dtype != s.dtype:
@@ -231,9 +249,6 @@ def dtype_optimization(s: pd.Series, stype: str) -> dict[str, Any] | None:
         elif is_text_dtype(s) and stype == "numeric_string":
             new = as_numeric(s)
             suggestion = ("float64", new, f"df[{col}] = elessar.types.parse_numeric(df[{col}])")
-        elif stype == "datetime_string":
-            new = as_datetime(s)
-            suggestion = ("datetime64", new, f"df[{col}] = elessar.parse_dates(df[{col}])")
     if suggestion is None:
         return None
     dtype, new, code = suggestion
@@ -321,7 +336,7 @@ def check_quality(
     """
     cfg = config or StoneConfig()
     out: dict[str, Any] = {
-        "duplicate_rows": duplicate_rows(df),
+        "duplicate_rows": duplicate_rows(df, [c for c, info in types.items() if info.get("semantic_type") == "id"]),
         "duplicate_columns": duplicate_columns(df),
         "empty_columns": [],
         "constant_columns": [],
@@ -360,7 +375,12 @@ def check_quality(
         if "dtype_optimization" in found:
             out["dtype_optimizations"].append(found["dtype_optimization"])
     if exact_duplicates is not None:
-        out["duplicate_rows"] = {**out["duplicate_rows"], **exact_duplicates, "exact_over_all_rows": True}
+        sample = out["duplicate_rows"]
+        exact = {**exact_duplicates, "exact_over_all_rows": not exact_duplicates.get("not_counted")}
+        if "count_ignoring_ids" not in exact:  # the pass did not see identifier names: keep the sample's figure
+            exact.update({k: v for k, v in sample.items() if k.endswith("ignoring_ids") or k == "id_columns"})
+            exact["ignoring_ids_on_sample"] = "count_ignoring_ids" in sample
+        out["duplicate_rows"] = {**sample, **exact}
     out["memory_bytes"] = int(df.memory_usage(deep=True, index=True).sum()) if df.shape[1] else 0
     out["potential_saving_bytes"] = int(sum(o["saving_bytes"] for o in out["dtype_optimizations"]))
     out["alerts"] = sort_alerts(quality_alerts(out, cfg))
@@ -386,6 +406,21 @@ def quality_alerts(q: dict[str, Any], config: StoneConfig | None = None) -> list
         examples = f", e.g. index {dr['example_indices'][:3]}" if dr.get("example_indices") else ""
         alerts.append(alert("medium", None, f"{dr['count']:,} duplicate rows ({dr['pct']:.1f}%){examples} "
                             "-> df.drop_duplicates()"))
+    if dr.get("not_counted"):
+        alerts.append(alert("info", None, f"duplicate rows not counted over all rows (more rows than memory allows "
+                            f"hashing); {dr['count']:,} in the sample", kind="duplicates"))
+    extra = (dr.get("count_ignoring_ids") or 0) - dr["count"]
+    if extra > 0:
+        ids = dr.get("id_columns") or []
+        where = " in the sample" if dr.get("ignoring_ids_on_sample") else ""
+        ex = dr.get("examples_ignoring_ids") or []
+        alerts.append(alert("high" if dr["pct_ignoring_ids"] >= 1 else "medium", None,
+                            f"{dr['count_ignoring_ids']:,} rows ({dr['pct_ignoring_ids']:.1f}%){where} are duplicates once "
+                            f"the identifier column{'s' if len(ids) > 1 else ''} {', '.join(map(str, ids))} "
+                            f"{'are' if len(ids) > 1 else 'is'} ignored: the same record under several ids"
+                            + (f", e.g. index {ex[:3]}" if ex else "")
+                            + f" -> df.drop_duplicates(subset=[c for c in df.columns if c not in {ids!r}])",
+                            kind="duplicates_ids"))
     for group in q["duplicate_columns"]:
         for other in group[1:]:
             alerts.append(alert("medium", other, f"identical to column '{group[0]}' -> drop one of them"))
@@ -648,3 +683,15 @@ def _key_label(text: str) -> str:
     import unicodedata
 
     return " ".join(unicodedata.normalize("NFKD", str(text)).encode("ascii", "ignore").decode().lower().split())
+
+
+def duplicates_text(dr: dict[str, Any]) -> str:
+    """One line for the overview: exact count, the count ignoring identifiers, and where it was measured."""
+    text = f"{dr['count']:,} ({dr['pct']:.1f}%)"
+    if dr.get("not_counted"):
+        text += " in the sample (too many rows to hash them all)"
+    if dr.get("count_ignoring_ids", 0) > dr["count"]:
+        ids = ", ".join(map(str, dr.get("id_columns") or []))
+        text += (f"; {dr['count_ignoring_ids']:,} ({dr['pct_ignoring_ids']:.1f}%) ignoring {ids}"
+                 + (" (sample)" if dr.get("ignoring_ids_on_sample") else ""))
+    return text

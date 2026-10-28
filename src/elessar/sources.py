@@ -100,6 +100,11 @@ def available_memory() -> int:
         return 4 * 1024**3
 
 
+def hash_cap(cfg: StoneConfig) -> int:
+    """Rows whose hashes fit for exact duplicate counting (16 bytes per row, a quarter of free memory)."""
+    return int(cfg.max_hashed_rows) if cfg.max_hashed_rows else max(1_000_000, int(available_memory() * 0.25 / 16))
+
+
 def _is_url(text: str) -> bool:
     return urlparse(text).scheme in ("http", "https", "ftp", "s3", "gs", "gcs", "az", "abfs", "hf")
 
@@ -490,7 +495,7 @@ def scan_parallel(tasks: list[Callable[[], pd.DataFrame]], k: int, cfg: StoneCon
             raise LoadError(f"reading a chunk failed: {failed[0].error}")
         total = parts[0]
         for part in parts[1:]:
-            total = merge(total, part, k, cfg.max_hashed_rows)
+            total = merge(total, part, k, hash_cap(cfg))
         n_sample = 0 if total.sample is None else len(total.sample)
         if max_key is None or max_key >= 1.0 or n_sample >= min(k, total.n_rows):
             return finalize(total, len(tasks), engine if workers == 1 else f"{engine}, {workers} processes")
@@ -641,7 +646,7 @@ def _load_path(path: str, cfg: StoneConfig, opts: dict[str, Any], engine: str) -
                 full = None
         if full is None:
             chunks = (chunk for f in files for chunk in _chunk_iter(f, fmt, opts, cfg, info))
-            full = scan_chunks(chunks, cfg.max_rows, cfg.random_state, cfg.max_hashed_rows, "pandas chunks")
+            full = scan_chunks(chunks, cfg.max_rows, cfg.random_state, hash_cap(cfg), "pandas chunks")
         return _from_scan(full, name, info)
     frames = [_read_whole(f, fmt, opts, info) for f in files]
     with quiet():

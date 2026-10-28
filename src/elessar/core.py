@@ -21,7 +21,7 @@ from .distributions import _fmt_params, analyze_distribution, is_fittable
 from .parallel import TaskError, n_workers, run_tasks, shared
 from .picker import pick_target
 from .plots import make_plots
-from .quality import advanced_alerts, alert, check_quality, column_alerts, column_quality, correlation_alerts, group_alerts, row_order_alert, sort_alerts
+from .quality import advanced_alerts, alert, duplicates_text, check_quality, column_alerts, column_quality, correlation_alerts, group_alerts, row_order_alert, sort_alerts
 from . import recap
 from .report import Vision
 from .sources import describe_origin, load
@@ -221,6 +221,8 @@ def see(
     details, correlations, found = analyze(df, target, cfg, workers, timings)
     step = time.perf_counter()
     exact_dups = full.duplicate_rows if full is not None else None
+    if full is not None and exact_dups is None:  # too many rows to hash: say so instead of showing the sample's count
+        exact_dups = {"not_counted": True}
     quality = check_quality(df, details, correlations, cfg, target, found, exact_dups)
     alerts = list(quality["alerts"])
     for d in details.values():
@@ -311,6 +313,7 @@ def see(
                                                                  dtype=object).value_counts().items()},
         "n_duplicate_rows": quality["duplicate_rows"]["count"],
         "pct_duplicate_rows": quality["duplicate_rows"]["pct"],
+        "duplicates_text": duplicates_text(quality["duplicate_rows"]),
         "pct_missing_cells": pct_missing_cells,
         "n_rows_with_missing": int(df.isna().any(axis=1).sum()) if df.shape[1] else 0,
         "target": target,

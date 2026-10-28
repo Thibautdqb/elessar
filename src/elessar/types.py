@@ -70,7 +70,9 @@ _GROUPED_NUM = re.compile(r"[+-]?\d{1,3}(?P<sep>[ ,.'’])\d{3}(?:(?P=sep)\d{3})
 _COMMA_DEC = re.compile(r"[+-]?\d+,\d+")
 _CURRENCY = re.compile(r"[$€£¥₹]|\b(?:usd|eur|gbp)\b", re.I)
 
-_HINT_ID = re.compile(r"(^|[_\s.-])(id|uuid|guid|pk)($|[_\s.-])|^#$|_key$|^key_|_(number|code|no|num)$")
+_HINT_ID = re.compile(r"(^|[_\s.-])(id|uuid|guid|pk)($|[_\s.-])|^#$|_key$|^key_|_(number|code|no|num)$|"
+                      r"^(account|acct|iban|bic|swift|siren|siret|ean|isbn|sku|imei)(_?(no|num|number|to|from))?$|"
+                      r"_(account|acct|iban)$", re.I)
 _UNIT_NUM = re.compile(r"(?P<num>[+-]?\d[\d,.]*)(?P<space>\s*)(?P<unit>[°µ]?[^\W\d_][^\d]{0,14}?)\.?")
 _NOT_UNITS = frozenset({"st", "nd", "rd", "th", "e", "x"})  # ordinals, exponents, multipliers
 LIST_SEPARATORS: tuple[str, ...] = (", ", ",", "|", ";", " / ")
