@@ -1,0 +1,194 @@
+{
+  "overview": {
+    "n_rows": 7,
+    "n_columns": 1,
+    "n_rows_profiled": 7,
+    "sampled": false,
+    "memory_bytes": 1154,
+    "potential_saving_bytes": 553,
+    "pandas_dtypes": {
+      "object": 1
+    },
+    "semantic_types": {
+      "categorical": 1
+    },
+    "n_duplicate_rows": 5,
+    "pct_duplicate_rows": 71.42857142857143,
+    "pct_missing_cells": 0.0,
+    "n_rows_with_missing": 0,
+    "target": "pipe|name",
+    "source": "pandas.DataFrame · read in 0.0s",
+    "workers": 1,
+    "chart_workers": 0
+  },
+  "summary": [
+    {
+      "column": "pipe|name",
+      "semantic_type": "categorical",
+      "pandas_dtype": "object",
+      "count": 7,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 28.571428571428573,
+      "top_value": "2.25",
+      "top_pct": 57.142857142857146,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": 0.9852281360342515,
+      "memory_bytes": 784,
+      "n_alerts": 0,
+      "errors": null
+    }
+  ],
+  "columns": {
+    "pipe|name": {
+      "name": "pipe|name",
+      "errors": {},
+      "semantic_type": "categorical",
+      "pandas_dtype": "object",
+      "confidence": 0.5,
+      "reason": "Decimal objects, treated as labels",
+      "suggestions": [
+        {
+          "flag": "should-be-category",
+          "code": "df['pipe|name'] = df['pipe|name'].astype('category')"
+        }
+      ],
+      "stats": {
+        "count": 7,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 28.571428571428573,
+        "memory_bytes": 784,
+        "modes": [
+          "2.25"
+        ],
+        "mode_freq": 4,
+        "mode_pct": 57.142857142857146,
+        "top_values": [
+          {
+            "value": "2.25",
+            "count": 4,
+            "pct": 57.142857142857146
+          },
+          {
+            "value": "1.5",
+            "count": 3,
+            "pct": 42.857142857142854
+          }
+        ],
+        "cardinality": 2,
+        "entropy": 0.9852281360342515,
+        "normalized_entropy": 0.9852281360342515,
+        "gini_impurity": 0.48979591836734704,
+        "imbalance_ratio": 1.3333333333333333,
+        "n_rare_categories": 0,
+        "pct_rows_rare": 0.0,
+        "rare_categories": [],
+        "uniform_chi2_p": 0.7054569861112734,
+        "n_inconsistent_groups": 0,
+        "inconsistent_labels": []
+      },
+      "alerts": []
+    }
+  },
+  "correlations": {
+    "pairs": [],
+    "top_pairs": [],
+    "missingness": [],
+    "target": [],
+    "missing_target": []
+  },
+  "quality": {
+    "duplicate_rows": {
+      "count": 5,
+      "pct": 71.42857142857143,
+      "example_indices": [
+        "r1",
+        "r2",
+        "r4",
+        "r5",
+        "r6"
+      ]
+    },
+    "duplicate_columns": [],
+    "empty_columns": [],
+    "constant_columns": [],
+    "quasi_constant_columns": {},
+    "high_missing_columns": {},
+    "missing_patterns": {
+      "co_missing": [],
+      "n_rows_many_missing": 0,
+      "rows_many_missing_examples": [],
+      "top_patterns": []
+    },
+    "mixed_type_columns": {},
+    "whitespace_columns": {},
+    "placeholder_values": {},
+    "suspicious_values": {},
+    "id_columns": [],
+    "redundant_pairs": [],
+    "dtype_optimizations": [
+      {
+        "column": "pipe|name",
+        "current_dtype": "object",
+        "suggested_dtype": "category",
+        "current_bytes": 784,
+        "new_bytes": 231,
+        "saving_bytes": 553,
+        "saving_pct": 70.53571428571429,
+        "code": "df['pipe|name'] = df['pipe|name'].astype('category')"
+      }
+    ],
+    "conversion_suggestions": {
+      "pipe|name": [
+        {
+          "flag": "should-be-category",
+          "code": "df['pipe|name'] = df['pipe|name'].astype('category')"
+        }
+      ]
+    },
+    "memory_bytes": 1154,
+    "potential_saving_bytes": 553,
+    "alerts": [
+      {
+        "severity": "medium",
+        "column": null,
+        "message": "5 duplicate rows (71.4%), e.g. index ['r1', 'r2', 'r4'] -> df.drop_duplicates()",
+        "kind": null
+      },
+      {
+        "severity": "info",
+        "column": null,
+        "message": "dtype optimizations save ~553 B: pipe|name -> category (see quality['dtype_optimizations'] for code)",
+        "kind": null
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "severity": "medium",
+      "column": null,
+      "message": "5 duplicate rows (71.4%), e.g. index ['r1', 'r2', 'r4'] -> df.drop_duplicates()",
+      "kind": null
+    },
+    {
+      "severity": "info",
+      "column": null,
+      "message": "dtype optimizations save ~553 B: pipe|name -> category (see quality['dtype_optimizations'] for code)",
+      "kind": null
+    }
+  ],
+  "plots": []
+}

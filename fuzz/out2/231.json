@@ -1,0 +1,417 @@
+{
+  "overview": {
+    "n_rows": 1,
+    "n_columns": 5,
+    "n_rows_profiled": 1,
+    "sampled": false,
+    "memory_bytes": 269,
+    "potential_saving_bytes": 0,
+    "pandas_dtypes": {
+      "str": 1,
+      "Int64": 1,
+      "float64": 1,
+      "object": 1,
+      "timedelta64[us]": 1
+    },
+    "semantic_types": {
+      "constant": 3,
+      "empty": 2
+    },
+    "n_duplicate_rows": 0,
+    "pct_duplicate_rows": 0.0,
+    "pct_missing_cells": 40.0,
+    "n_rows_with_missing": 1,
+    "target": "1e5",
+    "source": "pandas.DataFrame · read in 0.0s",
+    "workers": 3,
+    "chart_workers": 0
+  },
+  "summary": [
+    {
+      "column": "1",
+      "semantic_type": "constant",
+      "pandas_dtype": "str",
+      "count": 1,
+      "pct_missing": 0.0,
+      "n_unique": 1,
+      "pct_unique": 100.0,
+      "top_value": "63.07%",
+      "top_pct": 100.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 14,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "1e5",
+      "semantic_type": "empty",
+      "pandas_dtype": "Int64",
+      "count": 0,
+      "pct_missing": 100.0,
+      "n_unique": 0,
+      "pct_unique": 0.0,
+      "top_value": null,
+      "top_pct": null,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 9,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "tab\tname",
+      "semantic_type": "empty",
+      "pandas_dtype": "float64",
+      "count": 0,
+      "pct_missing": 100.0,
+      "n_unique": 0,
+      "pct_unique": 0.0,
+      "top_value": null,
+      "top_pct": null,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 8,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "3.5",
+      "semantic_type": "constant",
+      "pandas_dtype": "object",
+      "count": 1,
+      "pct_missing": 0.0,
+      "n_unique": 1,
+      "pct_unique": 100.0,
+      "top_value": "2.25",
+      "top_pct": 100.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 112,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "-1",
+      "semantic_type": "constant",
+      "pandas_dtype": "timedelta64[us]",
+      "count": 1,
+      "pct_missing": 0.0,
+      "n_unique": 1,
+      "pct_unique": 100.0,
+      "top_value": "0 days 00:01:32",
+      "top_pct": 100.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 8,
+      "n_alerts": 0,
+      "errors": null
+    }
+  ],
+  "columns": {
+    "1": {
+      "name": "1",
+      "errors": {},
+      "semantic_type": "constant",
+      "pandas_dtype": "str",
+      "confidence": 1.0,
+      "reason": "single value: '63.07%'",
+      "suggestions": [],
+      "stats": {
+        "count": 1,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 1,
+        "pct_unique": 100.0,
+        "memory_bytes": 14,
+        "modes": [
+          "63.07%"
+        ],
+        "mode_freq": 1,
+        "mode_pct": 100.0,
+        "top_values": [
+          {
+            "value": "63.07%",
+            "count": 1,
+            "pct": 100.0
+          }
+        ]
+      },
+      "alerts": []
+    },
+    "1e5": {
+      "name": "1e5",
+      "errors": {},
+      "semantic_type": "empty",
+      "pandas_dtype": "Int64",
+      "confidence": 1.0,
+      "reason": "no non-missing values",
+      "suggestions": [],
+      "stats": {
+        "count": 0,
+        "n_missing": 1,
+        "pct_missing": 100.0,
+        "n_unique": 0,
+        "pct_unique": 0.0,
+        "memory_bytes": 9,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": []
+      },
+      "alerts": []
+    },
+    "tab\tname": {
+      "name": "tab\tname",
+      "errors": {},
+      "semantic_type": "empty",
+      "pandas_dtype": "float64",
+      "confidence": 1.0,
+      "reason": "no non-missing values",
+      "suggestions": [],
+      "stats": {
+        "count": 0,
+        "n_missing": 1,
+        "pct_missing": 100.0,
+        "n_unique": 0,
+        "pct_unique": 0.0,
+        "memory_bytes": 8,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": []
+      },
+      "alerts": []
+    },
+    "3.5": {
+      "name": "3.5",
+      "errors": {},
+      "semantic_type": "constant",
+      "pandas_dtype": "object",
+      "confidence": 1.0,
+      "reason": "single value: '2.25'",
+      "suggestions": [],
+      "stats": {
+        "count": 1,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 1,
+        "pct_unique": 100.0,
+        "memory_bytes": 112,
+        "modes": [
+          "2.25"
+        ],
+        "mode_freq": 1,
+        "mode_pct": 100.0,
+        "top_values": [
+          {
+            "value": "2.25",
+            "count": 1,
+            "pct": 100.0
+          }
+        ]
+      },
+      "alerts": []
+    },
+    "-1": {
+      "name": "-1",
+      "errors": {},
+      "semantic_type": "constant",
+      "pandas_dtype": "timedelta64[us]",
+      "confidence": 1.0,
+      "reason": "single value: '0 days 00:01:32'",
+      "suggestions": [],
+      "stats": {
+        "count": 1,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 1,
+        "pct_unique": 100.0,
+        "memory_bytes": 8,
+        "modes": [
+          "0 days 00:01:32"
+        ],
+        "mode_freq": 1,
+        "mode_pct": 100.0,
+        "top_values": [
+          {
+            "value": "0 days 00:01:32",
+            "count": 1,
+            "pct": 100.0
+          }
+        ]
+      },
+      "alerts": []
+    }
+  },
+  "correlations": {
+    "pairs": [],
+    "top_pairs": [],
+    "missingness": [],
+    "target": [],
+    "missing_target": []
+  },
+  "quality": {
+    "duplicate_rows": {
+      "count": 0,
+      "pct": 0.0,
+      "example_indices": []
+    },
+    "duplicate_columns": [],
+    "empty_columns": [
+      "1e5",
+      "tab\tname"
+    ],
+    "constant_columns": [
+      "1",
+      "3.5",
+      "-1"
+    ],
+    "quasi_constant_columns": {},
+    "high_missing_columns": {},
+    "missing_patterns": {
+      "co_missing": [],
+      "n_rows_many_missing": 0,
+      "rows_many_missing_examples": [],
+      "top_patterns": [
+        {
+          "columns": [
+            "1e5",
+            "tab\tname"
+          ],
+          "rows": 1
+        }
+      ]
+    },
+    "mixed_type_columns": {},
+    "whitespace_columns": {},
+    "placeholder_values": {},
+    "suspicious_values": {},
+    "id_columns": [],
+    "redundant_pairs": [],
+    "dtype_optimizations": [],
+    "conversion_suggestions": {},
+    "memory_bytes": 269,
+    "potential_saving_bytes": 0,
+    "alerts": [
+      {
+        "severity": "high",
+        "column": "1e5",
+        "message": "column is entirely missing -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "high",
+        "column": "tab\tname",
+        "message": "column is entirely missing -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "-1",
+        "message": "constant column carries no information -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "1",
+        "message": "constant column carries no information -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "3.5",
+        "message": "constant column carries no information -> drop it",
+        "kind": null
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "severity": "high",
+      "column": "1e5",
+      "message": "column is entirely missing -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "high",
+      "column": "tab\tname",
+      "message": "column is entirely missing -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "-1",
+      "message": "constant column carries no information -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "1",
+      "message": "constant column carries no information -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "3.5",
+      "message": "constant column carries no information -> drop it",
+      "kind": null
+    }
+  ],
+  "plots": []
+}

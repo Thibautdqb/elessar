@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>elessar report</title>
+<style>
+:root { --bg:#f4f3ef; --surface:#fcfcfb; --ink:#1b1b19; --ink2:#52514e; --muted:#8f8e88; --line:#e6e4de;
+  --blue:#2a78d6; --high:#c9302c; --medium:#b7791f; --info:#2a78d6; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 Inter, Lato, "Helvetica Neue", Arial, sans-serif; }
+main { max-width:1180px; margin:0 auto; padding:28px 20px 80px; }
+h1 { font-size:30px; margin:8px 0 2px; letter-spacing:-0.01em; }
+h2 { font-size:22px; margin:44px 0 12px; padding-top:8px; border-top:1px solid var(--line); }
+h3 { font-size:16px; margin:26px 0 8px; }
+p { color:var(--ink2); }
+code { font:13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#ebe9e3; padding:1px 5px; border-radius:4px; }
+a { color:var(--blue); text-decoration:none; } a:hover { text-decoration:underline; }
+nav.toc { position:sticky; top:0; z-index:5; display:flex; gap:18px; flex-wrap:wrap; padding:10px 14px; margin:14px 0 18px;
+  background:var(--surface); border:1px solid var(--line); border-radius:10px; font-weight:600; }
+ul { padding-left:20px; } li { margin:4px 0; }
+.table-wrap { overflow-x:auto; margin:10px 0 18px; border:1px solid var(--line); border-radius:10px; background:var(--surface); }
+table { border-collapse:collapse; width:100%; font-size:13.5px; }
+th, td { text-align:left; padding:7px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+th { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); background:#f7f6f2; }
+tr:last-child td { border-bottom:none; }
+table.kv td:first-child { width:190px; color:var(--ink2); }
+tr.sev-high td:first-child { color:var(--high); font-weight:700; }
+tr.sev-medium td:first-child { color:var(--medium); font-weight:700; }
+tr.sev-info td:first-child { color:var(--info); }
+.chip { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.04em; padding:1px 7px; border-radius:99px; }
+.chip.sev-high { background:#fde2e1; color:var(--high); } .chip.sev-medium { background:#fdf0d5; color:var(--medium); }
+.chip.sev-info { background:#dbe9fb; color:var(--info); }
+figure { margin:14px 0; }
+.figures:not(.grid) figure img, details figure img { width:auto; max-width:100%; max-height:760px; margin:0 auto; }
+figure img { width:100%; height:auto; display:block; border:1px solid var(--line); border-radius:10px; background:#fcfcfb; }
+.figures.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(480px, 1fr)); gap:14px; }
+.figures.grid figure { margin:0; }
+details { background:var(--surface); border:1px solid var(--line); border-radius:10px; margin:8px 0; padding:0 16px; }
+details[open] { padding-bottom:12px; }
+summary { cursor:pointer; padding:11px 0; font-weight:600; }
+details > ul { font-size:13.5px; color:var(--ink2); }
+pre { background:#1f2430; color:#e6e4de; border-radius:10px; padding:12px 16px; overflow-x:auto; margin:10px 0 16px; }
+pre code { background:none; color:inherit; padding:0; font-size:12.5px; line-height:1.5; }
+h4 { font-size:14px; margin:20px 0 6px; color:var(--ink2); }
+.callout { background:#fdf6e3; border:1px solid #f1dfb0; border-radius:10px; padding:10px 14px; margin:10px 0 16px; color:var(--ink2); }
+.kvgrid { display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:10px; margin:10px 0 14px; }
+.card { background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px 4px 4px; }
+.card-title { font-size:11.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); padding:0 10px 4px; }
+.card table { font-size:13px; } .card td { padding:4px 10px; border-bottom:1px solid #f0efea; }
+.card td:last-child { text-align:right; font-variant-numeric:tabular-nums; color:var(--ink); }
+.card td:first-child { color:var(--ink2); }
+table.data td { font-variant-numeric:tabular-nums; }
+table.plan td:first-child { white-space:nowrap; font-weight:600; }
+table.plan td:last-child code, table.data td:last-child code { white-space:pre-wrap; display:inline-block; }
+table.plan td:nth-child(3) { min-width:260px; }
+@media (max-width: 640px) { main { padding:16px; } .figures.grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body><main>
+<h1 id="top">elessar report</h1>
+<p><em>7 rows × 3 columns · pandas.DataFrame · read in 0.0s · generated 2026-10-28 11:02 by elessar 0.3.0</em></p>
+<nav class="toc"><a href="#findings">Key findings</a><a href="#overall">Overall statistics</a><a href="#distributions">Distributions</a><a href="#quality">Data quality</a><a href="#multivariate">Multivariate statistics</a><a href="#preparation">Preparation plan</a><a href="#columns">Attribute statistics</a><a href="#run">Run</a></nav>
+<h2 id="findings">Key findings</h2>
+<ul><li><span class="chip sev-medium">MEDIUM</span> <code>C:\path</code>: constant column carries no information -&gt; drop it</li><li><span class="chip sev-medium">MEDIUM</span> <code>col/with/slash</code>: 28.6% missing -&gt; drop, or impute and add a missing-indicator</li></ul>
+<h2 id="overall">Overall statistics</h2>
+<div class="table-wrap"><table class="kv"><tbody><tr><td><strong>Rows</strong></td><td>7</td></tr><tr><td><strong>Columns</strong></td><td>3</td></tr><tr><td><strong>Memory</strong></td><td>726 B</td></tr><tr><td><strong>Potential saving</strong></td><td>0 B</td></tr><tr><td><strong>Pandas dtypes</strong></td><td>Int64=1, float64=1, object=1</td></tr><tr><td><strong>Semantic types</strong></td><td>numeric_discrete=2, constant=1</td></tr><tr><td><strong>Duplicate rows</strong></td><td>0 (0.0%)</td></tr><tr><td><strong>Missing cells</strong></td><td>9.5%</td></tr></tbody></table></div>
+<div class="figures"><figure><a href="00_dataset_overview.png"><img src="00_dataset_overview.png" alt="overview" loading="lazy"></a></figure></div>
+<h3>Numeric columns at a glance</h3>
+<div class="table-wrap"><table class="data"><thead><tr><th>column</th><th>count</th><th>missing</th><th>mean</th><th>std</th><th>min</th><th>median</th><th>max</th><th>skew</th><th>kurtosis</th><th>outliers</th><th>best fit</th></tr></thead><tbody><tr><td><a href="#col-0"><code>col/with/slash</code></a></td><td>5</td><td>28.6%</td><td>3.8</td><td>2.28</td><td>1</td><td>4</td><td>6</td><td>-0.228</td><td>-2.51</td><td>0.0%</td><td>-</td></tr><tr><td><a href="#col-1"><code>_s</code></a></td><td>7</td><td>0.0%</td><td>-2.161e+299</td><td>-</td><td>-1.260e+300</td><td>-3.655e+299</td><td>7.096e+299</td><td>-</td><td>-</td><td>0.0%</td><td>-</td></tr></tbody></table></div>
+<h2 id="distributions">Distributions</h2>
+<p>Normality is tested four ways (Shapiro-Wilk on up to 5,000 values, D&#x27;Agostino K², Jarque-Bera, Anderson-Darling); the verdict is &#x27;not normal&#x27; when at least half of them reject at alpha 0.05. Every candidate distribution is fitted by maximum likelihood and ranked by AIC; the Akaike weight is its relative support among the candidates.</p>
+<p><em>With thousands of values every test rejects even a good fit, so read KS D (the largest gap between the fitted and the observed cumulative distribution) as the size of the misfit: below 0.03 close, below 0.08 fair, above poor. KS p-values are optimistic since the parameters come from the same data. For integer columns the gap is measured on the integer support and the p-value comes from a chi-square goodness-of-fit test.</em></p>
+<div class="table-wrap"><table class="data"><thead><tr><th>column</th><th>n</th><th>normality</th><th>tests rejecting</th><th>best fit</th><th>parameters</th><th>weight</th><th>ΔAIC to 2nd</th><th>KS D</th><th>KS p</th><th>shape</th></tr></thead><tbody><tr><td><a href="#col-0"><code>col/with/slash</code></a></td><td>5</td><td>insufficient data</td><td></td><td>-</td><td></td><td></td><td></td><td></td><td></td><td>not enough distinct values to fit a distribution</td></tr><tr><td><a href="#col-1"><code>_s</code></a></td><td>7</td><td>insufficient data</td><td></td><td>-</td><td></td><td></td><td></td><td></td><td></td><td>not enough distinct values to fit a distribution</td></tr></tbody></table></div>
+<div class="figures grid"><figure><a href="02_col_with_slash_dist.png"><img src="02_col_with_slash_dist.png" alt="col/with/slash" loading="lazy"></a></figure><figure><a href="03_s_dist.png"><img src="03_s_dist.png" alt="_s" loading="lazy"></a></figure></div>
+<h2 id="quality">Data quality</h2>
+<div class="table-wrap"><table class="alerts"><thead><tr><th>severity</th><th>column</th><th>message</th></tr></thead><tbody><tr class="sev-medium"><td>medium</td><td><code>C:\path</code></td><td>constant column carries no information -&gt; drop it</td></tr><tr class="sev-medium"><td>medium</td><td><code>col/with/slash</code></td><td>28.6% missing -&gt; drop, or impute and add a missing-indicator</td></tr></tbody></table></div>
+<div class="figures"><figure><a href="01_dataset_missing.png"><img src="01_dataset_missing.png" alt="missing" loading="lazy"></a></figure></div>
+<h2 id="multivariate">Multivariate statistics</h2>
+<h3>Dimensionality reduction</h3>
+<p>PCA not applicable: needs at least 3 numeric columns and enough rows (2 columns, 7 rows)</p>
+<h3>Associations between columns</h3>
+<p>1 pairs tested, 0 significant after Benjamini-Hochberg correction (alpha 0.05).</p>
+<h3>Multicollinearity (VIF)</h3>
+<div class="table-wrap"><table class="data"><thead><tr><th>column</th><th>VIF</th></tr></thead><tbody><tr><td><code>col/with/slash</code></td><td>1.00</td></tr><tr><td><code>_s</code></td><td>nan</td></tr></tbody></table></div>
+<h2 id="preparation">Preparation plan</h2>
+<p>Cleaning: missing data 1.  Transformation: rescale 1.</p>
+<h3>Cleaning</h3>
+<div class="table-wrap"><table class="plan"><thead><tr><th>action</th><th>column</th><th>why</th><th>code</th></tr></thead><tbody><tr><td>Missing data</td><td><code>col/with/slash</code></td><td>28.6% missing: impute with the mean</td><td><code>df[&#x27;col/with/slash&#x27;] = df[&#x27;col/with/slash&#x27;].fillna(df[&#x27;col/with/slash&#x27;].mean())</code></td></tr></tbody></table></div>
+<h3>Transformation</h3>
+<div class="table-wrap"><table class="plan"><thead><tr><th>action</th><th>column</th><th>why</th><th>code</th></tr></thead><tbody><tr><td>Rescale</td><td>-</td><td>numeric scales differ by x179,623,492,136,910,965,567,759,903,309,683,785,781,967,172,533,562,639,256,454,116,835,566,429,661,416,621,982,775,916,517,906,543,681,284,017,201,624,452,398,293,685,625,764,125,959,481,648,268,369,491,954,160,800,441,482,060,250,041,737,954,374,908,495,465,384,391,802,431,219,704,181,626,327,406,960,996,656,886,866,438,349,715,182,321,958,912,263,661,433,463,265,919,469,158,052,531,508,609,024 (_s vs col/with/slash): distance-based models, regularised models and neural nets need common scales</td><td><code>from sklearn.preprocessing import RobustScaler, StandardScaler
+df[[]] = RobustScaler().fit_transform(df[[]])  # outliers
+others = [&#x27;col/with/slash&#x27;, &#x27;_s&#x27;]
+df[others] = StandardScaler().fit_transform(df[others])</code></td></tr></tbody></table></div>
+<h2 id="columns">Attribute statistics</h2>
+<div class="table-wrap"><table class="data"><thead><tr><th>column</th><th>type</th><th>missing</th><th>distinct</th><th>alerts</th></tr></thead><tbody><tr><td><a href="#col-0"><code>col/with/slash</code></a></td><td>numeric_discrete</td><td>28.6%</td><td>4</td><td>0</td></tr><tr><td><a href="#col-1"><code>_s</code></a></td><td>numeric_discrete</td><td>0.0%</td><td>7</td><td>0</td></tr><tr><td><a href="#col-2"><code>C:\path</code></a></td><td>constant</td><td>0.0%</td><td>1</td><td>0</td></tr></tbody></table></div>
+<details id="col-0"><summary><code>col/with/slash</code> · numeric_discrete</summary><p><em>Int64 · Int64 dtype: integer values (4 distinct)</em></p>
+<div class="kvgrid"><div class="card"><div class="card-title">Profile</div><table><tr><td>type</td><td>numeric_discrete</td></tr><tr><td>dtype</td><td>Int64</td></tr><tr><td>values</td><td>5</td></tr><tr><td>missing</td><td>2 (28.6%)</td></tr><tr><td>distinct</td><td>4 (80.0%)</td></tr><tr><td>memory</td><td>63 B</td></tr><tr><td>mode</td><td>6 ×2</td></tr></table></div><div class="card"><div class="card-title">Center</div><table><tr><td>mean</td><td>3.8</td></tr><tr><td>95% CI of mean</td><td>[0.9686, 6.631]</td></tr><tr><td>median</td><td>4</td></tr><tr><td>95% CI of median</td><td>-</td></tr><tr><td>trimmed mean</td><td>3.8</td></tr><tr><td>geometric mean</td><td>3.104</td></tr><tr><td>harmonic mean</td><td>2.4</td></tr></table></div><div class="card"><div class="card-title">Spread</div><table><tr><td>std</td><td>2.28</td></tr><tr><td>variance</td><td>5.2</td></tr><tr><td>sem</td><td>1.02</td></tr><tr><td>IQR</td><td>4</td></tr><tr><td>MAD</td><td>2</td></tr><tr><td>CV</td><td>0.6001</td></tr><tr><td>range</td><td>5</td></tr></table></div><div class="card"><div class="card-title">Quantiles</div><table><tr><td>min</td><td>1</td></tr><tr><td>p1</td><td>1.04</td></tr><tr><td>p5</td><td>1.2</td></tr><tr><td>p25</td><td>2</td></tr><tr><td>p50</td><td>4</td></tr><tr><td>p75</td><td>6</td></tr><tr><td>p95</td><td>6</td></tr><tr><td>p99</td><td>6</td></tr><tr><td>max</td><td>6</td></tr><tr><td>sum</td><td>19</td></tr></table></div><div class="card"><div class="card-title">Shape</div><table><tr><td>skewness</td><td>-0.228</td></tr><tr><td>excess kurtosis</td><td>-2.51</td></tr><tr><td>KDE modes</td><td>-</td></tr><tr><td>bimodality coef.</td><td>0.192</td></tr><tr><td>decimals</td><td>0</td></tr></table></div><div class="card"><div class="card-title">Outliers &amp; counts</div><table><tr><td>IQR fences</td><td>[-4, 12]</td></tr><tr><td>outside fences</td><td>0 (0.0%)</td></tr><tr><td>|z| &gt; 3</td><td>0 (0.0%)</td></tr><tr><td>modified z &gt; 3.5</td><td>0 (0.0%)</td></tr><tr><td>zeros</td><td>0</td></tr><tr><td>negatives</td><td>0</td></tr><tr><td>infinite</td><td>0</td></tr></table></div><div class="card"><div class="card-title">Row order</div><table><tr><td>monotonic</td><td>no</td></tr></table></div></div>
+<h4>Most frequent values</h4>
+<div class="table-wrap"><table class="data"><thead><tr><th>value</th><th>count</th><th>share</th></tr></thead><tbody><tr><td><code>6</code></td><td>2</td><td>40.0%</td></tr><tr><td><code>2</code></td><td>1</td><td>20.0%</td></tr><tr><td><code>4</code></td><td>1</td><td>20.0%</td></tr><tr><td><code>1</code></td><td>1</td><td>20.0%</td></tr></tbody></table></div>
+<figure><a href="02_col_with_slash_dist.png"><img src="02_col_with_slash_dist.png" alt="col/with/slash: col/with/slash" loading="lazy"></a></figure></details>
+<details id="col-1"><summary><code>_s</code> · numeric_discrete</summary><p><em>float64 · float64 dtype: integer values (7 distinct)</em></p>
+<div class="kvgrid"><div class="card"><div class="card-title">Profile</div><table><tr><td>type</td><td>numeric_discrete</td></tr><tr><td>dtype</td><td>float64</td></tr><tr><td>values</td><td>7</td></tr><tr><td>missing</td><td>0 (0.0%)</td></tr><tr><td>distinct</td><td>7 (100.0%)</td></tr><tr><td>memory</td><td>56 B</td></tr></table></div><div class="card"><div class="card-title">Center</div><table><tr><td>mean</td><td>-2.161e+299</td></tr><tr><td>95% CI of mean</td><td>[-, -]</td></tr><tr><td>median</td><td>-3.655e+299</td></tr><tr><td>95% CI of median</td><td>[-1.260e+300, 7.096e+299]</td></tr><tr><td>trimmed mean</td><td>-2.161e+299</td></tr><tr><td>geometric mean</td><td>-</td></tr><tr><td>harmonic mean</td><td>-</td></tr></table></div><div class="card"><div class="card-title">Spread</div><table><tr><td>std</td><td>-</td></tr><tr><td>variance</td><td>-</td></tr><tr><td>sem</td><td>-</td></tr><tr><td>IQR</td><td>7.185e+299</td></tr><tr><td>MAD</td><td>5.385e+299</td></tr><tr><td>CV</td><td>-</td></tr><tr><td>range</td><td>1.970e+300</td></tr></table></div><div class="card"><div class="card-title">Quantiles</div><table><tr><td>min</td><td>-1.260e+300</td></tr><tr><td>p1</td><td>-1.216e+300</td></tr><tr><td>p5</td><td>-1.040e+300</td></tr><tr><td>p25</td><td>-5.085e+299</td></tr><tr><td>p50</td><td>-3.655e+299</td></tr><tr><td>p75</td><td>2.100e+299</td></tr><tr><td>p95</td><td>5.708e+299</td></tr><tr><td>p99</td><td>6.818e+299</td></tr><tr><td>max</td><td>7.096e+299</td></tr><tr><td>sum</td><td>-1.513e+300</td></tr></table></div><div class="card"><div class="card-title">Shape</div><table><tr><td>skewness</td><td>-</td></tr><tr><td>excess kurtosis</td><td>-</td></tr><tr><td>KDE modes</td><td>-</td></tr><tr><td>bimodality coef.</td><td>-</td></tr><tr><td>decimals</td><td>0</td></tr></table></div><div class="card"><div class="card-title">Outliers &amp; counts</div><table><tr><td>IQR fences</td><td>[-1.586e+300, 1.288e+300]</td></tr><tr><td>outside fences</td><td>0 (0.0%)</td></tr><tr><td>|z| &gt; 3</td><td>0 (0.0%)</td></tr><tr><td>modified z &gt; 3.5</td><td>0 (0.0%)</td></tr><tr><td>zeros</td><td>0</td></tr><tr><td>negatives</td><td>4</td></tr><tr><td>infinite</td><td>0</td></tr></table></div><div class="card"><div class="card-title">Row order</div><table><tr><td>monotonic</td><td>no</td></tr></table></div></div>
+<figure><a href="03_s_dist.png"><img src="03_s_dist.png" alt="_s: _s" loading="lazy"></a></figure></details>
+<details id="col-2"><summary><code>C:\path</code> · constant</summary><p><em>object · single value: &quot;b&#x27;\\x00\\xff&#x27;&quot;</em></p>
+<div class="kvgrid"><div class="card"><div class="card-title">Profile</div><table><tr><td>type</td><td>constant</td></tr><tr><td>dtype</td><td>object</td></tr><tr><td>values</td><td>7</td></tr><tr><td>missing</td><td>0 (0.0%)</td></tr><tr><td>distinct</td><td>1 (14.3%)</td></tr><tr><td>memory</td><td>301 B</td></tr><tr><td>mode</td><td>b&#x27;\x00\xff&#x27; ×7</td></tr></table></div></div>
+<h4>Most frequent values</h4>
+<div class="table-wrap"><table class="data"><thead><tr><th>value</th><th>count</th><th>share</th></tr></thead><tbody><tr><td><code>b&#x27;\x00\xff&#x27;</code></td><td>7</td><td>100.0%</td></tr></tbody></table></div></details>
+<h2 id="run">Run</h2>
+<div class="table-wrap"><table class="kv"><tbody><tr><td><strong>Source</strong></td><td>pandas.DataFrame · read in 0.0s</td></tr><tr><td><strong>Processes</strong></td><td>3 for the analysis, 3 for the charts (14 cores available)</td></tr><tr><td><strong>Time</strong></td><td>1.1s (load 0.0s, columns 0.1s, associations 0.1s, quality 0.0s, charts 0.7s)</td></tr><tr><td><strong>Significance</strong></td><td>alpha 0.05, Benjamini-Hochberg false discovery rate per family of tests</td></tr><tr><td><strong>Versions</strong></td><td>elessar 0.3.0 · Python 3.12.14 · pandas 3.1.0 · numpy 2.5.4 · scipy 1.18.1</td></tr></tbody></table></div>
+</main>
+<script>
+function openTarget() { var el = document.getElementById(location.hash.slice(1)); if (el && el.tagName === "DETAILS") el.open = true; }
+window.addEventListener("hashchange", openTarget); openTarget();
+</script>
+</body>
+</html>

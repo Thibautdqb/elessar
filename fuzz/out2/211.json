@@ -1,0 +1,349 @@
+{
+  "overview": {
+    "n_rows": 1,
+    "n_columns": 4,
+    "n_rows_profiled": 1,
+    "sampled": false,
+    "memory_bytes": 157,
+    "potential_saving_bytes": 0,
+    "pandas_dtypes": {
+      "str": 2,
+      "object": 1,
+      "datetime64[us, UTC]": 1
+    },
+    "semantic_types": {
+      "constant": 4
+    },
+    "n_duplicate_rows": 0,
+    "pct_duplicate_rows": 0.0,
+    "pct_missing_cells": 0.0,
+    "n_rows_with_missing": 0,
+    "target": null,
+    "source": "pandas.DataFrame · read in 0.0s",
+    "workers": 3,
+    "chart_workers": 0
+  },
+  "summary": [
+    {
+      "column": "nan",
+      "semantic_type": "constant",
+      "pandas_dtype": "object",
+      "count": 1,
+      "pct_missing": 0.0,
+      "n_unique": 1,
+      "pct_unique": 100.0,
+      "top_value": "b'\\x00\\xff'",
+      "top_pct": 100.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 43,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "T",
+      "semantic_type": "constant",
+      "pandas_dtype": "str",
+      "count": 1,
+      "pct_missing": 0.0,
+      "n_unique": 1,
+      "pct_unique": 100.0,
+      "top_value": "00000000-0000-0000-3fb1-7843199057e9",
+      "top_pct": 100.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 44,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "a b c",
+      "semantic_type": "constant",
+      "pandas_dtype": "str",
+      "count": 1,
+      "pct_missing": 0.0,
+      "n_unique": 1,
+      "pct_unique": 100.0,
+      "top_value": "same",
+      "top_pct": 100.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 12,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "a",
+      "semantic_type": "constant",
+      "pandas_dtype": "datetime64[us, UTC]",
+      "count": 1,
+      "pct_missing": 0.0,
+      "n_unique": 1,
+      "pct_unique": 100.0,
+      "top_value": "2021-01-01 00:00:00+00:00",
+      "top_pct": 100.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 8,
+      "n_alerts": 0,
+      "errors": null
+    }
+  ],
+  "columns": {
+    "nan": {
+      "name": "nan",
+      "errors": {},
+      "semantic_type": "constant",
+      "pandas_dtype": "object",
+      "confidence": 1.0,
+      "reason": "single value: \"b'\\\\x00\\\\xff'\"",
+      "suggestions": [],
+      "stats": {
+        "count": 1,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 1,
+        "pct_unique": 100.0,
+        "memory_bytes": 43,
+        "modes": [
+          "b'\\x00\\xff'"
+        ],
+        "mode_freq": 1,
+        "mode_pct": 100.0,
+        "top_values": [
+          {
+            "value": "b'\\x00\\xff'",
+            "count": 1,
+            "pct": 100.0
+          }
+        ]
+      },
+      "alerts": []
+    },
+    "T": {
+      "name": "T",
+      "errors": {},
+      "semantic_type": "constant",
+      "pandas_dtype": "str",
+      "confidence": 1.0,
+      "reason": "single value: '00000000-0000-0000-3fb1-7843199057e9'",
+      "suggestions": [],
+      "stats": {
+        "count": 1,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 1,
+        "pct_unique": 100.0,
+        "memory_bytes": 44,
+        "modes": [
+          "00000000-0000-0000-3fb1-7843199057e9"
+        ],
+        "mode_freq": 1,
+        "mode_pct": 100.0,
+        "top_values": [
+          {
+            "value": "00000000-0000-0000-3fb1-7843199057e9",
+            "count": 1,
+            "pct": 100.0
+          }
+        ]
+      },
+      "alerts": []
+    },
+    "a b c": {
+      "name": "a b c",
+      "errors": {},
+      "semantic_type": "constant",
+      "pandas_dtype": "str",
+      "confidence": 1.0,
+      "reason": "single value: 'same'",
+      "suggestions": [],
+      "stats": {
+        "count": 1,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 1,
+        "pct_unique": 100.0,
+        "memory_bytes": 12,
+        "modes": [
+          "same"
+        ],
+        "mode_freq": 1,
+        "mode_pct": 100.0,
+        "top_values": [
+          {
+            "value": "same",
+            "count": 1,
+            "pct": 100.0
+          }
+        ]
+      },
+      "alerts": []
+    },
+    "a": {
+      "name": "a",
+      "errors": {},
+      "semantic_type": "constant",
+      "pandas_dtype": "datetime64[us, UTC]",
+      "confidence": 1.0,
+      "reason": "single value: '2021-01-01 00:00:00+00:00'",
+      "suggestions": [],
+      "stats": {
+        "count": 1,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 1,
+        "pct_unique": 100.0,
+        "memory_bytes": 8,
+        "modes": [
+          "2021-01-01 00:00:00+00:00"
+        ],
+        "mode_freq": 1,
+        "mode_pct": 100.0,
+        "top_values": [
+          {
+            "value": "2021-01-01 00:00:00+00:00",
+            "count": 1,
+            "pct": 100.0
+          }
+        ]
+      },
+      "alerts": []
+    }
+  },
+  "correlations": {
+    "pairs": [],
+    "top_pairs": [],
+    "missingness": []
+  },
+  "quality": {
+    "duplicate_rows": {
+      "count": 0,
+      "pct": 0.0,
+      "example_indices": []
+    },
+    "duplicate_columns": [],
+    "empty_columns": [],
+    "constant_columns": [
+      "nan",
+      "T",
+      "a b c",
+      "a"
+    ],
+    "quasi_constant_columns": {},
+    "high_missing_columns": {},
+    "missing_patterns": {
+      "co_missing": [],
+      "n_rows_many_missing": 0,
+      "rows_many_missing_examples": [],
+      "top_patterns": []
+    },
+    "mixed_type_columns": {},
+    "whitespace_columns": {},
+    "placeholder_values": {},
+    "suspicious_values": {},
+    "id_columns": [],
+    "redundant_pairs": [],
+    "dtype_optimizations": [],
+    "conversion_suggestions": {},
+    "memory_bytes": 157,
+    "potential_saving_bytes": 0,
+    "alerts": [
+      {
+        "severity": "medium",
+        "column": "T",
+        "message": "constant column carries no information -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "a",
+        "message": "constant column carries no information -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "a b c",
+        "message": "constant column carries no information -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "nan",
+        "message": "constant column carries no information -> drop it",
+        "kind": null
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "severity": "medium",
+      "column": "T",
+      "message": "constant column carries no information -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "a",
+      "message": "constant column carries no information -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "a b c",
+      "message": "constant column carries no information -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "nan",
+      "message": "constant column carries no information -> drop it",
+      "kind": null
+    }
+  ],
+  "plots": []
+}

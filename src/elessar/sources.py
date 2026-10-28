@@ -183,9 +183,22 @@ def sniff_csv(path: str, sep: str | None = None, encoding: str | None = None) ->
     return {"sep": sep, "encoding": encoding or "utf-8"}
 
 
+def has_header(path: str, sep: str, encoding: str) -> bool:
+    """False when the first line is data: most numeric columns are 'named' by a number."""
+    try:
+        head = pd.read_csv(path, sep=sep, encoding=encoding, nrows=200)
+    except Exception:  # noqa: BLE001 - let the real read report the problem
+        return True
+    numeric = [c for c in head.columns if pd.api.types.is_numeric_dtype(head[c].dtype)]
+    named_by_number = [c for c in numeric if pd.notna(pd.to_numeric(str(c).strip(), errors="coerce"))]
+    return not (len(named_by_number) >= 2 and len(named_by_number) >= 0.6 * len(numeric))
+
+
 def _csv_kwargs(path: str, opts: dict[str, Any]) -> dict[str, Any]:
     sniffed = sniff_csv(path, opts.get("sep"), opts.get("encoding"))
-    kw = {"sep": sniffed["sep"], "encoding": sniffed["encoding"], "low_memory": False}
+    kw: dict[str, Any] = {"sep": sniffed["sep"], "encoding": sniffed["encoding"], "low_memory": False}
+    if not has_header(path, kw["sep"], kw["encoding"]):
+        kw["header"] = None
     if opts.get("columns"):
         kw["usecols"] = opts["columns"]
     return kw
@@ -294,7 +307,7 @@ def _read_whole(path: str, fmt: str, opts: dict[str, Any], info: dict[str, Any])
     try:
         if fmt == "csv":
             kw = _csv_kwargs(path, opts)
-            info.update(sep=kw["sep"], encoding=kw["encoding"])
+            info.update(sep=kw["sep"], encoding=kw["encoding"], headerless="header" in kw)
             return _read_csv(path, kw, nrows=nrows)
         if fmt == "json":
             try:
@@ -360,7 +373,7 @@ def _chunk_iter(path: str, fmt: str, opts: dict[str, Any], cfg: StoneConfig, inf
     size = cfg.chunk_rows
     if fmt == "csv":
         kw = _csv_kwargs(path, opts)
-        info.update(sep=kw["sep"], encoding=kw["encoding"])
+        info.update(sep=kw["sep"], encoding=kw["encoding"], headerless="header" in kw)
         kw.pop("low_memory")
         yield from _read_csv(path, kw, chunksize=size)
     elif fmt == "jsonl":
@@ -395,9 +408,11 @@ def _dask_tasks(files: list[str], fmt: str, opts: dict[str, Any], cfg: StoneConf
         from dask.bytes import read_bytes
 
         kw = _csv_kwargs(files[0], opts)
-        info.update(sep=kw["sep"], encoding=kw["encoding"])
+        info.update(sep=kw["sep"], encoding=kw["encoding"], headerless="header" in kw)
         kw.pop("low_memory")
         enc = kw["encoding"]
+        if "header" in kw:
+            return None  # blocks would need the header line: stream instead
         total = sum(os.path.getsize(f) for f in files if os.path.exists(f))
         blocksize = int(min(128 << 20, max(8 << 20, total / (2 * (os.cpu_count() or 1)))))  # ~2 blocks per core
         _, blocks = read_bytes(files, delimiter=b"\n", blocksize=blocksize, sample=False)
@@ -655,6 +670,8 @@ def describe_origin(src: Source) -> str:
         parts.append(f"table {o['table']!r}")
     if o.get("sep") and o.get("format") == "csv":
         parts.append("delimiter " + {"\t": "tab", ",": "comma", ";": "semicolon", "|": "pipe"}.get(o["sep"], repr(o["sep"])))
+    if o.get("headerless"):
+        parts.append("no header row")
     if o.get("encoding") and o["encoding"] not in ("utf-8", "utf-8-sig"):
         parts.append(f"encoding {o['encoding']}")
     if src.full is not None:

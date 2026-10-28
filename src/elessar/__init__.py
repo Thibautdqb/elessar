@@ -5,7 +5,7 @@
 >>> report = elessar.see("sales.parquet", target="ask")  # any file; pick the target in a window
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 from .config import StoneConfig  # noqa: E402 - __version__ first: submodules read it
 from .core import see, see_column  # noqa: E402

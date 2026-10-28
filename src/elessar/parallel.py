@@ -68,6 +68,12 @@ def _init_worker() -> None:
     os.environ[_IN_WORKER] = "1"
     for var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
         os.environ[var] = "1"  # one BLAS thread per worker: the cores are already busy
+    try:  # the BLAS was loaded before the fork: limit its running thread pools too
+        from threadpoolctl import threadpool_limits
+
+        threadpool_limits(1)
+    except Exception:  # noqa: BLE001 - threadpoolctl missing or unsupported BLAS: just slower
+        pass
 
 
 def _run(fn: Callable[..., Any], item: Any) -> Any:

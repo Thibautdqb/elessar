@@ -1,0 +1,778 @@
+{
+  "overview": {
+    "n_rows": 3,
+    "n_columns": 6,
+    "n_rows_profiled": 3,
+    "sampled": false,
+    "memory_bytes": 242,
+    "potential_saving_bytes": 12,
+    "pandas_dtypes": {
+      "category": 2,
+      "float64": 1,
+      "boolean": 1,
+      "datetime64[us, UTC]": 1,
+      "period[M]": 1
+    },
+    "semantic_types": {
+      "constant": 2,
+      "numeric_continuous": 1,
+      "boolean": 1,
+      "datetime": 1,
+      "categorical": 1
+    },
+    "n_duplicate_rows": 0,
+    "pct_duplicate_rows": 0.0,
+    "pct_missing_cells": 5.555555555555555,
+    "n_rows_with_missing": 1,
+    "target": null,
+    "source": "pandas.DataFrame · read in 0.0s",
+    "workers": 3,
+    "chart_workers": 0
+  },
+  "summary": [
+    {
+      "column": "feature",
+      "semantic_type": "numeric_continuous",
+      "pandas_dtype": "float64",
+      "count": 3,
+      "pct_missing": 0.0,
+      "n_unique": 3,
+      "pct_unique": 100.0,
+      "top_value": 1.8523562862511418,
+      "top_pct": 33.333333333333336,
+      "mean": 1.0891153988437623,
+      "std": 0.7963253943592129,
+      "min": 0.2633872603817484,
+      "p25": 0.7074949551400724,
+      "median": 1.1516026498983964,
+      "p75": 1.5019794680747691,
+      "max": 1.8523562862511418,
+      "skewness": -0.3509384466704948,
+      "kurtosis": null,
+      "pct_outliers_iqr": 0.0,
+      "normality": "insufficient data",
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 24,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "^_^",
+      "semantic_type": "boolean",
+      "pandas_dtype": "boolean",
+      "count": 2,
+      "pct_missing": 33.333333333333336,
+      "n_unique": 2,
+      "pct_unique": 100.0,
+      "top_value": true,
+      "top_pct": 50.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": 1.0,
+      "memory_bytes": 6,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "-1",
+      "semantic_type": "constant",
+      "pandas_dtype": "category",
+      "count": 3,
+      "pct_missing": 0.0,
+      "n_unique": 1,
+      "pct_unique": 33.333333333333336,
+      "top_value": "y",
+      "top_pct": 100.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 121,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "^_^.1",
+      "semantic_type": "datetime",
+      "pandas_dtype": "datetime64[us, UTC]",
+      "count": 3,
+      "pct_missing": 0.0,
+      "n_unique": 3,
+      "pct_unique": 100.0,
+      "top_value": "2021-01-01 00:00:00+00:00",
+      "top_pct": 33.333333333333336,
+      "mean": null,
+      "std": null,
+      "min": "2021-01-01",
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": "2021-01-01 02:00:00",
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 24,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "0",
+      "semantic_type": "categorical",
+      "pandas_dtype": "period[M]",
+      "count": 3,
+      "pct_missing": 0.0,
+      "n_unique": 3,
+      "pct_unique": 100.0,
+      "top_value": "2020-01",
+      "top_pct": 33.333333333333336,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": 1.0,
+      "memory_bytes": 24,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "new\nline",
+      "semantic_type": "constant",
+      "pandas_dtype": "category",
+      "count": 3,
+      "pct_missing": 0.0,
+      "n_unique": 1,
+      "pct_unique": 33.333333333333336,
+      "top_value": "x",
+      "top_pct": 100.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 121,
+      "n_alerts": 0,
+      "errors": null
+    }
+  ],
+  "columns": {
+    "feature": {
+      "name": "feature",
+      "errors": {},
+      "semantic_type": "numeric_continuous",
+      "pandas_dtype": "float64",
+      "confidence": 0.9,
+      "reason": "float64 dtype: 3 distinct real values",
+      "suggestions": [],
+      "stats": {
+        "count": 3,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 3,
+        "pct_unique": 100.0,
+        "memory_bytes": 24,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": 1.8523562862511418,
+            "count": 1,
+            "pct": 33.333333333333336
+          },
+          {
+            "value": 1.1516026498983964,
+            "count": 1,
+            "pct": 33.333333333333336
+          },
+          {
+            "value": 0.2633872603817484,
+            "count": 1,
+            "pct": 33.333333333333336
+          }
+        ],
+        "n_inf": 0,
+        "mean": 1.0891153988437623,
+        "std": 0.7963253943592129,
+        "var": 0.634134133701356,
+        "sem": 0.4597586807958265,
+        "cv": 0.7311671428065528,
+        "min": 0.2633872603817484,
+        "max": 1.8523562862511418,
+        "range": 1.5889690258693934,
+        "sum": 3.2673461965312867,
+        "p1": 0.28115156817208137,
+        "p5": 0.3522087993334132,
+        "p10": 0.44103033828507804,
+        "p25": 0.7074949551400724,
+        "p50": 1.1516026498983964,
+        "p75": 1.5019794680747691,
+        "p90": 1.7122055589805927,
+        "p95": 1.7822809226158671,
+        "p99": 1.8383412135240869,
+        "median": 1.1516026498983964,
+        "iqr": 0.7944845129346967,
+        "mad": 0.7007536363527453,
+        "trimmed_mean": 1.0891153988437623,
+        "geometric_mean": 0.8251647136009993,
+        "harmonic_mean": 0.5763800757280886,
+        "skewness": -0.3509384466704948,
+        "kurtosis": null,
+        "n_zeros": 0,
+        "n_negative": 0,
+        "iqr_lower": -0.4842318142619726,
+        "iqr_upper": 2.693706237476814,
+        "n_outliers_iqr": 0,
+        "pct_outliers_iqr": 0.0,
+        "n_outliers_z": 0,
+        "pct_outliers_z": 0.0,
+        "n_outliers_mz": 0,
+        "pct_outliers_mz": 0.0,
+        "n_decimals": 10,
+        "pct_round_values": null,
+        "heaping_index": null,
+        "monotonic_increasing": false,
+        "monotonic_decreasing": true,
+        "bimodality_coefficient": null,
+        "n_modes_kde": null,
+        "ci95_mean_low": -0.889066544108412,
+        "ci95_mean_high": 3.0672973417959364,
+        "ci95_median_low": null,
+        "ci95_median_high": null,
+        "autocorr_lag1": null,
+        "autocorr_lag1_p": null
+      },
+      "distribution": {
+        "normality": {
+          "n": 3,
+          "alpha": 0.05,
+          "verdict": "insufficient data"
+        },
+        "fit": {
+          "n_used": 0,
+          "fits": [],
+          "best": null,
+          "failed": {},
+          "ks_note": "KS p-values are optimistic: the parameters were estimated from the same data. For integer data the gap is measured on the integer support and the p-value is a chi-square goodness-of-fit test.",
+          "description": "not enough distinct values to fit a distribution"
+        }
+      },
+      "alerts": []
+    },
+    "^_^": {
+      "name": "^_^",
+      "errors": {},
+      "semantic_type": "boolean",
+      "pandas_dtype": "boolean",
+      "confidence": 1.0,
+      "reason": "bool dtype",
+      "suggestions": [],
+      "stats": {
+        "count": 2,
+        "n_missing": 1,
+        "pct_missing": 33.333333333333336,
+        "n_unique": 2,
+        "pct_unique": 100.0,
+        "memory_bytes": 6,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": true,
+            "count": 1,
+            "pct": 50.0
+          },
+          {
+            "value": false,
+            "count": 1,
+            "pct": 50.0
+          }
+        ],
+        "cardinality": 2,
+        "entropy": 1.0,
+        "normalized_entropy": 1.0,
+        "gini_impurity": 0.5,
+        "imbalance_ratio": 1.0,
+        "n_rare_categories": 0,
+        "pct_rows_rare": 0.0,
+        "rare_categories": [],
+        "uniform_chi2_p": 1.0,
+        "n_inconsistent_groups": 0,
+        "inconsistent_labels": [],
+        "n_true": 1,
+        "pct_true": 50.0,
+        "ci95_pct_true_low": 9.453120573423075,
+        "ci95_pct_true_high": 90.54687942657694
+      },
+      "alerts": []
+    },
+    "-1": {
+      "name": "-1",
+      "errors": {},
+      "semantic_type": "constant",
+      "pandas_dtype": "category",
+      "confidence": 1.0,
+      "reason": "single value: 'y'",
+      "suggestions": [],
+      "stats": {
+        "count": 3,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 1,
+        "pct_unique": 33.333333333333336,
+        "memory_bytes": 121,
+        "modes": [
+          "y"
+        ],
+        "mode_freq": 3,
+        "mode_pct": 100.0,
+        "top_values": [
+          {
+            "value": "y",
+            "count": 3,
+            "pct": 100.0
+          }
+        ]
+      },
+      "alerts": []
+    },
+    "^_^.1": {
+      "name": "^_^.1",
+      "errors": {},
+      "semantic_type": "datetime",
+      "pandas_dtype": "datetime64[us, UTC]",
+      "confidence": 1.0,
+      "reason": "datetime dtype",
+      "suggestions": [],
+      "stats": {
+        "count": 3,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 3,
+        "pct_unique": 100.0,
+        "memory_bytes": 24,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": "2021-01-01 00:00:00+00:00",
+            "count": 1,
+            "pct": 33.333333333333336
+          },
+          {
+            "value": "2021-01-01 01:00:00+00:00",
+            "count": 1,
+            "pct": 33.333333333333336
+          },
+          {
+            "value": "2021-01-01 02:00:00+00:00",
+            "count": 1,
+            "pct": 33.333333333333336
+          }
+        ],
+        "min": "2021-01-01",
+        "max": "2021-01-01 02:00:00",
+        "span": "0 days 02:00:00",
+        "span_days": 0.08333333333333333,
+        "inferred_freq": "h",
+        "largest_gaps": [
+          {
+            "start": "2021-01-01",
+            "end": "2021-01-01 01:00:00",
+            "gap": "0 days 01:00:00"
+          },
+          {
+            "start": "2021-01-01 01:00:00",
+            "end": "2021-01-01 02:00:00",
+            "gap": "0 days 01:00:00"
+          }
+        ],
+        "n_duplicated_timestamps": 0,
+        "n_future": 0,
+        "n_before_1900": 0,
+        "n_unparsed": 0,
+        "monotonic_increasing": true,
+        "monotonic_decreasing": false,
+        "by_hour": {
+          "0": 1,
+          "1": 1,
+          "2": 1
+        }
+      },
+      "alerts": []
+    },
+    "0": {
+      "name": "0",
+      "errors": {},
+      "semantic_type": "categorical",
+      "pandas_dtype": "period[M]",
+      "confidence": 0.5,
+      "reason": "unrecognised dtype period[M], treated as labels",
+      "suggestions": [],
+      "stats": {
+        "count": 3,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 3,
+        "pct_unique": 100.0,
+        "memory_bytes": 24,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": "2020-01",
+            "count": 1,
+            "pct": 33.333333333333336
+          },
+          {
+            "value": "2020-02",
+            "count": 1,
+            "pct": 33.333333333333336
+          },
+          {
+            "value": "2020-03",
+            "count": 1,
+            "pct": 33.333333333333336
+          }
+        ],
+        "cardinality": 3,
+        "entropy": 1.584962500721156,
+        "normalized_entropy": 1.0,
+        "gini_impurity": 0.6666666666666667,
+        "imbalance_ratio": 1.0,
+        "n_rare_categories": 0,
+        "pct_rows_rare": 0.0,
+        "rare_categories": [],
+        "uniform_chi2_p": 1.0,
+        "n_inconsistent_groups": 0,
+        "inconsistent_labels": []
+      },
+      "alerts": []
+    },
+    "new\nline": {
+      "name": "new\nline",
+      "errors": {},
+      "semantic_type": "constant",
+      "pandas_dtype": "category",
+      "confidence": 1.0,
+      "reason": "single value: 'x'",
+      "suggestions": [],
+      "stats": {
+        "count": 3,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 1,
+        "pct_unique": 33.333333333333336,
+        "memory_bytes": 121,
+        "modes": [
+          "x"
+        ],
+        "mode_freq": 3,
+        "mode_pct": 100.0,
+        "top_values": [
+          {
+            "value": "x",
+            "count": 3,
+            "pct": 100.0
+          }
+        ]
+      },
+      "alerts": []
+    }
+  },
+  "correlations": {
+    "cramers_v": {
+      "^_^": {
+        "^_^": 1.0,
+        "0": null
+      },
+      "0": {
+        "^_^": null,
+        "0": 1.0
+      }
+    },
+    "cramers_v_p": {
+      "^_^": {
+        "^_^": 0.0,
+        "0": 0.15729920705028105
+      },
+      "0": {
+        "^_^": 0.15729920705028105,
+        "0": 0.0
+      }
+    },
+    "cramers_v_n": {
+      "^_^": {
+        "^_^": 2.0,
+        "0": 2.0
+      },
+      "0": {
+        "^_^": 2.0,
+        "0": 3.0
+      }
+    },
+    "eta": {
+      "^_^": {
+        "feature": null
+      },
+      "0": {
+        "feature": 1.0
+      }
+    },
+    "eta_p": {
+      "^_^": {
+        "feature": null
+      },
+      "0": {
+        "feature": 0.36787944117144245
+      }
+    },
+    "eta_n": {
+      "^_^": {
+        "feature": 2.0
+      },
+      "0": {
+        "feature": 3.0
+      }
+    },
+    "pairs": [
+      {
+        "col_a": "0",
+        "col_b": "feature",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 1.0,
+        "abs_value": 1.0,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.36787944117144245,
+        "p_adjusted": 0.36787944117144245,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      }
+    ],
+    "top_pairs": [
+      {
+        "col_a": "0",
+        "col_b": "feature",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 1.0,
+        "abs_value": 1.0,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.36787944117144245,
+        "p_adjusted": 0.36787944117144245,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      }
+    ],
+    "association": {
+      "feature": {
+        "feature": 1.0,
+        "^_^": null,
+        "0": 1.0
+      },
+      "^_^": {
+        "feature": null,
+        "^_^": 1.0,
+        "0": null
+      },
+      "0": {
+        "feature": 1.0,
+        "^_^": null,
+        "0": 1.0
+      }
+    },
+    "association_p": {
+      "feature": {
+        "feature": 0.0,
+        "^_^": null,
+        "0": 0.36787944117144245
+      },
+      "^_^": {
+        "feature": null,
+        "^_^": 0.0,
+        "0": null
+      },
+      "0": {
+        "feature": 0.36787944117144245,
+        "^_^": null,
+        "0": 0.0
+      }
+    },
+    "missingness": []
+  },
+  "quality": {
+    "duplicate_rows": {
+      "count": 0,
+      "pct": 0.0,
+      "example_indices": []
+    },
+    "duplicate_columns": [],
+    "empty_columns": [],
+    "constant_columns": [
+      "-1",
+      "new\nline"
+    ],
+    "quasi_constant_columns": {},
+    "high_missing_columns": {
+      "^_^": 33.333333333333336
+    },
+    "missing_patterns": {
+      "co_missing": [],
+      "n_rows_many_missing": 0,
+      "rows_many_missing_examples": [],
+      "top_patterns": [
+        {
+          "columns": [
+            "^_^"
+          ],
+          "rows": 1
+        }
+      ]
+    },
+    "mixed_type_columns": {},
+    "whitespace_columns": {},
+    "placeholder_values": {},
+    "suspicious_values": {},
+    "id_columns": [],
+    "redundant_pairs": [
+      {
+        "col_a": "0",
+        "col_b": "feature",
+        "method": "eta",
+        "value": 1.0
+      }
+    ],
+    "dtype_optimizations": [
+      {
+        "column": "feature",
+        "current_dtype": "float64",
+        "suggested_dtype": "float32",
+        "current_bytes": 24,
+        "new_bytes": 12,
+        "saving_bytes": 12,
+        "saving_pct": 50.0,
+        "code": "df['feature'] = df['feature'].astype('float32')"
+      }
+    ],
+    "conversion_suggestions": {},
+    "memory_bytes": 242,
+    "potential_saving_bytes": 12,
+    "alerts": [
+      {
+        "severity": "medium",
+        "column": "-1",
+        "message": "constant column carries no information -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "^_^",
+        "message": "33.3% missing -> drop, or impute and add a missing-indicator",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "feature",
+        "message": "redundant with '0' (eta +1.000) -> keep only one",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "new\nline",
+        "message": "constant column carries no information -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "info",
+        "column": null,
+        "message": "dtype optimizations save ~12 B: feature -> float32 (see quality['dtype_optimizations'] for code)",
+        "kind": null
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "severity": "medium",
+      "column": null,
+      "message": "duplicate or non-string column names were renamed (a, a.1, ...)",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "-1",
+      "message": "constant column carries no information -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "^_^",
+      "message": "33.3% missing -> drop, or impute and add a missing-indicator",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "feature",
+      "message": "redundant with '0' (eta +1.000) -> keep only one",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "new\nline",
+      "message": "constant column carries no information -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "info",
+      "column": null,
+      "message": "dtype optimizations save ~12 B: feature -> float32 (see quality['dtype_optimizations'] for code)",
+      "kind": null
+    }
+  ],
+  "plots": []
+}

@@ -1,0 +1,647 @@
+{
+  "overview": {
+    "n_rows": 300,
+    "n_columns": 3,
+    "n_rows_profiled": 100,
+    "sampled": true,
+    "memory_bytes": 3354,
+    "potential_saving_bytes": 823,
+    "pandas_dtypes": {
+      "string": 1,
+      "datetime64[us]": 1,
+      "float64": 1
+    },
+    "semantic_types": {
+      "categorical": 1,
+      "datetime": 1,
+      "numeric_continuous": 1
+    },
+    "n_duplicate_rows": 0,
+    "pct_duplicate_rows": 0.0,
+    "pct_missing_cells": 9.11111111111111,
+    "n_rows_with_missing": 30,
+    "target": null,
+    "source": "pandas.DataFrame · streamed in 5 chunks (in memory, 3 processes) · read in 0.2s",
+    "workers": 3,
+    "chart_workers": 3
+  },
+  "summary": [
+    {
+      "column": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "semantic_type": "categorical",
+      "pandas_dtype": "string",
+      "count": 70,
+      "pct_missing": 30.0,
+      "n_unique": 3,
+      "pct_unique": 4.285714285714286,
+      "top_value": "bar",
+      "top_pct": 34.285714285714285,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": 0.9998151027885582,
+      "memory_bytes": 954,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "../../etc",
+      "semantic_type": "datetime",
+      "pandas_dtype": "datetime64[us]",
+      "count": 100,
+      "pct_missing": 0.0,
+      "n_unique": 93,
+      "pct_unique": 93.0,
+      "top_value": "2022-03-03 00:00:00",
+      "top_pct": 4.0,
+      "mean": null,
+      "std": null,
+      "min": "2020-01-01",
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": "2022-09-17",
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 800,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "a",
+      "semantic_type": "numeric_continuous",
+      "pandas_dtype": "float64",
+      "count": 100,
+      "pct_missing": 0.0,
+      "n_unique": 100,
+      "pct_unique": 100.0,
+      "top_value": -6.786934679067654e+299,
+      "top_pct": 1.0,
+      "mean": 1.038624709176662e+299,
+      "std": null,
+      "min": -1.990168134552981e+300,
+      "p25": -5.160154132651839e+299,
+      "median": 1.6105749802062893e+299,
+      "p75": 6.503434887500362e+299,
+      "max": 2.5841913774150538e+300,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": 2.0,
+      "normality": "normal",
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 800,
+      "n_alerts": 0,
+      "errors": null
+    }
+  ],
+  "columns": {
+    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": {
+      "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "errors": {},
+      "semantic_type": "categorical",
+      "pandas_dtype": "string",
+      "confidence": 0.85,
+      "reason": "3 distinct labels",
+      "suggestions": [
+        {
+          "flag": "should-be-category",
+          "code": "df['xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'] = df['xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'].astype('category')"
+        }
+      ],
+      "stats": {
+        "count": 70,
+        "n_missing": 30,
+        "pct_missing": 30.0,
+        "n_unique": 3,
+        "pct_unique": 4.285714285714286,
+        "memory_bytes": 954,
+        "modes": [
+          "bar"
+        ],
+        "mode_freq": 24,
+        "mode_pct": 34.285714285714285,
+        "top_values": [
+          {
+            "value": "bar",
+            "count": 24,
+            "pct": 34.285714285714285
+          },
+          {
+            "value": "foo",
+            "count": 23,
+            "pct": 32.857142857142854
+          },
+          {
+            "value": "",
+            "count": 23,
+            "pct": 32.857142857142854
+          }
+        ],
+        "cardinality": 3,
+        "entropy": 1.584669445574533,
+        "normalized_entropy": 0.9998151027885582,
+        "gini_impurity": 0.666530612244898,
+        "imbalance_ratio": 1.0434782608695652,
+        "n_rare_categories": 0,
+        "pct_rows_rare": 0.0,
+        "rare_categories": [],
+        "uniform_chi2_p": 0.9858158423524046,
+        "n_inconsistent_groups": 0,
+        "inconsistent_labels": [],
+        "len_min": 0,
+        "len_mean": 2.0142857142857142,
+        "len_median": 3.0,
+        "len_max": 3
+      },
+      "alerts": []
+    },
+    "../../etc": {
+      "name": "../../etc",
+      "errors": {},
+      "semantic_type": "datetime",
+      "pandas_dtype": "datetime64[us]",
+      "confidence": 1.0,
+      "reason": "datetime dtype",
+      "suggestions": [],
+      "stats": {
+        "count": 100,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 93,
+        "pct_unique": 93.0,
+        "memory_bytes": 800,
+        "modes": [
+          "2022-03-03 00:00:00"
+        ],
+        "mode_freq": 4,
+        "mode_pct": 4.0,
+        "top_values": [
+          {
+            "value": "2022-03-03 00:00:00",
+            "count": 4,
+            "pct": 4.0
+          },
+          {
+            "value": "2022-04-24 00:00:00",
+            "count": 3,
+            "pct": 3.0
+          },
+          {
+            "value": "2020-05-01 00:00:00",
+            "count": 2,
+            "pct": 2.0
+          },
+          {
+            "value": "2020-09-29 00:00:00",
+            "count": 2,
+            "pct": 2.0
+          },
+          {
+            "value": "2021-07-09 00:00:00",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "2020-12-19 00:00:00",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "2022-02-21 00:00:00",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "2022-01-26 00:00:00",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "2022-09-17 00:00:00",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "2020-10-06 00:00:00",
+            "count": 1,
+            "pct": 1.0
+          }
+        ],
+        "min": "2020-01-01",
+        "max": "2022-09-17",
+        "span": "990 days 00:00:00",
+        "span_days": 990.0,
+        "inferred_freq": "~9 days 00:00:00 (irregular)",
+        "largest_gaps": [
+          {
+            "start": "2021-03-28",
+            "end": "2021-06-04",
+            "gap": "68 days 00:00:00"
+          },
+          {
+            "start": "2020-06-12",
+            "end": "2020-07-22",
+            "gap": "40 days 00:00:00"
+          },
+          {
+            "start": "2021-10-20",
+            "end": "2021-11-29",
+            "gap": "40 days 00:00:00"
+          }
+        ],
+        "n_duplicated_timestamps": 7,
+        "n_future": 0,
+        "n_before_1900": 0,
+        "n_unparsed": 0,
+        "monotonic_increasing": false,
+        "monotonic_decreasing": false,
+        "counts_resolution": "week",
+        "counts_trend_tau": 0.0634868883476118,
+        "counts_trend_p": 0.3310000603740716,
+        "by_year": {
+          "2020": 37,
+          "2021": 31,
+          "2022": 32
+        },
+        "by_month": {
+          "Jan": 11,
+          "Feb": 7,
+          "Mar": 12,
+          "Apr": 8,
+          "May": 4,
+          "Jun": 9,
+          "Jul": 8,
+          "Aug": 7,
+          "Sep": 15,
+          "Oct": 5,
+          "Nov": 7,
+          "Dec": 7
+        },
+        "by_weekday": {
+          "Mon": 6,
+          "Tue": 16,
+          "Wed": 16,
+          "Thu": 17,
+          "Fri": 15,
+          "Sat": 12,
+          "Sun": 18
+        }
+      },
+      "alerts": []
+    },
+    "a": {
+      "name": "a",
+      "errors": {},
+      "semantic_type": "numeric_continuous",
+      "pandas_dtype": "float64",
+      "confidence": 0.7,
+      "reason": "float64 dtype: integer-valued with many levels (100)",
+      "suggestions": [],
+      "stats": {
+        "count": 100,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 100,
+        "pct_unique": 100.0,
+        "memory_bytes": 800,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": -6.786934679067654e+299,
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": -2.25563424588009e+298,
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": 1.7355711005443313e+300,
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": 1.3344067937689305e+300,
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": 1.2729573104540946e+300,
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": 1.2275905924217564e+300,
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": 2.5841913774150538e+300,
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": -1.7105610626623126e+300,
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": 9.772349304266323e+299,
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": 5.3787124821203896e+299,
+            "count": 1,
+            "pct": 1.0
+          }
+        ],
+        "n_inf": 0,
+        "mean": 1.038624709176662e+299,
+        "std": null,
+        "var": null,
+        "sem": null,
+        "cv": null,
+        "min": -1.990168134552981e+300,
+        "max": 2.5841913774150538e+300,
+        "range": 4.574359511968035e+300,
+        "sum": 1.0386247091766619e+301,
+        "p1": -1.965989888796335e+300,
+        "p5": -1.4811966624551085e+300,
+        "p10": -1.104520284068987e+300,
+        "p25": -5.160154132651839e+299,
+        "p50": 1.6105749802062893e+299,
+        "p75": 6.503434887500362e+299,
+        "p90": 1.2791022587855787e+300,
+        "p95": 1.5816505510065426e+300,
+        "p99": 2.5622126308620478e+300,
+        "median": 1.6105749802062893e+299,
+        "iqr": 1.16635890201522e+300,
+        "mad": 6.6437043568230985e+299,
+        "trimmed_mean": 1.0142942531385517e+299,
+        "geometric_mean": null,
+        "harmonic_mean": null,
+        "skewness": null,
+        "kurtosis": null,
+        "n_zeros": 0,
+        "n_negative": 46,
+        "iqr_lower": -2.265553766288014e+300,
+        "iqr_upper": 2.3998818417728664e+300,
+        "n_outliers_iqr": 2,
+        "pct_outliers_iqr": 2.0,
+        "n_outliers_z": 0,
+        "pct_outliers_z": 0.0,
+        "n_outliers_mz": 0,
+        "pct_outliers_mz": 0.0,
+        "n_decimals": 0,
+        "pct_round_values": 28.000000000000004,
+        "heaping_index": 1.4000000000000001,
+        "monotonic_increasing": false,
+        "monotonic_decreasing": false,
+        "bimodality_coefficient": null,
+        "n_modes_kde": 1,
+        "ci95_mean_low": null,
+        "ci95_mean_high": null,
+        "ci95_median_low": -1.089723458185861e+299,
+        "ci95_median_high": 3.298647741776489e+299,
+        "pct_at_max": 1.0,
+        "capped_max": false,
+        "pct_at_min": 1.0,
+        "capped_min": false,
+        "autocorr_lag1": null,
+        "autocorr_lag1_p": null
+      },
+      "distribution": {
+        "normality": {
+          "n": 100,
+          "alpha": 0.05,
+          "shapiro_stat": null,
+          "shapiro_p": null,
+          "dagostino_stat": null,
+          "dagostino_p": null,
+          "jarque_bera_stat": null,
+          "jarque_bera_p": null,
+          "anderson_stat": 38.629436111989065,
+          "anderson_p": 0.01,
+          "n_tests": 4,
+          "n_reject": 1,
+          "verdict": "normal"
+        },
+        "fit": {
+          "n_used": 100,
+          "fits": [],
+          "best": null,
+          "failed": {
+            "norm": "data outside the fitted support",
+            "lognorm": "degenerate fit: the density collapsed onto repeated values",
+            "expon": "degenerate fit: the density collapsed onto repeated values",
+            "gamma": "degenerate fit: the density collapsed onto repeated values",
+            "weibull_min": "data outside the fitted support",
+            "beta": "degenerate fit: the density collapsed onto repeated values",
+            "uniform": "degenerate fit: the density collapsed onto repeated values",
+            "logistic": "degenerate fit: the density collapsed onto repeated values",
+            "t": "data outside the fitted support",
+            "laplace": "degenerate fit: the density collapsed onto repeated values",
+            "pareto": "degenerate fit: the density collapsed onto repeated values",
+            "chi2": "degenerate fit: the density collapsed onto repeated values",
+            "cauchy": "degenerate fit: the density collapsed onto repeated values"
+          },
+          "ks_note": "KS p-values are optimistic: the parameters were estimated from the same data. For integer data the gap is measured on the integer support and the p-value is a chi-square goodness-of-fit test.",
+          "kind": "continuous",
+          "n_candidates_fitted": 0,
+          "description": "roughly symmetric, no candidate could be fitted"
+        }
+      },
+      "alerts": []
+    }
+  },
+  "correlations": {
+    "eta": {
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": {
+        "a": null
+      }
+    },
+    "eta_p": {
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": {
+        "a": 0.8115996185565736
+      }
+    },
+    "eta_n": {
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": {
+        "a": 70.0
+      }
+    },
+    "pairs": [],
+    "top_pairs": [],
+    "association": {
+      "a": {
+        "a": 1.0,
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": null
+      },
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": {
+        "a": null,
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": 1.0
+      }
+    },
+    "association_p": {
+      "a": {
+        "a": 0.0,
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": null
+      },
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": {
+        "a": null,
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": 0.0
+      }
+    },
+    "missingness": [
+      {
+        "column": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "pct_missing": 30.0,
+        "depends_on": "a",
+        "test": "mann-whitney (AUC)",
+        "effect": 0.4719047619047619,
+        "p_value": 0.6599198788804658,
+        "p_adjusted": 0.6599198788804658,
+        "significant": false,
+        "detail": "median a = 1.55e+299 when missing vs 1.61e+299"
+      }
+    ]
+  },
+  "quality": {
+    "duplicate_rows": {
+      "count": 0,
+      "pct": 0.0,
+      "example_indices": [],
+      "exact_over_all_rows": true
+    },
+    "duplicate_columns": [],
+    "empty_columns": [],
+    "constant_columns": [],
+    "quasi_constant_columns": {},
+    "high_missing_columns": {
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": 30.0
+    },
+    "missing_patterns": {
+      "co_missing": [],
+      "n_rows_many_missing": 0,
+      "rows_many_missing_examples": [],
+      "top_patterns": [
+        {
+          "columns": [
+            "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          ],
+          "rows": 30
+        }
+      ]
+    },
+    "mixed_type_columns": {},
+    "whitespace_columns": {},
+    "placeholder_values": {
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": {
+        "''": 23
+      }
+    },
+    "suspicious_values": {},
+    "id_columns": [],
+    "redundant_pairs": [],
+    "dtype_optimizations": [
+      {
+        "column": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "current_dtype": "string",
+        "suggested_dtype": "category",
+        "current_bytes": 954,
+        "new_bytes": 131,
+        "saving_bytes": 823,
+        "saving_pct": 86.26834381551363,
+        "code": "df['xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'] = df['xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'].astype('category')"
+      }
+    ],
+    "conversion_suggestions": {
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": [
+        {
+          "flag": "should-be-category",
+          "code": "df['xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'] = df['xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'].astype('category')"
+        }
+      ]
+    },
+    "memory_bytes": 3354,
+    "potential_saving_bytes": 823,
+    "alerts": [
+      {
+        "severity": "medium",
+        "column": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "message": "30.0% missing -> drop, or impute and add a missing-indicator",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "message": "placeholder values used as missing: '' (23) -> replace with NaN",
+        "kind": null
+      },
+      {
+        "severity": "info",
+        "column": null,
+        "message": "dtype optimizations save ~823 B: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -> category (see quality['dtype_optimizations'] for code)",
+        "kind": null
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "severity": "medium",
+      "column": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "message": "30.0% missing -> drop, or impute and add a missing-indicator",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "message": "placeholder values used as missing: '' (23) -> replace with NaN",
+      "kind": null
+    },
+    {
+      "severity": "info",
+      "column": null,
+      "message": "dtype optimizations save ~823 B: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx -> category (see quality['dtype_optimizations'] for code)",
+      "kind": null
+    },
+    {
+      "severity": "info",
+      "column": null,
+      "message": "profiled on a uniform random sample of 100 of 300 rows (33.3%); row counts, missing values, min/max/mean/std, distinct counts and duplicate rows are exact over every row",
+      "kind": "sampled"
+    },
+    {
+      "severity": "info",
+      "column": null,
+      "message": "timeseries analysis skipped after an error: LinAlgError('SVD did not converge')",
+      "kind": null
+    }
+  ],
+  "plots": [
+    "fuzz/out2/269/00_dataset_overview.png",
+    "fuzz/out2/269/01_dataset_missing.png",
+    "fuzz/out2/269/02_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_bar.png",
+    "fuzz/out2/269/03_.._.._etc_time.png",
+    "fuzz/out2/269/04_a_dist.png",
+    "fuzz/out2/269/05_dataset_outliers.png"
+  ]
+}

@@ -1,0 +1,327 @@
+{
+  "overview": {
+    "n_rows": 300,
+    "n_columns": 1,
+    "n_rows_profiled": 300,
+    "sampled": false,
+    "memory_bytes": 10972,
+    "potential_saving_bytes": 0,
+    "pandas_dtypes": {
+      "timedelta64[us]": 1
+    },
+    "semantic_types": {
+      "numeric_continuous": 1
+    },
+    "n_duplicate_rows": 203,
+    "pct_duplicate_rows": 67.66666666666667,
+    "pct_missing_cells": 0.0,
+    "n_rows_with_missing": 0,
+    "target": null,
+    "source": "pandas.DataFrame · read in 0.0s",
+    "workers": 1,
+    "chart_workers": 0
+  },
+  "summary": [
+    {
+      "column": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "semantic_type": "numeric_continuous",
+      "pandas_dtype": "timedelta64[us]",
+      "count": 300,
+      "pct_missing": 0.0,
+      "n_unique": 97,
+      "pct_unique": 32.333333333333336,
+      "top_value": "0 days 00:00:41",
+      "top_pct": 2.3333333333333335,
+      "mean": 48.00666666666667,
+      "std": 28.434986379286162,
+      "min": 1.0,
+      "p25": 24.75,
+      "median": 45.5,
+      "p75": 72.0,
+      "max": 99.0,
+      "skewness": 0.08078010310119613,
+      "kurtosis": -1.1307847444073285,
+      "pct_outliers_iqr": 0.0,
+      "normality": "not normal",
+      "best_fit": "uniform(loc=1, scale=98)",
+      "entropy": null,
+      "memory_bytes": 2400,
+      "n_alerts": 0,
+      "errors": null
+    }
+  ],
+  "columns": {
+    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": {
+      "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "errors": {},
+      "semantic_type": "numeric_continuous",
+      "pandas_dtype": "timedelta64[us]",
+      "confidence": 0.7,
+      "reason": "timedelta (seconds): integer-valued with many levels (97)",
+      "suggestions": [],
+      "stats": {
+        "count": 300,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 97,
+        "pct_unique": 32.333333333333336,
+        "memory_bytes": 2400,
+        "modes": [
+          "0 days 00:00:41"
+        ],
+        "mode_freq": 7,
+        "mode_pct": 2.3333333333333335,
+        "top_values": [
+          {
+            "value": "0 days 00:00:41",
+            "count": 7,
+            "pct": 2.3333333333333335
+          },
+          {
+            "value": "0 days 00:00:19",
+            "count": 6,
+            "pct": 2.0
+          },
+          {
+            "value": "0 days 00:00:37",
+            "count": 6,
+            "pct": 2.0
+          },
+          {
+            "value": "0 days 00:00:43",
+            "count": 6,
+            "pct": 2.0
+          },
+          {
+            "value": "0 days 00:01:06",
+            "count": 6,
+            "pct": 2.0
+          },
+          {
+            "value": "0 days 00:00:27",
+            "count": 6,
+            "pct": 2.0
+          },
+          {
+            "value": "0 days 00:00:50",
+            "count": 6,
+            "pct": 2.0
+          },
+          {
+            "value": "0 days 00:01:11",
+            "count": 6,
+            "pct": 2.0
+          },
+          {
+            "value": "0 days 00:01:39",
+            "count": 6,
+            "pct": 2.0
+          },
+          {
+            "value": "0 days 00:00:42",
+            "count": 5,
+            "pct": 1.6666666666666667
+          }
+        ],
+        "n_inf": 0,
+        "mean": 48.00666666666667,
+        "std": 28.434986379286162,
+        "var": 808.5484503901896,
+        "sem": 1.6416947040484207,
+        "cv": 0.5923132838345958,
+        "min": 1.0,
+        "max": 99.0,
+        "range": 98.0,
+        "sum": 14402.0,
+        "p1": 1.0,
+        "p5": 4.950000000000001,
+        "p10": 9.0,
+        "p25": 24.75,
+        "p50": 45.5,
+        "p75": 72.0,
+        "p90": 87.10000000000002,
+        "p95": 95.0,
+        "p99": 99.0,
+        "median": 45.5,
+        "iqr": 47.25,
+        "mad": 24.5,
+        "trimmed_mean": 47.604166666666664,
+        "geometric_mean": 35.30375195937737,
+        "harmonic_mean": 16.876134484154658,
+        "skewness": 0.08078010310119613,
+        "kurtosis": -1.1307847444073285,
+        "n_zeros": 0,
+        "n_negative": 0,
+        "iqr_lower": -46.125,
+        "iqr_upper": 142.875,
+        "n_outliers_iqr": 0,
+        "pct_outliers_iqr": 0.0,
+        "n_outliers_z": 0,
+        "pct_outliers_z": 0.0,
+        "n_outliers_mz": 0,
+        "pct_outliers_mz": 0.0,
+        "n_decimals": 0,
+        "pct_round_values": 18.0,
+        "heaping_index": 0.8999999999999999,
+        "monotonic_increasing": false,
+        "monotonic_decreasing": false,
+        "bimodality_coefficient": 0.5298751119586611,
+        "n_modes_kde": 1,
+        "ci95_mean_low": 44.775926951021795,
+        "ci95_mean_high": 51.23740638231154,
+        "ci95_median_low": 41.0,
+        "ci95_median_high": 52.0,
+        "pct_at_max": 2.0,
+        "capped_max": false,
+        "pct_at_min": 1.3333333333333333,
+        "capped_min": false,
+        "autocorr_lag1": -0.018001660080042555,
+        "autocorr_lag1_p": 0.7551941210217871
+      },
+      "distribution": {
+        "normality": {
+          "n": 300,
+          "alpha": 0.05,
+          "shapiro_stat": 0.958263240275696,
+          "shapiro_p": 1.4542266865457478e-07,
+          "dagostino_stat": 108.90336397483647,
+          "dagostino_p": 2.2487179289075787e-24,
+          "jarque_bera_stat": 16.339669679307082,
+          "jarque_bera_p": 0.0002830647636582503,
+          "anderson_stat": 2.856615373980958,
+          "anderson_p": 0.01,
+          "n_tests": 4,
+          "n_reject": 4,
+          "verdict": "not normal"
+        },
+        "fit": {
+          "n_used": 300,
+          "fits": [
+            {
+              "distribution": "uniform",
+              "label": "uniform",
+              "params": {
+                "loc": 1.0,
+                "scale": 98.0
+              },
+              "n_params": 2,
+              "loglik": -1375.4902436011714,
+              "aic": 2754.980487202343,
+              "bic": 2762.3880521516553,
+              "ks_stat": 0.05476190476190479,
+              "ks_pvalue": 0.31772133498787203,
+              "note": "",
+              "delta_aic": 0.0,
+              "akaike_weight": 0.6008171962043665
+            },
+            {
+              "distribution": "beta",
+              "label": "beta",
+              "params": {
+                "a": 0.8582467223407736,
+                "b": 0.9102277379852809,
+                "loc": 0.902,
+                "scale": 98.196
+              },
+              "n_params": 4,
+              "loglik": -1373.8991148565442,
+              "aic": 2755.7982297130884,
+              "bic": 2770.6133596117133,
+              "ks_stat": 0.042142176775692874,
+              "ks_pvalue": 0.6452045928967602,
+              "note": "rescaled to [0.902, 99.1]",
+              "delta_aic": 0.8177425107455747,
+              "akaike_weight": 0.39918280379563353
+            },
+            {
+              "distribution": "weibull_min",
+              "label": "Weibull",
+              "params": {
+                "c": 1.592533370678256,
+                "loc": 0.0,
+                "scale": 52.992048058342874
+              },
+              "n_params": 2,
+              "loglik": -1423.6424773473082,
+              "aic": 2851.2849546946163,
+              "bic": 2858.692519643929,
+              "ks_stat": 0.08483592878954793,
+              "ks_pvalue": 0.025084228892349403,
+              "note": "",
+              "delta_aic": 96.30446749227349,
+              "akaike_weight": 7.353480532442801e-22
+            }
+          ],
+          "best": "uniform",
+          "failed": {},
+          "ks_note": "KS p-values are optimistic: the parameters were estimated from the same data. For integer data the gap is measured on the integer support and the p-value is a chi-square goodness-of-fit test.",
+          "kind": "continuous",
+          "n_candidates_fitted": 13,
+          "description": "roughly symmetric, light-tailed, best fit uniform(loc=1, scale=98)"
+        }
+      },
+      "alerts": []
+    }
+  },
+  "correlations": {
+    "pairs": [],
+    "top_pairs": [],
+    "missingness": []
+  },
+  "quality": {
+    "duplicate_rows": {
+      "count": 203,
+      "pct": 67.66666666666667,
+      "example_indices": [
+        "(0, 8)",
+        "(1, 9)",
+        "(0, 12)",
+        "(1, 37)",
+        "(1, 43)",
+        "(0, 44)",
+        "(0, 46)",
+        "(1, 47)",
+        "(1, 49)",
+        "(1, 51)"
+      ]
+    },
+    "duplicate_columns": [],
+    "empty_columns": [],
+    "constant_columns": [],
+    "quasi_constant_columns": {},
+    "high_missing_columns": {},
+    "missing_patterns": {
+      "co_missing": [],
+      "n_rows_many_missing": 0,
+      "rows_many_missing_examples": [],
+      "top_patterns": []
+    },
+    "mixed_type_columns": {},
+    "whitespace_columns": {},
+    "placeholder_values": {},
+    "suspicious_values": {},
+    "id_columns": [],
+    "redundant_pairs": [],
+    "dtype_optimizations": [],
+    "conversion_suggestions": {},
+    "memory_bytes": 10972,
+    "potential_saving_bytes": 0,
+    "alerts": [
+      {
+        "severity": "medium",
+        "column": null,
+        "message": "203 duplicate rows (67.7%), e.g. index ['(0, 8)', '(1, 9)', '(0, 12)'] -> df.drop_duplicates()",
+        "kind": null
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "severity": "medium",
+      "column": null,
+      "message": "203 duplicate rows (67.7%), e.g. index ['(0, 8)', '(1, 9)', '(0, 12)'] -> df.drop_duplicates()",
+      "kind": null
+    }
+  ],
+  "plots": []
+}

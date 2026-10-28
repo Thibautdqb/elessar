@@ -19,12 +19,22 @@ Pass a `DataFrame`, a file or almost anything tabular to `see()`, or a file to t
 - the **best-fitting statistical distribution** (MLE, ranked by AIC) and four normality tests
 - **associations of every kind with statistical significance**: Pearson, Spearman, Kendall, Cramér's V, correlation ratio, mutual information, AUC, with p-values, Benjamini-Hochberg correction and confidence intervals
 - **target analysis**: feature ranking, **leakage detection**, informative missingness
+- **feature selection** by embedded methods (decision tree, random forest, lasso, ridge) and a filter, cross-validated, with a vote per feature
+- **multivariate statistics**: whether **PCA** or **factor analysis** is worth it (Bartlett, KMO, parallel analysis), redundant groups of columns, rows that are outliers on several columns at once
+- **outliers** found three ways (3 sigma, boxplot, modified z) and listed point by point, with whether to remove or reassign them
+- **time series** recognised on their own (single series, panel, event log): trend, stationarity, seasonality, decomposition, windows, validation folds on the real dates, augmentation recipes
+- a **preparation plan**: every cleaning step (invalid values, wrong formats, misspellings, duplicates, consistency, missing data, outliers) and transformation (bucketing, decomposition, aggregation, combination, rescaling, normalisation, transformation, encoding, dimensionality reduction), each with its reason and its code
 - **data quality** checks and **actionable alerts** (with the code to fix them): placeholders, duplicates, multicollinearity, values missing not at random, sorted rows…
 - a set of **plots that actually carry information**, saved as PNG files, and **one HTML page** with everything
 - **any input, any size**: CSV, Parquet, Excel, JSON, SQLite, SAS, Stata… or polars, pyarrow, dask, NumPy objects;
   files bigger than memory are **streamed in parallel**, with exact counts over every row
 
-It is built for scripts and the terminal: plain-text output that fits your terminal width, files on disk, no display needed (except to click the target, if you ask for it). The core only depends on `pandas`, `numpy`, `scipy` and `matplotlib`; Parquet, Excel and dask are optional extras.
+It is built for scripts and the terminal: plain-text output that fits your terminal width, files on disk, no display needed (except to click the target, if you ask for it). It depends on `pandas`, `numpy`, `scipy`, `matplotlib` and `scikit-learn`; Parquet, Excel and dask are optional extras.
+
+> **Big files and dask.** If [dask](https://www.dask.org) is installed (`pip install "elessar[big]"`), elessar uses it
+> automatically for files too big to load whole: dask splits the file into blocks that are read and summarised
+> on every core. Nothing to configure; without dask the same files are streamed in one process, more slowly.
+> `engine="pandas"` / `--engine pandas` turns it off, `engine="dask"` requires it.
 
 ## Install
 
@@ -61,14 +71,25 @@ When the analysis finishes, elessar writes **`report.html`** next to the charts 
 **`report.md`**, which renders on GitHub, in VS Code, Obsidian…), and opens it in your browser. Everything is in it:
 
 - **Key findings** first: the features most associated with the target, then every high and medium alert
-- the **dataset overview** (and, for a sampled big table, the **exact figures over every row**)
+- **overall statistics**: the dataset overview, numeric and categorical columns at a glance (and, for a sampled
+  big table, the **exact figures over every row**)
 - **target analysis**: ranking with tests, AUC and mutual information, informative missingness, target charts
+- **feature selection**: every method's importance per feature, the vote, the cross-validated score of each
+  model, the lasso path
+- **time series** (when the table is one): structure, trend, stationarity, seasonality, decomposition and
+  autocorrelation charts, the treatment and the validation folds
 - **distributions**: for every numeric column the normality tests, the best fit with its parameters, Akaike
   weight, ΔAIC to the runner-up and the size of the misfit (KS D), next to histogram + fit + Q-Q charts
-- **data quality**, **associations** (heatmaps with significance, strongest pairs, linear dependencies, VIF)
-- one collapsible section per **column** with every statistic laid out in cards (center, spread, quantiles,
-  shape, outliers, row order, labels, time, text), its normality tests, its top fits, its top values, its
-  alerts with the fix, and its charts
+- **outliers**: the three methods per column, a chart of every flagged point, the most extreme points by row,
+  the rows that are outliers on several columns (`outliers.csv` lists every flagged point)
+- **data quality**
+- **multivariate statistics**: PCA and factor analysis (with the verdict, the loadings and the code), groups of
+  redundant columns, then the associations (heatmaps with significance, strongest pairs, linear
+  dependencies, VIF)
+- the **preparation plan**: cleaning then transformation steps, each with why and the code
+- **attribute statistics**: one collapsible section per column with every statistic laid out in cards
+  (center, spread, quantiles, shape, outliers, row order, labels, time, text), its normality tests, its top
+  fits, its top values, its alerts with the fix, and its charts
 - **run** details: source, how it was read, processes used, time per step, versions
 
 `StoneConfig(single_file_report=True)` / `--single-file` also writes `report_single.html` with every chart inlined:
@@ -123,9 +144,9 @@ memory, is never loaded whole. It is read once in chunks and every chunk is redu
 - a **uniform random sample** of `max_rows` rows without replacement (the rows with the smallest random keys),
   in the original order and indexed by original row number, on which the full profile runs.
 
-Chunks are independent, so they are reduced on every core: CSV files are split into byte ranges by **dask**,
-Parquet files by row group, in-memory frames by slice. Without dask, CSV files are streamed in one process. The
-report says the profile is sampled and shows the exact table.
+Chunks are independent, so they are reduced on every core: CSV files are split into byte ranges by **dask**
+(used automatically when it is installed), Parquet files by row group, in-memory frames by slice. Without dask,
+CSV files are streamed in one process. The report says the profile is sampled and shows the exact table.
 
 **Parallelism.** The heavy steps (per-column statistics and distribution fits, every association test, every chart)
 run as independent tasks on forked processes, one per core: the DataFrame is inherited, never copied or
@@ -181,7 +202,12 @@ anyway when you run interactively without `-t`). `python -m elessar` works too.
 | `.plots`, `.plot_index` | paths of the PNG files written; one `{column, other, kind, path}` record per chart |
 | `.recap` | paths of `report.html` and `report.md` (and `report_single.html`) |
 | `.full` | for a sampled big table: exact figures over every row, one row per column; else `None` |
-| `.timings` | seconds per step: load, columns, associations, quality, charts, report |
+| `.timings` | seconds per step: load, columns, associations, quality, advanced, charts, report |
+| `.selection` | feature selection: `table` (importance per method, votes, decision), `keep`, `borderline`, `drop`, `scores` |
+| `.multivariate` | `pca`, `factor` (verdict, reason, loadings, code), `groups` of redundant columns, multivariate `outliers` |
+| `.outliers` | per numeric column the three methods and the action; `points`: every flagged point; `summary` |
+| `.timeseries` | structure, per-series trend / stationarity / seasonality, `treatment`, `folds`; `None` if not a time series |
+| `.preparation` | `steps` (kind, action, column, why, code), plus what the detectors found (misspellings, groups, bins...) |
 | `.print()`, `.render(width)` | the terminal report |
 | `.to_dict()`, `.to_json(path)`, `.to_csv(path)`, `.to_markdown(path)`, `.to_html(path)` | exports (CSV = the summary table) |
 
@@ -212,6 +238,49 @@ anyway when you run interactively without `-t`). `python -m elessar` works too.
 | `missingness` | does a column go missing more for some values of another column? (Mann-Whitney / chi-square, BH-adjusted: evidence against MCAR) |
 | `target` | each feature vs the target: association, test (Spearman / Kruskal-Wallis / Mann-Whitney / chi-square), p, BH-adjusted p, AUC (binary target), mutual information, leakage flag |
 | `missing_target` | is the target different when a feature is missing? (informative missingness) |
+
+**Feature selection** (with a target): the features (numeric, and categorical one-hot encoded but scored as one) go
+through a **decision tree** (impurity importance, depth chosen by cross-validation), a **random forest** (permutation
+importance on held-out rows, all the one-hot columns of a feature shuffled together, kept when the drop in score
+exceeds twice its standard deviation), a **lasso** (L1; L1 logistic regression for classes; penalty by
+cross-validation, kept when the coefficient is not zero), a **ridge** (L2; kept when the standardised coefficient
+is at least 10 % of the largest) and the univariate **filter** (significant after BH correction). Kept by 3 methods
+or more = keep, 2 = borderline, else drop. Features suspected of leakage are set aside first. Scores are R²,
+ROC AUC (binary) or balanced accuracy, by 5-fold cross-validation, in time order for a time series.
+
+**Multivariate statistics**: on the standardised numeric columns, Bartlett's test of sphericity (is there anything
+to reduce?), the Kaiser-Meyer-Olkin adequacy, and the number of components by parallel analysis (Horn), Kaiser's
+rule and 80 / 90 / 95 % of variance. **PCA** is *recommended* when Bartlett is significant, KMO ≥ 0.5 and it
+keeps fewer than three quarters of the columns; **factor analysis** (varimax) when KMO ≥ 0.6, with the loadings,
+communalities and the columns that define each factor. Groups of columns with mean |Spearman| ≥ 0.7 are proposed
+for combination. **Multivariate outliers**: robust Mahalanobis distance (minimum covariance determinant on
+Yeo-Johnson-normalised continuous columns, linear combinations removed) beyond the chi-square 99.9 % quantile,
+confirmed by an isolation forest; flagged as indicative when more than 15 % of rows exceed it.
+
+**Outliers**: per numeric column, 3 sigma (|x − mean| > 3 sd), the boxplot fences (Tukey, 1.5 IQR) and the modified
+z-score (Hampel, |0.6745 (x − median) / MAD| > 3.5); 2 methods = consensus. Every flagged point is listed with its
+row, value, z and robust z. Action: *remove* when a few values are more than 10 robust sd away (entry or unit
+errors), *reassign* (cap at the fences) when the tail is real but influential.
+
+**Time series**: a datetime column, dates as text, a datetime index, a `year` column, or `year` + `month` columns.
+Structure: single series (unique, regular timestamps), panel (unique per time × entity), event log (irregular or
+repeated: aggregated per period). Per series: trend (Kendall tau, Theil-Sen slope), stationarity (augmented
+Dickey-Fuller, lag by AIC, MacKinnon critical values), seasonality (autocorrelation peak among the periods natural
+to the frequency: 7 / 30 / 365 days, 24 / 168 hours, 12 months, 4 quarters…) and its strength from a classical
+decomposition. Treatment: ordering, gaps, aggregation, panel-safe lags, differencing, Fourier terms, window and
+lag sizes, **expanding-window validation folds computed on the real dates**, augmentation for the training folds
+(jittering, scaling, window slicing, magnitude warping).
+
+**Preparation plan**: *cleaning*: invalid values (placeholders, impossible values, infinities), wrong formats
+(numbers or dates as text, mixed types, stray spaces, a file without a header row), misspellings (case, accents,
+spaces, and 1-2 typos found with a **BK-tree** on the edit distance), duplicates, consistency (mixed units, values on
+two scales ~100× or 1000× apart), missing data (strategy by type and by missingness mechanism), outliers to remove
+or reassign. *Transformation*: bucketing (numeric cut points from a decision tree on the target; labels merged by a
+**binary tree that only splits where the target differs significantly**, Bonferroni-corrected), decomposition
+(dates into calendar parts, lists into 0/1 columns, cells holding several data items such as `"Paris, France"` or
+`"1920x1080"` split), aggregation (time series, panels), combination (redundant groups, exact linear relations),
+rescaling, normalisation, transformation of skewed columns (Box-Cox / log / Yeo-Johnson, with the skewness before
+and after), encoding (by cardinality and type), dimensionality reduction.
 
 **Quality**: duplicate rows and columns, constant and quasi-constant columns, high missing, missing-value patterns (columns that go missing together, rows with many missing, most frequent patterns), mixed types, leading/trailing whitespace, placeholders used as missing (`""`, `"NA"`, `"null"`, `"?"`, `-999`, `99999`…), suspicious values (negative ages or prices, future birth dates, default dates like 1970-01-01), id-like columns, redundant columns, multicollinearity, sorted rows, imbalanced target, dtype optimizations with the estimated memory saving.
 
@@ -351,12 +420,18 @@ named `out_dir/<NN>_<column>_<kind>.png`.
 - **dataset**: missing-values matrix, missingness correlation, Pearson / Spearman / Cramér's V / all-type association heatmaps (non-significant cells faded)
 - **pairs**: joint plots with marginal distributions, hexbin density for large data, least-squares line and a median trend (honest for non-linear relations), levels jittered for discrete variables
 - **target**: "what drives the target" ranking (non-significant greyed out), and per-feature plots: joint plot, boxplots sorted by median with individual points, or stacked shares with % labels
+- **feature selection**: importance of every feature by every method with the selections boxed and the votes; the lasso path
+- **PCA**: scree plot (variance per component, cumulative, parallel-analysis threshold, components kept) beside the loadings; **factor analysis**: varimax loadings grouped by factor
+- **outliers**: every numeric column on one robust scale with its boxplot fences, the points flagged by 1 or 2-3 methods, the most extreme labelled by row; **multivariate outliers**: robust distance of every row against its cutoff
+- **time series**: each series with its rolling mean and its trend / season / stationarity verdict, the autocorrelation with its significance band and seasonal lag, and the seasonal decomposition (observed, trend, seasonal, residual)
 
 | | |
 |---|---|
 | ![Dataset overview](docs/overview.png) | ![Numeric distribution](docs/numeric_distribution.png) |
 | ![Association heatmap](docs/association_heatmap.png) | ![What drives the target](docs/target_ranking.png) |
 | ![Joint plot with hexbin density](docs/joint_plot.png) | ![Target by a categorical feature](docs/target_stacked.png) |
+| ![Feature selection by five methods](docs/feature_selection.png) | ![PCA scree plot and loadings](docs/pca.png) |
+| ![Outlier points of every numeric column](docs/outliers.png) | ![Seasonal decomposition of a time series](docs/decomposition.png) |
 
 ## Development
 

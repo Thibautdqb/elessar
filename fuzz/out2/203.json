@@ -1,0 +1,1199 @@
+{
+  "overview": {
+    "n_rows": 2,
+    "n_columns": 7,
+    "n_rows_profiled": 2,
+    "sampled": false,
+    "memory_bytes": 732,
+    "potential_saving_bytes": 14,
+    "pandas_dtypes": {
+      "object": 2,
+      "datetime64[us]": 1,
+      "int64": 1,
+      "str": 1,
+      "float64": 1,
+      "timedelta64[us]": 1
+    },
+    "semantic_types": {
+      "numeric_discrete": 3,
+      "categorical": 2,
+      "datetime": 1,
+      "id": 1
+    },
+    "n_duplicate_rows": 0,
+    "pct_duplicate_rows": 0.0,
+    "pct_missing_cells": 0.0,
+    "n_rows_with_missing": 0,
+    "target": null,
+    "source": "pandas.DataFrame · read in 0.0s",
+    "workers": 3,
+    "chart_workers": 0
+  },
+  "summary": [
+    {
+      "column": "a$b$c",
+      "semantic_type": "datetime",
+      "pandas_dtype": "datetime64[us]",
+      "count": 2,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 100.0,
+      "top_value": "2020-05-14 00:00:00",
+      "top_pct": 50.0,
+      "mean": null,
+      "std": null,
+      "min": "2020-05-14",
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": "2021-12-15",
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 16,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "shape",
+      "semantic_type": "numeric_discrete",
+      "pandas_dtype": "int64",
+      "count": 2,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 100.0,
+      "top_value": 40,
+      "top_pct": 50.0,
+      "mean": 41.5,
+      "std": 2.1213203435596424,
+      "min": 40.0,
+      "p25": 40.75,
+      "median": 41.5,
+      "p75": 42.25,
+      "max": 43.0,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": 0.0,
+      "normality": "insufficient data",
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 16,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "\\frac{1}{2}",
+      "semantic_type": "categorical",
+      "pandas_dtype": "object",
+      "count": 2,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 100.0,
+      "top_value": "1.5",
+      "top_pct": 50.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": 1.0,
+      "memory_bytes": 224,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "0",
+      "semantic_type": "categorical",
+      "pandas_dtype": "object",
+      "count": 2,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 100.0,
+      "top_value": "1.5",
+      "top_pct": 50.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": 1.0,
+      "memory_bytes": 224,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "../../etc",
+      "semantic_type": "id",
+      "pandas_dtype": "str",
+      "count": 2,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 100.0,
+      "top_value": "00000000-0000-0000-0bff-6025bc7ff0d0",
+      "top_pct": 50.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 88,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "a",
+      "semantic_type": "numeric_discrete",
+      "pandas_dtype": "float64",
+      "count": 2,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 100.0,
+      "top_value": -2.0449261736555848e+300,
+      "top_pct": 50.0,
+      "mean": -6.634888283490695e+299,
+      "std": null,
+      "min": -2.0449261736555848e+300,
+      "p25": -1.354207501002327e+300,
+      "median": -6.634888283490697e+299,
+      "p75": 2.722984430418804e+298,
+      "max": 7.179485169574458e+299,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": 0.0,
+      "normality": "insufficient data",
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 16,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "None",
+      "semantic_type": "numeric_discrete",
+      "pandas_dtype": "timedelta64[us]",
+      "count": 2,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 100.0,
+      "top_value": "0 days 00:00:35",
+      "top_pct": 50.0,
+      "mean": 27.5,
+      "std": 10.606601717798213,
+      "min": 20.0,
+      "p25": 23.75,
+      "median": 27.5,
+      "p75": 31.25,
+      "max": 35.0,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": 0.0,
+      "normality": "insufficient data",
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 16,
+      "n_alerts": 0,
+      "errors": null
+    }
+  ],
+  "columns": {
+    "a$b$c": {
+      "name": "a$b$c",
+      "errors": {},
+      "semantic_type": "datetime",
+      "pandas_dtype": "datetime64[us]",
+      "confidence": 1.0,
+      "reason": "datetime dtype",
+      "suggestions": [],
+      "stats": {
+        "count": 2,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 100.0,
+        "memory_bytes": 16,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": "2020-05-14 00:00:00",
+            "count": 1,
+            "pct": 50.0
+          },
+          {
+            "value": "2021-12-15 00:00:00",
+            "count": 1,
+            "pct": 50.0
+          }
+        ],
+        "min": "2020-05-14",
+        "max": "2021-12-15",
+        "span": "580 days 00:00:00",
+        "span_days": 580.0,
+        "inferred_freq": null,
+        "largest_gaps": [
+          {
+            "start": "2020-05-14",
+            "end": "2021-12-15",
+            "gap": "580 days 00:00:00"
+          }
+        ],
+        "n_duplicated_timestamps": 0,
+        "n_future": 0,
+        "n_before_1900": 0,
+        "n_unparsed": 0,
+        "monotonic_increasing": true,
+        "monotonic_decreasing": false,
+        "counts_resolution": "week",
+        "counts_trend_tau": 0.0,
+        "counts_trend_p": 1.0,
+        "by_year": {
+          "2020": 1,
+          "2021": 1
+        },
+        "by_month": {
+          "May": 1,
+          "Dec": 1
+        },
+        "by_weekday": {
+          "Wed": 1,
+          "Thu": 1
+        }
+      },
+      "alerts": []
+    },
+    "shape": {
+      "name": "shape",
+      "errors": {},
+      "semantic_type": "numeric_discrete",
+      "pandas_dtype": "int64",
+      "confidence": 0.85,
+      "reason": "int64 dtype: integer values (2 distinct)",
+      "suggestions": [],
+      "stats": {
+        "count": 2,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 100.0,
+        "memory_bytes": 16,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": 40,
+            "count": 1,
+            "pct": 50.0
+          },
+          {
+            "value": 43,
+            "count": 1,
+            "pct": 50.0
+          }
+        ],
+        "n_inf": 0,
+        "mean": 41.5,
+        "std": 2.1213203435596424,
+        "var": 4.499999999999999,
+        "sem": 1.4999999999999998,
+        "cv": 0.05111615285685885,
+        "min": 40.0,
+        "max": 43.0,
+        "range": 3.0,
+        "sum": 83.0,
+        "p1": 40.03,
+        "p5": 40.15,
+        "p10": 40.3,
+        "p25": 40.75,
+        "p50": 41.5,
+        "p75": 42.25,
+        "p90": 42.7,
+        "p95": 42.85,
+        "p99": 42.97,
+        "median": 41.5,
+        "iqr": 1.5,
+        "mad": 1.5,
+        "trimmed_mean": 41.5,
+        "geometric_mean": 41.47288270665544,
+        "harmonic_mean": 41.44578313253012,
+        "skewness": null,
+        "kurtosis": null,
+        "n_zeros": 0,
+        "n_negative": 0,
+        "iqr_lower": 38.5,
+        "iqr_upper": 44.5,
+        "n_outliers_iqr": 0,
+        "pct_outliers_iqr": 0.0,
+        "n_outliers_z": 0,
+        "pct_outliers_z": 0.0,
+        "n_outliers_mz": 0,
+        "pct_outliers_mz": 0.0,
+        "n_decimals": 0,
+        "pct_round_values": null,
+        "heaping_index": null,
+        "monotonic_increasing": true,
+        "monotonic_decreasing": false,
+        "bimodality_coefficient": null,
+        "n_modes_kde": null,
+        "ci95_mean_low": 22.44069289573796,
+        "ci95_mean_high": 60.55930710426204,
+        "ci95_median_low": null,
+        "ci95_median_high": null,
+        "autocorr_lag1": null,
+        "autocorr_lag1_p": null
+      },
+      "distribution": {
+        "normality": {
+          "n": 2,
+          "alpha": 0.05,
+          "verdict": "insufficient data"
+        },
+        "fit": {
+          "n_used": 0,
+          "fits": [],
+          "best": null,
+          "failed": {},
+          "ks_note": "KS p-values are optimistic: the parameters were estimated from the same data. For integer data the gap is measured on the integer support and the p-value is a chi-square goodness-of-fit test.",
+          "description": "not enough distinct values to fit a distribution"
+        }
+      },
+      "alerts": []
+    },
+    "\\frac{1}{2}": {
+      "name": "\\frac{1}{2}",
+      "errors": {},
+      "semantic_type": "categorical",
+      "pandas_dtype": "object",
+      "confidence": 0.5,
+      "reason": "Decimal objects, treated as labels",
+      "suggestions": [],
+      "stats": {
+        "count": 2,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 100.0,
+        "memory_bytes": 224,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": "1.5",
+            "count": 1,
+            "pct": 50.0
+          },
+          {
+            "value": "2.25",
+            "count": 1,
+            "pct": 50.0
+          }
+        ],
+        "cardinality": 2,
+        "entropy": 1.0,
+        "normalized_entropy": 1.0,
+        "gini_impurity": 0.5,
+        "imbalance_ratio": 1.0,
+        "n_rare_categories": 0,
+        "pct_rows_rare": 0.0,
+        "rare_categories": [],
+        "uniform_chi2_p": 1.0,
+        "n_inconsistent_groups": 0,
+        "inconsistent_labels": []
+      },
+      "alerts": []
+    },
+    "0": {
+      "name": "0",
+      "errors": {},
+      "semantic_type": "categorical",
+      "pandas_dtype": "object",
+      "confidence": 0.5,
+      "reason": "Decimal objects, treated as labels",
+      "suggestions": [],
+      "stats": {
+        "count": 2,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 100.0,
+        "memory_bytes": 224,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": "1.5",
+            "count": 1,
+            "pct": 50.0
+          },
+          {
+            "value": "2.25",
+            "count": 1,
+            "pct": 50.0
+          }
+        ],
+        "cardinality": 2,
+        "entropy": 1.0,
+        "normalized_entropy": 1.0,
+        "gini_impurity": 0.5,
+        "imbalance_ratio": 1.0,
+        "n_rare_categories": 0,
+        "pct_rows_rare": 0.0,
+        "rare_categories": [],
+        "uniform_chi2_p": 1.0,
+        "n_inconsistent_groups": 0,
+        "inconsistent_labels": []
+      },
+      "alerts": []
+    },
+    "../../etc": {
+      "name": "../../etc",
+      "errors": {},
+      "semantic_type": "id",
+      "pandas_dtype": "str",
+      "confidence": 1.0,
+      "reason": "100% of values are UUIDs",
+      "suggestions": [],
+      "stats": {
+        "count": 2,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 100.0,
+        "memory_bytes": 88,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": "00000000-0000-0000-0bff-6025bc7ff0d0",
+            "count": 1,
+            "pct": 50.0
+          },
+          {
+            "value": "00000000-0000-0000-07ac-7e69dd511561",
+            "count": 1,
+            "pct": 50.0
+          }
+        ],
+        "n_duplicates": 0,
+        "len_min": 36,
+        "len_mean": 36.0,
+        "len_median": 36.0,
+        "len_max": 36
+      },
+      "alerts": []
+    },
+    "a": {
+      "name": "a",
+      "errors": {},
+      "semantic_type": "numeric_discrete",
+      "pandas_dtype": "float64",
+      "confidence": 0.85,
+      "reason": "float64 dtype: integer values (2 distinct)",
+      "suggestions": [],
+      "stats": {
+        "count": 2,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 100.0,
+        "memory_bytes": 16,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": -2.0449261736555848e+300,
+            "count": 1,
+            "pct": 50.0
+          },
+          {
+            "value": 7.179485169574458e+299,
+            "count": 1,
+            "pct": 50.0
+          }
+        ],
+        "n_inf": 0,
+        "mean": -6.634888283490695e+299,
+        "std": null,
+        "var": null,
+        "sem": null,
+        "cv": null,
+        "min": -2.0449261736555848e+300,
+        "max": 7.179485169574458e+299,
+        "range": 2.762874690613031e+300,
+        "sum": -1.326977656698139e+300,
+        "p1": -2.0172974267494545e+300,
+        "p5": -1.9067824391249334e+300,
+        "p10": -1.768638704594282e+300,
+        "p25": -1.354207501002327e+300,
+        "p50": -6.634888283490697e+299,
+        "p75": 2.722984430418804e+298,
+        "p90": 4.416610478961427e+299,
+        "p95": 5.798047824267941e+299,
+        "p99": 6.903197700513154e+299,
+        "median": -6.634888283490697e+299,
+        "iqr": 1.3814373453065152e+300,
+        "mad": 1.3814373453065155e+300,
+        "trimmed_mean": -6.634888283490695e+299,
+        "geometric_mean": null,
+        "harmonic_mean": null,
+        "skewness": null,
+        "kurtosis": null,
+        "n_zeros": 0,
+        "n_negative": 1,
+        "iqr_lower": -3.4263635189620997e+300,
+        "iqr_upper": 2.0993858622639606e+300,
+        "n_outliers_iqr": 0,
+        "pct_outliers_iqr": 0.0,
+        "n_outliers_z": 0,
+        "pct_outliers_z": 0.0,
+        "n_outliers_mz": 0,
+        "pct_outliers_mz": 0.0,
+        "n_decimals": 0,
+        "pct_round_values": null,
+        "heaping_index": null,
+        "monotonic_increasing": true,
+        "monotonic_decreasing": false,
+        "bimodality_coefficient": null,
+        "n_modes_kde": null,
+        "ci95_mean_low": null,
+        "ci95_mean_high": null,
+        "ci95_median_low": null,
+        "ci95_median_high": null,
+        "autocorr_lag1": null,
+        "autocorr_lag1_p": null
+      },
+      "distribution": {
+        "normality": {
+          "n": 2,
+          "alpha": 0.05,
+          "verdict": "insufficient data"
+        },
+        "fit": {
+          "n_used": 0,
+          "fits": [],
+          "best": null,
+          "failed": {},
+          "ks_note": "KS p-values are optimistic: the parameters were estimated from the same data. For integer data the gap is measured on the integer support and the p-value is a chi-square goodness-of-fit test.",
+          "description": "not enough distinct values to fit a distribution"
+        }
+      },
+      "alerts": []
+    },
+    "None": {
+      "name": "None",
+      "errors": {},
+      "semantic_type": "numeric_discrete",
+      "pandas_dtype": "timedelta64[us]",
+      "confidence": 0.85,
+      "reason": "timedelta (seconds): integer values (2 distinct)",
+      "suggestions": [],
+      "stats": {
+        "count": 2,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 100.0,
+        "memory_bytes": 16,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": "0 days 00:00:35",
+            "count": 1,
+            "pct": 50.0
+          },
+          {
+            "value": "0 days 00:00:20",
+            "count": 1,
+            "pct": 50.0
+          }
+        ],
+        "n_inf": 0,
+        "mean": 27.5,
+        "std": 10.606601717798213,
+        "var": 112.50000000000001,
+        "sem": 7.5,
+        "cv": 0.38569460791993504,
+        "min": 20.0,
+        "max": 35.0,
+        "range": 15.0,
+        "sum": 55.0,
+        "p1": 20.15,
+        "p5": 20.75,
+        "p10": 21.5,
+        "p25": 23.75,
+        "p50": 27.5,
+        "p75": 31.25,
+        "p90": 33.5,
+        "p95": 34.25,
+        "p99": 34.85,
+        "median": 27.5,
+        "iqr": 7.5,
+        "mad": 7.5,
+        "trimmed_mean": 27.5,
+        "geometric_mean": 26.457513110645902,
+        "harmonic_mean": 25.454545454545457,
+        "skewness": null,
+        "kurtosis": null,
+        "n_zeros": 0,
+        "n_negative": 0,
+        "iqr_lower": 12.5,
+        "iqr_upper": 42.5,
+        "n_outliers_iqr": 0,
+        "pct_outliers_iqr": 0.0,
+        "n_outliers_z": 0,
+        "pct_outliers_z": 0.0,
+        "n_outliers_mz": 0,
+        "pct_outliers_mz": 0.0,
+        "n_decimals": 0,
+        "pct_round_values": null,
+        "heaping_index": null,
+        "monotonic_increasing": false,
+        "monotonic_decreasing": true,
+        "bimodality_coefficient": null,
+        "n_modes_kde": null,
+        "ci95_mean_low": -67.7965355213102,
+        "ci95_mean_high": 122.7965355213102,
+        "ci95_median_low": null,
+        "ci95_median_high": null,
+        "autocorr_lag1": null,
+        "autocorr_lag1_p": null
+      },
+      "distribution": {
+        "normality": {
+          "n": 2,
+          "alpha": 0.05,
+          "verdict": "insufficient data"
+        },
+        "fit": {
+          "n_used": 0,
+          "fits": [],
+          "best": null,
+          "failed": {},
+          "ks_note": "KS p-values are optimistic: the parameters were estimated from the same data. For integer data the gap is measured on the integer support and the p-value is a chi-square goodness-of-fit test.",
+          "description": "not enough distinct values to fit a distribution"
+        }
+      },
+      "alerts": []
+    }
+  },
+  "correlations": {
+    "n_numeric": {
+      "shape": {
+        "shape": 2.0,
+        "a": 2.0,
+        "None": 2.0
+      },
+      "a": {
+        "shape": 2.0,
+        "a": 2.0,
+        "None": 2.0
+      },
+      "None": {
+        "shape": 2.0,
+        "a": 2.0,
+        "None": 2.0
+      }
+    },
+    "pearson": {
+      "shape": {
+        "shape": 1.0,
+        "a": 0.0,
+        "None": -1.0
+      },
+      "a": {
+        "shape": 0.0,
+        "a": null,
+        "None": -0.0
+      },
+      "None": {
+        "shape": -1.0,
+        "a": -0.0,
+        "None": 1.0
+      }
+    },
+    "pearson_p": {
+      "shape": {
+        "shape": 0.0,
+        "a": null,
+        "None": null
+      },
+      "a": {
+        "shape": null,
+        "a": 0.0,
+        "None": null
+      },
+      "None": {
+        "shape": null,
+        "a": null,
+        "None": 0.0
+      }
+    },
+    "spearman": {
+      "shape": {
+        "shape": 1.0,
+        "a": 1.0,
+        "None": -1.0
+      },
+      "a": {
+        "shape": 1.0,
+        "a": 1.0,
+        "None": -1.0
+      },
+      "None": {
+        "shape": -1.0,
+        "a": -1.0,
+        "None": 1.0
+      }
+    },
+    "spearman_p": {
+      "shape": {
+        "shape": 0.0,
+        "a": null,
+        "None": null
+      },
+      "a": {
+        "shape": null,
+        "a": 0.0,
+        "None": null
+      },
+      "None": {
+        "shape": null,
+        "a": null,
+        "None": 0.0
+      }
+    },
+    "vif": [],
+    "linear_dependencies": [],
+    "kendall": {
+      "shape": {
+        "shape": 1.0,
+        "a": null,
+        "None": null
+      },
+      "a": {
+        "shape": null,
+        "a": 1.0,
+        "None": null
+      },
+      "None": {
+        "shape": null,
+        "a": null,
+        "None": 1.0
+      }
+    },
+    "kendall_p": {
+      "shape": {
+        "shape": 0.0,
+        "a": null,
+        "None": null
+      },
+      "a": {
+        "shape": null,
+        "a": 0.0,
+        "None": null
+      },
+      "None": {
+        "shape": null,
+        "a": null,
+        "None": 0.0
+      }
+    },
+    "cramers_v": {
+      "\\frac{1}{2}": {
+        "\\frac{1}{2}": 1.0,
+        "0": null
+      },
+      "0": {
+        "\\frac{1}{2}": null,
+        "0": 1.0
+      }
+    },
+    "cramers_v_p": {
+      "\\frac{1}{2}": {
+        "\\frac{1}{2}": 0.0,
+        "0": 0.15729920705028105
+      },
+      "0": {
+        "\\frac{1}{2}": 0.15729920705028105,
+        "0": 0.0
+      }
+    },
+    "cramers_v_n": {
+      "\\frac{1}{2}": {
+        "\\frac{1}{2}": 2.0,
+        "0": 2.0
+      },
+      "0": {
+        "\\frac{1}{2}": 2.0,
+        "0": 2.0
+      }
+    },
+    "eta": {
+      "\\frac{1}{2}": {
+        "shape": null,
+        "a": null,
+        "None": null
+      },
+      "0": {
+        "shape": null,
+        "a": null,
+        "None": null
+      }
+    },
+    "eta_p": {
+      "\\frac{1}{2}": {
+        "shape": null,
+        "a": null,
+        "None": null
+      },
+      "0": {
+        "shape": null,
+        "a": null,
+        "None": null
+      }
+    },
+    "eta_n": {
+      "\\frac{1}{2}": {
+        "shape": 2.0,
+        "a": 2.0,
+        "None": 2.0
+      },
+      "0": {
+        "shape": 2.0,
+        "a": 2.0,
+        "None": 2.0
+      }
+    },
+    "pairs": [
+      {
+        "col_a": "shape",
+        "col_b": "a",
+        "kind": "num-num",
+        "method": "spearman",
+        "value": 1.0,
+        "abs_value": 1.0,
+        "n": 2,
+        "test": "spearman t-test",
+        "p_value": null,
+        "p_adjusted": null,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "shape",
+        "col_b": "None",
+        "kind": "num-num",
+        "method": "pearson",
+        "value": -1.0,
+        "abs_value": 1.0,
+        "n": 2,
+        "test": "pearson t-test",
+        "p_value": null,
+        "p_adjusted": null,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "a",
+        "col_b": "None",
+        "kind": "num-num",
+        "method": "spearman",
+        "value": -1.0,
+        "abs_value": 1.0,
+        "n": 2,
+        "test": "spearman t-test",
+        "p_value": null,
+        "p_adjusted": null,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      }
+    ],
+    "top_pairs": [
+      {
+        "col_a": "shape",
+        "col_b": "a",
+        "kind": "num-num",
+        "method": "spearman",
+        "value": 1.0,
+        "abs_value": 1.0,
+        "n": 2,
+        "test": "spearman t-test",
+        "p_value": null,
+        "p_adjusted": null,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "shape",
+        "col_b": "None",
+        "kind": "num-num",
+        "method": "pearson",
+        "value": -1.0,
+        "abs_value": 1.0,
+        "n": 2,
+        "test": "pearson t-test",
+        "p_value": null,
+        "p_adjusted": null,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "a",
+        "col_b": "None",
+        "kind": "num-num",
+        "method": "spearman",
+        "value": -1.0,
+        "abs_value": 1.0,
+        "n": 2,
+        "test": "spearman t-test",
+        "p_value": null,
+        "p_adjusted": null,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      }
+    ],
+    "association": {
+      "shape": {
+        "shape": 1.0,
+        "a": 1.0,
+        "None": -1.0,
+        "\\frac{1}{2}": null,
+        "0": null
+      },
+      "a": {
+        "shape": 1.0,
+        "a": 1.0,
+        "None": -1.0,
+        "\\frac{1}{2}": null,
+        "0": null
+      },
+      "None": {
+        "shape": -1.0,
+        "a": -1.0,
+        "None": 1.0,
+        "\\frac{1}{2}": null,
+        "0": null
+      },
+      "\\frac{1}{2}": {
+        "shape": null,
+        "a": null,
+        "None": null,
+        "\\frac{1}{2}": 1.0,
+        "0": null
+      },
+      "0": {
+        "shape": null,
+        "a": null,
+        "None": null,
+        "\\frac{1}{2}": null,
+        "0": 1.0
+      }
+    },
+    "association_p": {
+      "shape": {
+        "shape": 0.0,
+        "a": null,
+        "None": null,
+        "\\frac{1}{2}": null,
+        "0": null
+      },
+      "a": {
+        "shape": null,
+        "a": 0.0,
+        "None": null,
+        "\\frac{1}{2}": null,
+        "0": null
+      },
+      "None": {
+        "shape": null,
+        "a": null,
+        "None": 0.0,
+        "\\frac{1}{2}": null,
+        "0": null
+      },
+      "\\frac{1}{2}": {
+        "shape": null,
+        "a": null,
+        "None": null,
+        "\\frac{1}{2}": 0.0,
+        "0": null
+      },
+      "0": {
+        "shape": null,
+        "a": null,
+        "None": null,
+        "\\frac{1}{2}": null,
+        "0": 0.0
+      }
+    },
+    "missingness": []
+  },
+  "quality": {
+    "duplicate_rows": {
+      "count": 0,
+      "pct": 0.0,
+      "example_indices": []
+    },
+    "duplicate_columns": [
+      [
+        "\\frac{1}{2}",
+        "0"
+      ]
+    ],
+    "empty_columns": [],
+    "constant_columns": [],
+    "quasi_constant_columns": {},
+    "high_missing_columns": {},
+    "missing_patterns": {
+      "co_missing": [],
+      "n_rows_many_missing": 0,
+      "rows_many_missing_examples": [],
+      "top_patterns": []
+    },
+    "mixed_type_columns": {},
+    "whitespace_columns": {},
+    "placeholder_values": {},
+    "suspicious_values": {},
+    "id_columns": [
+      "../../etc"
+    ],
+    "redundant_pairs": [
+      {
+        "col_a": "shape",
+        "col_b": "a",
+        "method": "spearman",
+        "value": 1.0
+      },
+      {
+        "col_a": "shape",
+        "col_b": "None",
+        "method": "pearson",
+        "value": -1.0
+      },
+      {
+        "col_a": "a",
+        "col_b": "None",
+        "method": "spearman",
+        "value": -1.0
+      }
+    ],
+    "dtype_optimizations": [
+      {
+        "column": "shape",
+        "current_dtype": "int64",
+        "suggested_dtype": "uint8",
+        "current_bytes": 16,
+        "new_bytes": 2,
+        "saving_bytes": 14,
+        "saving_pct": 87.5,
+        "code": "df['shape'] = pd.to_numeric(df['shape'], downcast='unsigned')"
+      }
+    ],
+    "conversion_suggestions": {},
+    "memory_bytes": 732,
+    "potential_saving_bytes": 14,
+    "alerts": [
+      {
+        "severity": "medium",
+        "column": "0",
+        "message": "identical to column '\\frac{1}{2}' -> drop one of them",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "None",
+        "message": "redundant with 'shape' (pearson -1.000), 'a' (spearman -1.000) -> keep only one",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "a",
+        "message": "redundant with 'shape' (spearman +1.000) -> keep only one",
+        "kind": null
+      },
+      {
+        "severity": "info",
+        "column": null,
+        "message": "dtype optimizations save ~14 B: shape -> uint8 (see quality['dtype_optimizations'] for code)",
+        "kind": null
+      },
+      {
+        "severity": "info",
+        "column": "../../etc",
+        "message": "identifier-like column -> exclude from modelling and statistics",
+        "kind": null
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "severity": "medium",
+      "column": "0",
+      "message": "identical to column '\\frac{1}{2}' -> drop one of them",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "None",
+      "message": "redundant with 'shape' (pearson -1.000), 'a' (spearman -1.000) -> keep only one",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "a",
+      "message": "redundant with 'shape' (spearman +1.000) -> keep only one",
+      "kind": null
+    },
+    {
+      "severity": "info",
+      "column": null,
+      "message": "dtype optimizations save ~14 B: shape -> uint8 (see quality['dtype_optimizations'] for code)",
+      "kind": null
+    },
+    {
+      "severity": "info",
+      "column": "../../etc",
+      "message": "identifier-like column -> exclude from modelling and statistics",
+      "kind": null
+    }
+  ],
+  "plots": []
+}

@@ -597,3 +597,54 @@ def see_quality(df: pd.DataFrame | pd.Series, config: StoneConfig | None = None)
     out["missingness_dependence"] = corr["missingness"]
     out["alerts"] = sort_alerts(out["alerts"] + correlation_alerts(corr, None, cfg, out["duplicate_columns"]))
     return out
+
+
+def advanced_alerts(extra: dict[str, Any], prep: dict[str, Any], target: str | None) -> list[dict[str, Any]]:
+    """Alerts from the multivariate, outlier, time-series, selection analyses and the preparation plan."""
+    out = []
+    ts = extra.get("timeseries")
+    if ts:
+        main = (ts.get("analyses") or {}).get(ts.get("main"), {})
+        extra_txt = ""
+        if main.get("period"):
+            extra_txt += f", {main['seasonality']} seasonality of period {main['period']}"
+        if (main.get("adf") or {}).get("stationary") is False:
+            extra_txt += ", not stationary"
+        what = {"single series": "a time series", "panel": f"a panel of time series (one per {ts.get('entity')})",
+                "event log": "timestamped events"}[ts["kind"]]
+        out.append(alert("info", ts["time_column"], f"{what}, {ts['frequency']} steps{extra_txt} -> time-ordered "
+                         "validation, lags and windows (see Time series)", kind="timeseries"))
+    mv = extra.get("multivariate") or {}
+    pca, fa = mv.get("pca") or {}, mv.get("factor") or {}
+    if pca.get("verdict") == "recommended":
+        out.append(alert("info", None, f"PCA recommended: {pca['reason']}", kind="pca"))
+    if fa.get("verdict") == "recommended":
+        out.append(alert("info", None, f"factor analysis: {fa['reason']}", kind="factor"))
+    mo = mv.get("outliers") or {}
+    if mo.get("n_both") and mo.get("reliable", True):
+        out.append(alert("info", None, f"{mo['n_both']:,} rows are outliers on several columns at once (robust "
+                         "Mahalanobis + isolation forest) -> inspect them (see Outliers)", kind="multivariate_outliers"))
+    for col, fixes in prep.get("misspellings", {}).items():
+        typos = {a: b for a, b in fixes.items() if _key_label(a) != _key_label(b)}
+        if typos:
+            shown = ", ".join(f"'{a}' -> '{b}'" for a, b in list(typos.items())[:3])
+            out.append(alert("info", col, f"possible misspellings of frequent labels (check them): {shown}"
+                             + (f" (+{len(typos) - 3} more)" if len(typos) > 3 else ""), kind="misspelling"))
+    for col, mix in prep.get("magnitude_mix", {}).items():
+        out.append(alert("medium", col, f"values on two scales ~{mix['ratio']}x apart ({mix['share_high']:.0f}% above "
+                         f"{mix['cut']:.3g}): mixed units or fractions vs percentages", kind="scale_mix"))
+    for col, comp in prep.get("composite", {}).items():
+        out.append(alert("info", col, f"{comp['parts']} data items per cell joined by '{comp['separator']}' "
+                         f"(e.g. '{comp['example']}') -> split into {comp['parts']} columns", kind="composite"))
+    sel = extra.get("selection")
+    if sel and sel.get("drop"):
+        out.append(alert("info", target, f"feature selection ({sel['n_methods']} methods): drop "
+                         + ", ".join(sel["drop"][:8]) + (f" (+{len(sel['drop']) - 8})" if len(sel["drop"]) > 8 else "")
+                         + f"; keep {len(sel['keep'])}", kind="selection"))
+    return out
+
+
+def _key_label(text: str) -> str:
+    import unicodedata
+
+    return " ".join(unicodedata.normalize("NFKD", str(text)).encode("ascii", "ignore").decode().lower().split())

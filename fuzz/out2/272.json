@@ -1,0 +1,334 @@
+{
+  "overview": {
+    "n_rows": 0,
+    "n_columns": 4,
+    "n_rows_profiled": 0,
+    "sampled": false,
+    "memory_bytes": 132,
+    "potential_saving_bytes": 0,
+    "pandas_dtypes": {
+      "float64": 2,
+      "object": 1,
+      "string": 1
+    },
+    "semantic_types": {
+      "empty": 4
+    },
+    "n_duplicate_rows": 0,
+    "pct_duplicate_rows": 0.0,
+    "pct_missing_cells": 0.0,
+    "n_rows_with_missing": 0,
+    "target": null,
+    "source": "pandas.DataFrame · read in 0.0s",
+    "workers": 3,
+    "chart_workers": 0
+  },
+  "summary": [
+    {
+      "column": "-1",
+      "semantic_type": "empty",
+      "pandas_dtype": "float64",
+      "count": 0,
+      "pct_missing": 0.0,
+      "n_unique": 0,
+      "pct_unique": 0.0,
+      "top_value": null,
+      "top_pct": null,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 0,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "mean",
+      "semantic_type": "empty",
+      "pandas_dtype": "object",
+      "count": 0,
+      "pct_missing": 0.0,
+      "n_unique": 0,
+      "pct_unique": 0.0,
+      "top_value": null,
+      "top_pct": null,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 0,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "values",
+      "semantic_type": "empty",
+      "pandas_dtype": "float64",
+      "count": 0,
+      "pct_missing": 0.0,
+      "n_unique": 0,
+      "pct_unique": 0.0,
+      "top_value": null,
+      "top_pct": null,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 0,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "target",
+      "semantic_type": "empty",
+      "pandas_dtype": "string",
+      "count": 0,
+      "pct_missing": 0.0,
+      "n_unique": 0,
+      "pct_unique": 0.0,
+      "top_value": null,
+      "top_pct": null,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 0,
+      "n_alerts": 0,
+      "errors": null
+    }
+  ],
+  "columns": {
+    "-1": {
+      "name": "-1",
+      "errors": {},
+      "semantic_type": "empty",
+      "pandas_dtype": "float64",
+      "confidence": 1.0,
+      "reason": "no non-missing values",
+      "suggestions": [],
+      "stats": {
+        "count": 0,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 0,
+        "pct_unique": 0.0,
+        "memory_bytes": 0,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": []
+      },
+      "alerts": []
+    },
+    "mean": {
+      "name": "mean",
+      "errors": {},
+      "semantic_type": "empty",
+      "pandas_dtype": "object",
+      "confidence": 1.0,
+      "reason": "no non-missing values",
+      "suggestions": [],
+      "stats": {
+        "count": 0,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 0,
+        "pct_unique": 0.0,
+        "memory_bytes": 0,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": []
+      },
+      "alerts": []
+    },
+    "values": {
+      "name": "values",
+      "errors": {},
+      "semantic_type": "empty",
+      "pandas_dtype": "float64",
+      "confidence": 1.0,
+      "reason": "no non-missing values",
+      "suggestions": [],
+      "stats": {
+        "count": 0,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 0,
+        "pct_unique": 0.0,
+        "memory_bytes": 0,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": []
+      },
+      "alerts": []
+    },
+    "target": {
+      "name": "target",
+      "errors": {},
+      "semantic_type": "empty",
+      "pandas_dtype": "string",
+      "confidence": 1.0,
+      "reason": "no non-missing values",
+      "suggestions": [],
+      "stats": {
+        "count": 0,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 0,
+        "pct_unique": 0.0,
+        "memory_bytes": 0,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": []
+      },
+      "alerts": []
+    }
+  },
+  "correlations": {
+    "pairs": [],
+    "top_pairs": [],
+    "missingness": []
+  },
+  "quality": {
+    "duplicate_rows": {
+      "count": 0,
+      "pct": 0.0,
+      "example_indices": []
+    },
+    "duplicate_columns": [
+      [
+        "-1",
+        "values"
+      ]
+    ],
+    "empty_columns": [
+      "-1",
+      "mean",
+      "values",
+      "target"
+    ],
+    "constant_columns": [],
+    "quasi_constant_columns": {},
+    "high_missing_columns": {},
+    "missing_patterns": {
+      "co_missing": [],
+      "n_rows_many_missing": 0,
+      "rows_many_missing_examples": [],
+      "top_patterns": []
+    },
+    "mixed_type_columns": {},
+    "whitespace_columns": {},
+    "placeholder_values": {},
+    "suspicious_values": {},
+    "id_columns": [],
+    "redundant_pairs": [],
+    "dtype_optimizations": [],
+    "conversion_suggestions": {},
+    "memory_bytes": 132,
+    "potential_saving_bytes": 0,
+    "alerts": [
+      {
+        "severity": "high",
+        "column": "-1",
+        "message": "column is entirely missing -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "high",
+        "column": "mean",
+        "message": "column is entirely missing -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "high",
+        "column": "target",
+        "message": "column is entirely missing -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "high",
+        "column": "values",
+        "message": "column is entirely missing -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "values",
+        "message": "identical to column '-1' -> drop one of them",
+        "kind": null
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "severity": "high",
+      "column": "-1",
+      "message": "column is entirely missing -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "high",
+      "column": "mean",
+      "message": "column is entirely missing -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "high",
+      "column": "target",
+      "message": "column is entirely missing -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "high",
+      "column": "values",
+      "message": "column is entirely missing -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "values",
+      "message": "identical to column '-1' -> drop one of them",
+      "kind": null
+    }
+  ],
+  "plots": []
+}

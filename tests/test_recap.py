@@ -26,7 +26,8 @@ def test_recap_written_with_every_chart(messy_df: pd.DataFrame, tmp_path: Path) 
     md, page = v.recap["md"], v.recap["html"]
     assert md.parent == page.parent == tmp_path / "out"
     md_text, html_text = md.read_text(), page.read_text()
-    for section in ("Key findings", "Target analysis", "Data quality", "Associations", "Columns"):
+    for section in ("Key findings", "Overall statistics", "Target analysis", "Feature selection", "Outliers",
+                    "Data quality", "Multivariate statistics", "Preparation plan", "Attribute statistics", "Run"):
         assert f"## {section}" in md_text and f">{section}</h2>" in html_text
     assert md_text.startswith("# messy.csv")
     referenced = set(_md_images(md_text))

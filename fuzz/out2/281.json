@@ -1,0 +1,507 @@
+{
+  "overview": {
+    "n_rows": 3,
+    "n_columns": 4,
+    "n_rows_profiled": 3,
+    "sampled": false,
+    "memory_bytes": 251,
+    "potential_saving_bytes": 30,
+    "pandas_dtypes": {
+      "float64": 1,
+      "object": 1,
+      "category": 1,
+      "str": 1
+    },
+    "semantic_types": {
+      "numeric_discrete": 1,
+      "mixed": 1,
+      "constant": 1,
+      "datetime_string": 1
+    },
+    "n_duplicate_rows": 0,
+    "pct_duplicate_rows": 0.0,
+    "pct_missing_cells": 0.0,
+    "n_rows_with_missing": 0,
+    "target": null,
+    "source": "pandas.DataFrame · read in 0.0s",
+    "workers": 3,
+    "chart_workers": 3
+  },
+  "summary": [
+    {
+      "column": "..",
+      "semantic_type": "numeric_discrete",
+      "pandas_dtype": "float64",
+      "count": 3,
+      "pct_missing": 0.0,
+      "n_unique": 3,
+      "pct_unique": 100.0,
+      "top_value": 7.243139408014554e+299,
+      "top_pct": 33.333333333333336,
+      "mean": 1.7748297300899882e+299,
+      "std": null,
+      "min": -1.0211373662643142e+300,
+      "p25": -1.4841171273142929e+299,
+      "median": 7.243139408014554e+299,
+      "p75": 7.767931426456553e+299,
+      "max": 8.292723444898553e+299,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": 0.0,
+      "normality": "insufficient data",
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 24,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "$x$",
+      "semantic_type": "mixed",
+      "pandas_dtype": "object",
+      "count": 3,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 66.66666666666667,
+      "top_value": "a",
+      "top_pct": 66.66666666666667,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 136,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "^_^",
+      "semantic_type": "constant",
+      "pandas_dtype": "category",
+      "count": 3,
+      "pct_missing": 0.0,
+      "n_unique": 1,
+      "pct_unique": 33.333333333333336,
+      "top_value": "x",
+      "top_pct": 100.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 121,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "a",
+      "semantic_type": "datetime_string",
+      "pandas_dtype": "str",
+      "count": 3,
+      "pct_missing": 0.0,
+      "n_unique": 3,
+      "pct_unique": 100.0,
+      "top_value": "04/01/2020",
+      "top_pct": 33.333333333333336,
+      "mean": null,
+      "std": null,
+      "min": "2020-03-27",
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": "2020-04-01",
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 54,
+      "n_alerts": 0,
+      "errors": null
+    }
+  ],
+  "columns": {
+    "..": {
+      "name": "..",
+      "errors": {},
+      "semantic_type": "numeric_discrete",
+      "pandas_dtype": "float64",
+      "confidence": 0.85,
+      "reason": "float64 dtype: integer values (3 distinct)",
+      "suggestions": [],
+      "stats": {
+        "count": 3,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 3,
+        "pct_unique": 100.0,
+        "memory_bytes": 24,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": 7.243139408014554e+299,
+            "count": 1,
+            "pct": 33.333333333333336
+          },
+          {
+            "value": 8.292723444898553e+299,
+            "count": 1,
+            "pct": 33.333333333333336
+          },
+          {
+            "value": -1.0211373662643142e+300,
+            "count": 1,
+            "pct": 33.333333333333336
+          }
+        ],
+        "n_inf": 0,
+        "mean": 1.7748297300899882e+299,
+        "std": null,
+        "var": null,
+        "sem": null,
+        "cv": null,
+        "min": -1.0211373662643142e+300,
+        "max": 8.292723444898553e+299,
+        "range": 1.8504097107541695e+300,
+        "sum": 5.324489190269964e+299,
+        "p1": -9.862283401229988e+299,
+        "p5": -8.465922355577372e+299,
+        "p10": -6.720471048511603e+299,
+        "p25": -1.4841171273142929e+299,
+        "p50": 7.243139408014554e+299,
+        "p75": 7.767931426456553e+299,
+        "p90": 8.082806637521754e+299,
+        "p95": 8.187765041210153e+299,
+        "p99": 8.271731764160874e+299,
+        "median": 7.243139408014554e+299,
+        "iqr": 9.252048553770846e+299,
+        "mad": 1.0495840368839987e+299,
+        "trimmed_mean": 1.7748297300899886e+299,
+        "geometric_mean": null,
+        "harmonic_mean": null,
+        "skewness": null,
+        "kurtosis": null,
+        "n_zeros": 0,
+        "n_negative": 1,
+        "iqr_lower": -1.5362189957970562e+300,
+        "iqr_upper": 2.1646004257112822e+300,
+        "n_outliers_iqr": 0,
+        "pct_outliers_iqr": 0.0,
+        "n_outliers_z": 0,
+        "pct_outliers_z": 0.0,
+        "n_outliers_mz": 1,
+        "pct_outliers_mz": 33.333333333333336,
+        "n_decimals": 0,
+        "pct_round_values": null,
+        "heaping_index": null,
+        "monotonic_increasing": false,
+        "monotonic_decreasing": false,
+        "bimodality_coefficient": null,
+        "n_modes_kde": null,
+        "ci95_mean_low": null,
+        "ci95_mean_high": null,
+        "ci95_median_low": null,
+        "ci95_median_high": null,
+        "autocorr_lag1": null,
+        "autocorr_lag1_p": null
+      },
+      "distribution": {
+        "normality": {
+          "n": 3,
+          "alpha": 0.05,
+          "verdict": "insufficient data"
+        },
+        "fit": {
+          "n_used": 0,
+          "fits": [],
+          "best": null,
+          "failed": {},
+          "ks_note": "KS p-values are optimistic: the parameters were estimated from the same data. For integer data the gap is measured on the integer support and the p-value is a chi-square goodness-of-fit test.",
+          "description": "not enough distinct values to fit a distribution"
+        }
+      },
+      "alerts": []
+    },
+    "$x$": {
+      "name": "$x$",
+      "errors": {},
+      "semantic_type": "mixed",
+      "pandas_dtype": "object",
+      "confidence": 1.0,
+      "reason": "several Python types: str=2, number=1",
+      "suggestions": [],
+      "kinds": {
+        "str": 2,
+        "number": 1
+      },
+      "stats": {
+        "count": 3,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 66.66666666666667,
+        "memory_bytes": 136,
+        "modes": [
+          "a"
+        ],
+        "mode_freq": 2,
+        "mode_pct": 66.66666666666667,
+        "top_values": [
+          {
+            "value": "a",
+            "count": 2,
+            "pct": 66.66666666666667
+          },
+          {
+            "value": 1,
+            "count": 1,
+            "pct": 33.333333333333336
+          }
+        ],
+        "python_kinds": {
+          "str": 2,
+          "number": 1
+        }
+      },
+      "alerts": []
+    },
+    "^_^": {
+      "name": "^_^",
+      "errors": {},
+      "semantic_type": "constant",
+      "pandas_dtype": "category",
+      "confidence": 1.0,
+      "reason": "single value: 'x'",
+      "suggestions": [],
+      "stats": {
+        "count": 3,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 1,
+        "pct_unique": 33.333333333333336,
+        "memory_bytes": 121,
+        "modes": [
+          "x"
+        ],
+        "mode_freq": 3,
+        "mode_pct": 100.0,
+        "top_values": [
+          {
+            "value": "x",
+            "count": 3,
+            "pct": 100.0
+          }
+        ]
+      },
+      "alerts": []
+    },
+    "a": {
+      "name": "a",
+      "errors": {},
+      "semantic_type": "datetime_string",
+      "pandas_dtype": "str",
+      "confidence": 1.0,
+      "reason": "100% of values parse as dates",
+      "suggestions": [
+        {
+          "flag": "should-be-datetime",
+          "code": "df['a'] = pd.to_datetime(df['a'], errors='coerce', format='mixed')"
+        }
+      ],
+      "stats": {
+        "count": 3,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 3,
+        "pct_unique": 100.0,
+        "memory_bytes": 54,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": "04/01/2020",
+            "count": 1,
+            "pct": 33.333333333333336
+          },
+          {
+            "value": "31/03/2020",
+            "count": 1,
+            "pct": 33.333333333333336
+          },
+          {
+            "value": "27/03/2020",
+            "count": 1,
+            "pct": 33.333333333333336
+          }
+        ],
+        "min": "2020-03-27",
+        "max": "2020-04-01",
+        "span": "5 days 00:00:00",
+        "span_days": 5.0,
+        "inferred_freq": "~2 days 12:00:00 (irregular)",
+        "largest_gaps": [
+          {
+            "start": "2020-03-27",
+            "end": "2020-03-31",
+            "gap": "4 days 00:00:00"
+          },
+          {
+            "start": "2020-03-31",
+            "end": "2020-04-01",
+            "gap": "1 days 00:00:00"
+          }
+        ],
+        "n_duplicated_timestamps": 0,
+        "n_future": 0,
+        "n_before_1900": 0,
+        "n_unparsed": 0,
+        "monotonic_increasing": false,
+        "monotonic_decreasing": true,
+        "counts_resolution": "day",
+        "counts_trend_tau": 0.25819888974716115,
+        "counts_trend_p": 0.5126907602619233,
+        "by_weekday": {
+          "Tue": 1,
+          "Wed": 1,
+          "Fri": 1
+        }
+      },
+      "alerts": []
+    }
+  },
+  "correlations": {
+    "pairs": [],
+    "top_pairs": [],
+    "missingness": []
+  },
+  "quality": {
+    "duplicate_rows": {
+      "count": 0,
+      "pct": 0.0,
+      "example_indices": []
+    },
+    "duplicate_columns": [],
+    "empty_columns": [],
+    "constant_columns": [
+      "^_^"
+    ],
+    "quasi_constant_columns": {},
+    "high_missing_columns": {},
+    "missing_patterns": {
+      "co_missing": [],
+      "n_rows_many_missing": 0,
+      "rows_many_missing_examples": [],
+      "top_patterns": []
+    },
+    "mixed_type_columns": {
+      "$x$": {
+        "str": 2,
+        "number": 1
+      }
+    },
+    "whitespace_columns": {},
+    "placeholder_values": {},
+    "suspicious_values": {},
+    "id_columns": [],
+    "redundant_pairs": [],
+    "dtype_optimizations": [
+      {
+        "column": "a",
+        "current_dtype": "str",
+        "suggested_dtype": "datetime64",
+        "current_bytes": 54,
+        "new_bytes": 24,
+        "saving_bytes": 30,
+        "saving_pct": 55.55555555555556,
+        "code": "df['a'] = pd.to_datetime(df['a'], errors='coerce', format='mixed')"
+      }
+    ],
+    "conversion_suggestions": {
+      "a": [
+        {
+          "flag": "should-be-datetime",
+          "code": "df['a'] = pd.to_datetime(df['a'], errors='coerce', format='mixed')"
+        }
+      ]
+    },
+    "memory_bytes": 251,
+    "potential_saving_bytes": 30,
+    "alerts": [
+      {
+        "severity": "high",
+        "column": "$x$",
+        "message": "mixed Python types (str=2, number=1) -> normalise to a single type",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "^_^",
+        "message": "constant column carries no information -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "a",
+        "message": "should-be-datetime: df['a'] = pd.to_datetime(df['a'], errors='coerce', format='mixed')",
+        "kind": null
+      },
+      {
+        "severity": "info",
+        "column": null,
+        "message": "dtype optimizations save ~30 B: a -> datetime64 (see quality['dtype_optimizations'] for code)",
+        "kind": null
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "severity": "high",
+      "column": "$x$",
+      "message": "mixed Python types (str=2, number=1) -> normalise to a single type",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "^_^",
+      "message": "constant column carries no information -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "a",
+      "message": "should-be-datetime: df['a'] = pd.to_datetime(df['a'], errors='coerce', format='mixed')",
+      "kind": null
+    },
+    {
+      "severity": "info",
+      "column": null,
+      "message": "dtype optimizations save ~30 B: a -> datetime64 (see quality['dtype_optimizations'] for code)",
+      "kind": null
+    }
+  ],
+  "plots": [
+    "fuzz/out2/281/00_dataset_overview.png",
+    "fuzz/out2/281/01_.._dist.png",
+    "fuzz/out2/281/02_a_time.png"
+  ]
+}

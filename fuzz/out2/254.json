@@ -1,0 +1,465 @@
+{
+  "overview": {
+    "n_rows": 2,
+    "n_columns": 4,
+    "n_rows_profiled": 2,
+    "sampled": false,
+    "memory_bytes": 128,
+    "potential_saving_bytes": 14,
+    "pandas_dtypes": {
+      "bool": 1,
+      "object": 1,
+      "int64": 1,
+      "float64": 1
+    },
+    "semantic_types": {
+      "constant": 2,
+      "numeric_discrete": 1,
+      "empty": 1
+    },
+    "n_duplicate_rows": 0,
+    "pct_duplicate_rows": 0.0,
+    "pct_missing_cells": 37.5,
+    "n_rows_with_missing": 2,
+    "target": null,
+    "source": "pandas.DataFrame · read in 0.0s",
+    "workers": 3,
+    "chart_workers": 0
+  },
+  "summary": [
+    {
+      "column": "$x$",
+      "semantic_type": "constant",
+      "pandas_dtype": "bool",
+      "count": 2,
+      "pct_missing": 0.0,
+      "n_unique": 1,
+      "pct_unique": 50.0,
+      "top_value": false,
+      "top_pct": 100.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 2,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "quote'\"",
+      "semantic_type": "constant",
+      "pandas_dtype": "object",
+      "count": 1,
+      "pct_missing": 50.0,
+      "n_unique": 1,
+      "pct_unique": 100.0,
+      "top_value": "$x^2$",
+      "top_pct": 100.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 78,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "..",
+      "semantic_type": "numeric_discrete",
+      "pandas_dtype": "int64",
+      "count": 2,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 100.0,
+      "top_value": 17,
+      "top_pct": 50.0,
+      "mean": 24.5,
+      "std": 10.606601717798213,
+      "min": 17.0,
+      "p25": 20.75,
+      "median": 24.5,
+      "p75": 28.25,
+      "max": 32.0,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": 0.0,
+      "normality": "insufficient data",
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 16,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "a b c",
+      "semantic_type": "empty",
+      "pandas_dtype": "float64",
+      "count": 0,
+      "pct_missing": 100.0,
+      "n_unique": 0,
+      "pct_unique": 0.0,
+      "top_value": null,
+      "top_pct": null,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 16,
+      "n_alerts": 0,
+      "errors": null
+    }
+  ],
+  "columns": {
+    "$x$": {
+      "name": "$x$",
+      "errors": {},
+      "semantic_type": "constant",
+      "pandas_dtype": "bool",
+      "confidence": 1.0,
+      "reason": "single value: 'False'",
+      "suggestions": [],
+      "stats": {
+        "count": 2,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 1,
+        "pct_unique": 50.0,
+        "memory_bytes": 2,
+        "modes": [
+          false
+        ],
+        "mode_freq": 2,
+        "mode_pct": 100.0,
+        "top_values": [
+          {
+            "value": false,
+            "count": 2,
+            "pct": 100.0
+          }
+        ]
+      },
+      "alerts": []
+    },
+    "quote'\"": {
+      "name": "quote'\"",
+      "errors": {},
+      "semantic_type": "constant",
+      "pandas_dtype": "object",
+      "confidence": 1.0,
+      "reason": "single value: '$x^2$'",
+      "suggestions": [],
+      "stats": {
+        "count": 1,
+        "n_missing": 1,
+        "pct_missing": 50.0,
+        "n_unique": 1,
+        "pct_unique": 100.0,
+        "memory_bytes": 78,
+        "modes": [
+          "$x^2$"
+        ],
+        "mode_freq": 1,
+        "mode_pct": 100.0,
+        "top_values": [
+          {
+            "value": "$x^2$",
+            "count": 1,
+            "pct": 100.0
+          }
+        ]
+      },
+      "alerts": []
+    },
+    "..": {
+      "name": "..",
+      "errors": {},
+      "semantic_type": "numeric_discrete",
+      "pandas_dtype": "int64",
+      "confidence": 0.85,
+      "reason": "int64 dtype: integer values (2 distinct)",
+      "suggestions": [],
+      "stats": {
+        "count": 2,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 100.0,
+        "memory_bytes": 16,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": 17,
+            "count": 1,
+            "pct": 50.0
+          },
+          {
+            "value": 32,
+            "count": 1,
+            "pct": 50.0
+          }
+        ],
+        "n_inf": 0,
+        "mean": 24.5,
+        "std": 10.606601717798213,
+        "var": 112.50000000000001,
+        "sem": 7.5,
+        "cv": 0.43292251909380464,
+        "min": 17.0,
+        "max": 32.0,
+        "range": 15.0,
+        "sum": 49.0,
+        "p1": 17.15,
+        "p5": 17.75,
+        "p10": 18.5,
+        "p25": 20.75,
+        "p50": 24.5,
+        "p75": 28.25,
+        "p90": 30.5,
+        "p95": 31.25,
+        "p99": 31.85,
+        "median": 24.5,
+        "iqr": 7.5,
+        "mad": 7.5,
+        "trimmed_mean": 24.5,
+        "geometric_mean": 23.323807579381196,
+        "harmonic_mean": 22.20408163265306,
+        "skewness": null,
+        "kurtosis": null,
+        "n_zeros": 0,
+        "n_negative": 0,
+        "iqr_lower": 9.5,
+        "iqr_upper": 39.5,
+        "n_outliers_iqr": 0,
+        "pct_outliers_iqr": 0.0,
+        "n_outliers_z": 0,
+        "pct_outliers_z": 0.0,
+        "n_outliers_mz": 0,
+        "pct_outliers_mz": 0.0,
+        "n_decimals": 0,
+        "pct_round_values": null,
+        "heaping_index": null,
+        "monotonic_increasing": true,
+        "monotonic_decreasing": false,
+        "bimodality_coefficient": null,
+        "n_modes_kde": null,
+        "ci95_mean_low": -70.7965355213102,
+        "ci95_mean_high": 119.7965355213102,
+        "ci95_median_low": null,
+        "ci95_median_high": null,
+        "autocorr_lag1": null,
+        "autocorr_lag1_p": null
+      },
+      "distribution": {
+        "normality": {
+          "n": 2,
+          "alpha": 0.05,
+          "verdict": "insufficient data"
+        },
+        "fit": {
+          "n_used": 0,
+          "fits": [],
+          "best": null,
+          "failed": {},
+          "ks_note": "KS p-values are optimistic: the parameters were estimated from the same data. For integer data the gap is measured on the integer support and the p-value is a chi-square goodness-of-fit test.",
+          "description": "not enough distinct values to fit a distribution"
+        }
+      },
+      "alerts": []
+    },
+    "a b c": {
+      "name": "a b c",
+      "errors": {},
+      "semantic_type": "empty",
+      "pandas_dtype": "float64",
+      "confidence": 1.0,
+      "reason": "no non-missing values",
+      "suggestions": [],
+      "stats": {
+        "count": 0,
+        "n_missing": 2,
+        "pct_missing": 100.0,
+        "n_unique": 0,
+        "pct_unique": 0.0,
+        "memory_bytes": 16,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": []
+      },
+      "alerts": []
+    }
+  },
+  "correlations": {
+    "pairs": [],
+    "top_pairs": [],
+    "missingness": []
+  },
+  "quality": {
+    "duplicate_rows": {
+      "count": 0,
+      "pct": 0.0,
+      "example_indices": []
+    },
+    "duplicate_columns": [],
+    "empty_columns": [
+      "a b c"
+    ],
+    "constant_columns": [
+      "$x$",
+      "quote'\""
+    ],
+    "quasi_constant_columns": {},
+    "high_missing_columns": {
+      "quote'\"": 50.0
+    },
+    "missing_patterns": {
+      "co_missing": [],
+      "n_rows_many_missing": 1,
+      "rows_many_missing_examples": [
+        1
+      ],
+      "top_patterns": [
+        {
+          "columns": [
+            "a b c"
+          ],
+          "rows": 1
+        },
+        {
+          "columns": [
+            "quote'\"",
+            "a b c"
+          ],
+          "rows": 1
+        }
+      ]
+    },
+    "mixed_type_columns": {},
+    "whitespace_columns": {},
+    "placeholder_values": {},
+    "suspicious_values": {},
+    "id_columns": [],
+    "redundant_pairs": [],
+    "dtype_optimizations": [
+      {
+        "column": "..",
+        "current_dtype": "int64",
+        "suggested_dtype": "uint8",
+        "current_bytes": 16,
+        "new_bytes": 2,
+        "saving_bytes": 14,
+        "saving_pct": 87.5,
+        "code": "df['..'] = pd.to_numeric(df['..'], downcast='unsigned')"
+      }
+    ],
+    "conversion_suggestions": {},
+    "memory_bytes": 128,
+    "potential_saving_bytes": 14,
+    "alerts": [
+      {
+        "severity": "high",
+        "column": "a b c",
+        "message": "column is entirely missing -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "high",
+        "column": "quote'\"",
+        "message": "50.0% missing -> drop, or impute and add a missing-indicator",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": null,
+        "message": "1 rows have >= 50% of their values missing",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "$x$",
+        "message": "constant column carries no information -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "quote'\"",
+        "message": "constant column carries no information -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "info",
+        "column": null,
+        "message": "dtype optimizations save ~14 B: .. -> uint8 (see quality['dtype_optimizations'] for code)",
+        "kind": null
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "severity": "high",
+      "column": "a b c",
+      "message": "column is entirely missing -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "high",
+      "column": "quote'\"",
+      "message": "50.0% missing -> drop, or impute and add a missing-indicator",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": null,
+      "message": "1 rows have >= 50% of their values missing",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "$x$",
+      "message": "constant column carries no information -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "quote'\"",
+      "message": "constant column carries no information -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "info",
+      "column": null,
+      "message": "dtype optimizations save ~14 B: .. -> uint8 (see quality['dtype_optimizations'] for code)",
+      "kind": null
+    }
+  ],
+  "plots": []
+}

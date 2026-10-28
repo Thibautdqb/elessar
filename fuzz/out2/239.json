@@ -1,0 +1,244 @@
+{
+  "overview": {
+    "n_rows": 40,
+    "n_columns": 1,
+    "n_rows_profiled": 40,
+    "sampled": false,
+    "memory_bytes": 705,
+    "potential_saving_bytes": 314,
+    "pandas_dtypes": {
+      "string": 1
+    },
+    "semantic_types": {
+      "categorical": 1
+    },
+    "n_duplicate_rows": 36,
+    "pct_duplicate_rows": 90.0,
+    "pct_missing_cells": 27.5,
+    "n_rows_with_missing": 11,
+    "target": null,
+    "source": "pandas.DataFrame · read in 0.0s",
+    "workers": 1,
+    "chart_workers": 0
+  },
+  "summary": [
+    {
+      "column": "a.1",
+      "semantic_type": "categorical",
+      "pandas_dtype": "string",
+      "count": 29,
+      "pct_missing": 27.5,
+      "n_unique": 3,
+      "pct_unique": 10.344827586206897,
+      "top_value": "foo",
+      "top_pct": 34.48275862068966,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": 0.9989045629455697,
+      "memory_bytes": 385,
+      "n_alerts": 0,
+      "errors": null
+    }
+  ],
+  "columns": {
+    "a.1": {
+      "name": "a.1",
+      "errors": {},
+      "semantic_type": "categorical",
+      "pandas_dtype": "string",
+      "confidence": 0.85,
+      "reason": "3 distinct labels",
+      "suggestions": [
+        {
+          "flag": "should-be-category",
+          "code": "df['a.1'] = df['a.1'].astype('category')"
+        }
+      ],
+      "stats": {
+        "count": 29,
+        "n_missing": 11,
+        "pct_missing": 27.5,
+        "n_unique": 3,
+        "pct_unique": 10.344827586206897,
+        "memory_bytes": 385,
+        "modes": [
+          "foo",
+          "bar"
+        ],
+        "mode_freq": 10,
+        "mode_pct": 34.48275862068966,
+        "top_values": [
+          {
+            "value": "foo",
+            "count": 10,
+            "pct": 34.48275862068966
+          },
+          {
+            "value": "bar",
+            "count": 10,
+            "pct": 34.48275862068966
+          },
+          {
+            "value": "",
+            "count": 9,
+            "pct": 31.03448275862069
+          }
+        ],
+        "cardinality": 3,
+        "entropy": 1.5832262740679837,
+        "normalized_entropy": 0.9989045629455697,
+        "gini_impurity": 0.6658739595719381,
+        "imbalance_ratio": 1.1111111111111112,
+        "n_rare_categories": 0,
+        "pct_rows_rare": 0.0,
+        "rare_categories": [],
+        "uniform_chi2_p": 0.9661049965255964,
+        "n_inconsistent_groups": 0,
+        "inconsistent_labels": [],
+        "len_min": 0,
+        "len_mean": 2.0689655172413794,
+        "len_median": 3.0,
+        "len_max": 3
+      },
+      "alerts": []
+    }
+  },
+  "correlations": {
+    "pairs": [],
+    "top_pairs": [],
+    "missingness": []
+  },
+  "quality": {
+    "duplicate_rows": {
+      "count": 36,
+      "pct": 90.0,
+      "example_indices": [
+        "2020-01-03 00:00:00",
+        "2020-01-06 00:00:00",
+        "2020-01-07 00:00:00",
+        "2020-01-08 00:00:00",
+        "2020-01-09 00:00:00",
+        "2020-01-10 00:00:00",
+        "2020-01-11 00:00:00",
+        "2020-01-12 00:00:00",
+        "2020-01-13 00:00:00",
+        "2020-01-14 00:00:00"
+      ]
+    },
+    "duplicate_columns": [],
+    "empty_columns": [],
+    "constant_columns": [],
+    "quasi_constant_columns": {},
+    "high_missing_columns": {
+      "a.1": 27.5
+    },
+    "missing_patterns": {
+      "co_missing": [],
+      "n_rows_many_missing": 0,
+      "rows_many_missing_examples": [],
+      "top_patterns": [
+        {
+          "columns": [
+            "a.1"
+          ],
+          "rows": 11
+        }
+      ]
+    },
+    "mixed_type_columns": {},
+    "whitespace_columns": {},
+    "placeholder_values": {
+      "a.1": {
+        "''": 9
+      }
+    },
+    "suspicious_values": {},
+    "id_columns": [],
+    "redundant_pairs": [],
+    "dtype_optimizations": [
+      {
+        "column": "a.1",
+        "current_dtype": "string",
+        "suggested_dtype": "category",
+        "current_bytes": 385,
+        "new_bytes": 71,
+        "saving_bytes": 314,
+        "saving_pct": 81.55844155844156,
+        "code": "df['a.1'] = df['a.1'].astype('category')"
+      }
+    ],
+    "conversion_suggestions": {
+      "a.1": [
+        {
+          "flag": "should-be-category",
+          "code": "df['a.1'] = df['a.1'].astype('category')"
+        }
+      ]
+    },
+    "memory_bytes": 705,
+    "potential_saving_bytes": 314,
+    "alerts": [
+      {
+        "severity": "medium",
+        "column": null,
+        "message": "36 duplicate rows (90.0%), e.g. index ['2020-01-03 00:00:00', '2020-01-06 00:00:00', '2020-01-07 00:00:00'] -> df.drop_duplicates()",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "a.1",
+        "message": "27.5% missing -> drop, or impute and add a missing-indicator",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "a.1",
+        "message": "placeholder values used as missing: '' (9) -> replace with NaN",
+        "kind": null
+      },
+      {
+        "severity": "info",
+        "column": null,
+        "message": "dtype optimizations save ~314 B: a.1 -> category (see quality['dtype_optimizations'] for code)",
+        "kind": null
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "severity": "medium",
+      "column": null,
+      "message": "36 duplicate rows (90.0%), e.g. index ['2020-01-03 00:00:00', '2020-01-06 00:00:00', '2020-01-07 00:00:00'] -> df.drop_duplicates()",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "a.1",
+      "message": "27.5% missing -> drop, or impute and add a missing-indicator",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "a.1",
+      "message": "placeholder values used as missing: '' (9) -> replace with NaN",
+      "kind": null
+    },
+    {
+      "severity": "info",
+      "column": null,
+      "message": "dtype optimizations save ~314 B: a.1 -> category (see quality['dtype_optimizations'] for code)",
+      "kind": null
+    }
+  ],
+  "plots": []
+}

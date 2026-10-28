@@ -1,0 +1,1630 @@
+{
+  "overview": {
+    "n_rows": 3,
+    "n_columns": 7,
+    "n_rows_profiled": 3,
+    "sampled": false,
+    "memory_bytes": 235,
+    "potential_saving_bytes": 42,
+    "pandas_dtypes": {
+      "float64": 2,
+      "str": 1,
+      "complex128": 1,
+      "category": 1,
+      "bool": 1,
+      "interval[int64, right]": 1
+    },
+    "semantic_types": {
+      "numeric_continuous": 2,
+      "categorical": 2,
+      "numeric_string": 1,
+      "constant": 1,
+      "boolean": 1
+    },
+    "n_duplicate_rows": 0,
+    "pct_duplicate_rows": 0.0,
+    "pct_missing_cells": 0.0,
+    "n_rows_with_missing": 0,
+    "target": null,
+    "source": "pandas.DataFrame · read in 0.0s",
+    "workers": 3,
+    "chart_workers": 0
+  },
+  "summary": [
+    {
+      "column": "a$b$c",
+      "semantic_type": "numeric_string",
+      "pandas_dtype": "str",
+      "count": 3,
+      "pct_missing": 0.0,
+      "n_unique": 3,
+      "pct_unique": 100.0,
+      "top_value": "19.20%",
+      "top_pct": 33.333333333333336,
+      "mean": 43.370000000000005,
+      "std": 35.397156665472444,
+      "min": 19.2,
+      "p25": 23.055,
+      "median": 26.91,
+      "p75": 55.455,
+      "max": 84.0,
+      "skewness": 1.6400635753658654,
+      "kurtosis": null,
+      "pct_outliers_iqr": 0.0,
+      "normality": "insufficient data",
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 42,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "level_0",
+      "semantic_type": "constant",
+      "pandas_dtype": "complex128",
+      "count": 3,
+      "pct_missing": 0.0,
+      "n_unique": 1,
+      "pct_unique": 33.333333333333336,
+      "top_value": "(1+2j)",
+      "top_pct": 100.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 48,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "_s",
+      "semantic_type": "numeric_continuous",
+      "pandas_dtype": "float64",
+      "count": 3,
+      "pct_missing": 0.0,
+      "n_unique": 3,
+      "pct_unique": 100.0,
+      "top_value": -1.1050464100827455,
+      "top_pct": 33.333333333333336,
+      "mean": -0.3916772539573672,
+      "std": 0.9019983209745235,
+      "min": -1.1050464100827455,
+      "p25": -0.8986261871537315,
+      "median": -0.6922059642247175,
+      "p75": -0.03499267589467803,
+      "max": 0.6222206124353614,
+      "skewness": 1.3328762545021149,
+      "kurtosis": null,
+      "pct_outliers_iqr": 0.0,
+      "normality": "insufficient data",
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 24,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "$x$",
+      "semantic_type": "categorical",
+      "pandas_dtype": "category",
+      "count": 3,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 66.66666666666667,
+      "top_value": "y",
+      "top_pct": 66.66666666666667,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": 0.9182958340544896,
+      "memory_bytes": 130,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "C:\\path",
+      "semantic_type": "boolean",
+      "pandas_dtype": "bool",
+      "count": 3,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 66.66666666666667,
+      "top_value": false,
+      "top_pct": 66.66666666666667,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": 0.9182958340544896,
+      "memory_bytes": 3,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "p_value",
+      "semantic_type": "categorical",
+      "pandas_dtype": "interval[int64, right]",
+      "count": 3,
+      "pct_missing": 0.0,
+      "n_unique": 3,
+      "pct_unique": 100.0,
+      "top_value": "(0, 1]",
+      "top_pct": 33.333333333333336,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": 1.0,
+      "memory_bytes": 48,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": " ",
+      "semantic_type": "numeric_continuous",
+      "pandas_dtype": "float64",
+      "count": 3,
+      "pct_missing": 0.0,
+      "n_unique": 3,
+      "pct_unique": 100.0,
+      "top_value": -0.12056107598100044,
+      "top_pct": 33.333333333333336,
+      "mean": 0.6518419184894835,
+      "std": 1.130069328068866,
+      "min": -0.12056107598100044,
+      "p25": 0.0033287477636731455,
+      "median": 0.12721857150834673,
+      "p75": 1.0380434157247254,
+      "max": 1.9488682599411042,
+      "skewness": 1.6388439787756486,
+      "kurtosis": null,
+      "pct_outliers_iqr": 0.0,
+      "normality": "insufficient data",
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 24,
+      "n_alerts": 0,
+      "errors": null
+    }
+  ],
+  "columns": {
+    "a$b$c": {
+      "name": "a$b$c",
+      "errors": {},
+      "semantic_type": "numeric_string",
+      "pandas_dtype": "str",
+      "confidence": 1.0,
+      "reason": "100% of values are numbers stored as text",
+      "suggestions": [
+        {
+          "flag": "should-be-numeric",
+          "code": "df['a$b$c'] = elessar.types.parse_numeric(df['a$b$c'])"
+        }
+      ],
+      "units": {},
+      "numeric": "numeric_continuous",
+      "stats": {
+        "count": 3,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 3,
+        "pct_unique": 100.0,
+        "memory_bytes": 42,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": "19.20%",
+            "count": 1,
+            "pct": 33.333333333333336
+          },
+          {
+            "value": "84.00%",
+            "count": 1,
+            "pct": 33.333333333333336
+          },
+          {
+            "value": "26.91%",
+            "count": 1,
+            "pct": 33.333333333333336
+          }
+        ],
+        "n_inf": 0,
+        "mean": 43.370000000000005,
+        "std": 35.397156665472444,
+        "var": 1252.9587000000004,
+        "sem": 20.43655792935787,
+        "cv": 0.8161668587842389,
+        "min": 19.2,
+        "max": 84.0,
+        "range": 64.8,
+        "sum": 130.11,
+        "p1": 19.3542,
+        "p5": 19.971,
+        "p10": 20.742,
+        "p25": 23.055,
+        "p50": 26.91,
+        "p75": 55.455,
+        "p90": 72.58200000000001,
+        "p95": 78.291,
+        "p99": 82.8582,
+        "median": 26.91,
+        "iqr": 32.4,
+        "mad": 7.710000000000001,
+        "trimmed_mean": 43.370000000000005,
+        "geometric_mean": 35.142398906237084,
+        "harmonic_mean": 29.65921503665677,
+        "skewness": 1.6400635753658654,
+        "kurtosis": null,
+        "n_zeros": 0,
+        "n_negative": 0,
+        "iqr_lower": -25.544999999999995,
+        "iqr_upper": 104.05499999999999,
+        "n_outliers_iqr": 0,
+        "pct_outliers_iqr": 0.0,
+        "n_outliers_z": 0,
+        "pct_outliers_z": 0.0,
+        "n_outliers_mz": 1,
+        "pct_outliers_mz": 33.333333333333336,
+        "n_decimals": 2,
+        "pct_round_values": null,
+        "heaping_index": null,
+        "monotonic_increasing": false,
+        "monotonic_decreasing": false,
+        "bimodality_coefficient": null,
+        "n_modes_kde": null,
+        "ci95_mean_low": -44.561411761434655,
+        "ci95_mean_high": 131.30141176143468,
+        "ci95_median_low": null,
+        "ci95_median_high": null,
+        "autocorr_lag1": null,
+        "autocorr_lag1_p": null,
+        "n_unparsable": 0
+      },
+      "distribution": {
+        "normality": {
+          "n": 3,
+          "alpha": 0.05,
+          "verdict": "insufficient data"
+        },
+        "fit": {
+          "n_used": 0,
+          "fits": [],
+          "best": null,
+          "failed": {},
+          "ks_note": "KS p-values are optimistic: the parameters were estimated from the same data. For integer data the gap is measured on the integer support and the p-value is a chi-square goodness-of-fit test.",
+          "description": "not enough distinct values to fit a distribution"
+        }
+      },
+      "alerts": []
+    },
+    "level_0": {
+      "name": "level_0",
+      "errors": {},
+      "semantic_type": "constant",
+      "pandas_dtype": "complex128",
+      "confidence": 1.0,
+      "reason": "single value: '(1+2j)'",
+      "suggestions": [],
+      "stats": {
+        "count": 3,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 1,
+        "pct_unique": 33.333333333333336,
+        "memory_bytes": 48,
+        "modes": [
+          "(1+2j)"
+        ],
+        "mode_freq": 3,
+        "mode_pct": 100.0,
+        "top_values": [
+          {
+            "value": "(1+2j)",
+            "count": 3,
+            "pct": 100.0
+          }
+        ]
+      },
+      "alerts": []
+    },
+    "_s": {
+      "name": "_s",
+      "errors": {},
+      "semantic_type": "numeric_continuous",
+      "pandas_dtype": "float64",
+      "confidence": 0.9,
+      "reason": "float64 dtype: 3 distinct real values",
+      "suggestions": [],
+      "stats": {
+        "count": 3,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 3,
+        "pct_unique": 100.0,
+        "memory_bytes": 24,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": -1.1050464100827455,
+            "count": 1,
+            "pct": 33.333333333333336
+          },
+          {
+            "value": -0.6922059642247175,
+            "count": 1,
+            "pct": 33.333333333333336
+          },
+          {
+            "value": 0.6222206124353614,
+            "count": 1,
+            "pct": 33.333333333333336
+          }
+        ],
+        "n_inf": 0,
+        "mean": -0.3916772539573672,
+        "std": 0.9019983209745235,
+        "var": 0.8136009710408595,
+        "sem": 0.5207689734232316,
+        "cv": 2.302912185635123,
+        "min": -1.1050464100827455,
+        "max": 0.6222206124353614,
+        "range": 1.7272670225181068,
+        "sum": -1.1750317618721016,
+        "p1": -1.0967896011655849,
+        "p5": -1.0637623654969428,
+        "p10": -1.0224783209111399,
+        "p25": -0.8986261871537315,
+        "p50": -0.6922059642247175,
+        "p75": -0.03499267589467803,
+        "p90": 0.3593352971033457,
+        "p95": 0.4907779547693534,
+        "p99": 0.5959320809021598,
+        "median": -0.6922059642247175,
+        "iqr": 0.8636335112590535,
+        "mad": 0.41284044585802804,
+        "trimmed_mean": -0.3916772539573672,
+        "geometric_mean": null,
+        "harmonic_mean": null,
+        "skewness": 1.3328762545021149,
+        "kurtosis": null,
+        "n_zeros": 0,
+        "n_negative": 2,
+        "iqr_lower": -2.194076454042312,
+        "iqr_upper": 1.2604575909939024,
+        "n_outliers_iqr": 0,
+        "pct_outliers_iqr": 0.0,
+        "n_outliers_z": 0,
+        "pct_outliers_z": 0.0,
+        "n_outliers_mz": 0,
+        "pct_outliers_mz": 0.0,
+        "n_decimals": 10,
+        "pct_round_values": null,
+        "heaping_index": null,
+        "monotonic_increasing": true,
+        "monotonic_decreasing": false,
+        "bimodality_coefficient": null,
+        "n_modes_kde": null,
+        "ci95_mean_low": -2.6323652990256594,
+        "ci95_mean_high": 1.849010791110925,
+        "ci95_median_low": null,
+        "ci95_median_high": null,
+        "autocorr_lag1": null,
+        "autocorr_lag1_p": null
+      },
+      "distribution": {
+        "normality": {
+          "n": 3,
+          "alpha": 0.05,
+          "verdict": "insufficient data"
+        },
+        "fit": {
+          "n_used": 0,
+          "fits": [],
+          "best": null,
+          "failed": {},
+          "ks_note": "KS p-values are optimistic: the parameters were estimated from the same data. For integer data the gap is measured on the integer support and the p-value is a chi-square goodness-of-fit test.",
+          "description": "not enough distinct values to fit a distribution"
+        }
+      },
+      "alerts": []
+    },
+    "$x$": {
+      "name": "$x$",
+      "errors": {},
+      "semantic_type": "categorical",
+      "pandas_dtype": "category",
+      "confidence": 1.0,
+      "reason": "category dtype (2 levels)",
+      "suggestions": [],
+      "stats": {
+        "count": 3,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 66.66666666666667,
+        "memory_bytes": 130,
+        "modes": [
+          "y"
+        ],
+        "mode_freq": 2,
+        "mode_pct": 66.66666666666667,
+        "top_values": [
+          {
+            "value": "y",
+            "count": 2,
+            "pct": 66.66666666666667
+          },
+          {
+            "value": "x",
+            "count": 1,
+            "pct": 33.333333333333336
+          }
+        ],
+        "cardinality": 2,
+        "entropy": 0.9182958340544896,
+        "normalized_entropy": 0.9182958340544896,
+        "gini_impurity": 0.4444444444444444,
+        "imbalance_ratio": 2.0,
+        "n_rare_categories": 0,
+        "pct_rows_rare": 0.0,
+        "rare_categories": [],
+        "uniform_chi2_p": 0.5637028616507731,
+        "n_inconsistent_groups": 0,
+        "inconsistent_labels": [],
+        "len_min": 1,
+        "len_mean": 1.0,
+        "len_median": 1.0,
+        "len_max": 1
+      },
+      "alerts": []
+    },
+    "C:\\path": {
+      "name": "C:\\path",
+      "errors": {},
+      "semantic_type": "boolean",
+      "pandas_dtype": "bool",
+      "confidence": 1.0,
+      "reason": "bool dtype",
+      "suggestions": [],
+      "stats": {
+        "count": 3,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 66.66666666666667,
+        "memory_bytes": 3,
+        "modes": [
+          false
+        ],
+        "mode_freq": 2,
+        "mode_pct": 66.66666666666667,
+        "top_values": [
+          {
+            "value": false,
+            "count": 2,
+            "pct": 66.66666666666667
+          },
+          {
+            "value": true,
+            "count": 1,
+            "pct": 33.333333333333336
+          }
+        ],
+        "cardinality": 2,
+        "entropy": 0.9182958340544896,
+        "normalized_entropy": 0.9182958340544896,
+        "gini_impurity": 0.4444444444444444,
+        "imbalance_ratio": 2.0,
+        "n_rare_categories": 0,
+        "pct_rows_rare": 0.0,
+        "rare_categories": [],
+        "uniform_chi2_p": 0.5637028616507731,
+        "n_inconsistent_groups": 0,
+        "inconsistent_labels": [],
+        "n_true": 1,
+        "pct_true": 33.33333333333333,
+        "ci95_pct_true_low": 6.149194472039621,
+        "ci95_pct_true_high": 79.23403991979522
+      },
+      "alerts": []
+    },
+    "p_value": {
+      "name": "p_value",
+      "errors": {},
+      "semantic_type": "categorical",
+      "pandas_dtype": "interval[int64, right]",
+      "confidence": 0.5,
+      "reason": "unrecognised dtype interval[int64, right], treated as labels",
+      "suggestions": [],
+      "stats": {
+        "count": 3,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 3,
+        "pct_unique": 100.0,
+        "memory_bytes": 48,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": "(0, 1]",
+            "count": 1,
+            "pct": 33.333333333333336
+          },
+          {
+            "value": "(1, 2]",
+            "count": 1,
+            "pct": 33.333333333333336
+          },
+          {
+            "value": "(2, 3]",
+            "count": 1,
+            "pct": 33.333333333333336
+          }
+        ],
+        "cardinality": 3,
+        "entropy": 1.584962500721156,
+        "normalized_entropy": 1.0,
+        "gini_impurity": 0.6666666666666667,
+        "imbalance_ratio": 1.0,
+        "n_rare_categories": 0,
+        "pct_rows_rare": 0.0,
+        "rare_categories": [],
+        "uniform_chi2_p": 1.0,
+        "n_inconsistent_groups": 0,
+        "inconsistent_labels": []
+      },
+      "alerts": []
+    },
+    " ": {
+      "name": " ",
+      "errors": {},
+      "semantic_type": "numeric_continuous",
+      "pandas_dtype": "float64",
+      "confidence": 0.9,
+      "reason": "float64 dtype: 3 distinct real values",
+      "suggestions": [],
+      "stats": {
+        "count": 3,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 3,
+        "pct_unique": 100.0,
+        "memory_bytes": 24,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": -0.12056107598100044,
+            "count": 1,
+            "pct": 33.333333333333336
+          },
+          {
+            "value": 1.9488682599411042,
+            "count": 1,
+            "pct": 33.333333333333336
+          },
+          {
+            "value": 0.12721857150834673,
+            "count": 1,
+            "pct": 33.333333333333336
+          }
+        ],
+        "n_inf": 0,
+        "mean": 0.6518419184894835,
+        "std": 1.130069328068866,
+        "var": 1.2770566862420185,
+        "sem": 0.6524458307634994,
+        "cv": 1.7336555014559072,
+        "min": -0.12056107598100044,
+        "max": 1.9488682599411042,
+        "range": 2.0694293359221048,
+        "sum": 1.9555257554684504,
+        "p1": -0.1156054830312135,
+        "p5": -0.09578311123206572,
+        "p10": -0.071005146483131,
+        "p25": 0.0033287477636731455,
+        "p50": 0.12721857150834673,
+        "p75": 1.0380434157247254,
+        "p90": 1.5845383222545528,
+        "p95": 1.7667032910978284,
+        "p99": 1.912435266172449,
+        "median": 0.12721857150834673,
+        "iqr": 1.0347146679610522,
+        "mad": 0.24777964748934717,
+        "trimmed_mean": 0.6518419184894836,
+        "geometric_mean": null,
+        "harmonic_mean": null,
+        "skewness": 1.6388439787756486,
+        "kurtosis": null,
+        "n_zeros": 0,
+        "n_negative": 1,
+        "iqr_lower": -1.5487432541779051,
+        "iqr_upper": 2.5901154176663037,
+        "n_outliers_iqr": 0,
+        "pct_outliers_iqr": 0.0,
+        "n_outliers_z": 0,
+        "pct_outliers_z": 0.0,
+        "n_outliers_mz": 1,
+        "pct_outliers_mz": 33.333333333333336,
+        "n_decimals": null,
+        "pct_round_values": null,
+        "heaping_index": null,
+        "monotonic_increasing": false,
+        "monotonic_decreasing": false,
+        "bimodality_coefficient": null,
+        "n_modes_kde": null,
+        "ci95_mean_low": -2.1554059162587427,
+        "ci95_mean_high": 3.459089753237709,
+        "ci95_median_low": null,
+        "ci95_median_high": null,
+        "autocorr_lag1": null,
+        "autocorr_lag1_p": null
+      },
+      "distribution": {
+        "normality": {
+          "n": 3,
+          "alpha": 0.05,
+          "verdict": "insufficient data"
+        },
+        "fit": {
+          "n_used": 0,
+          "fits": [],
+          "best": null,
+          "failed": {},
+          "ks_note": "KS p-values are optimistic: the parameters were estimated from the same data. For integer data the gap is measured on the integer support and the p-value is a chi-square goodness-of-fit test.",
+          "description": "not enough distinct values to fit a distribution"
+        }
+      },
+      "alerts": []
+    }
+  },
+  "correlations": {
+    "n_numeric": {
+      "a$b$c": {
+        "a$b$c": 3.0,
+        "_s": 3.0,
+        " ": 3.0
+      },
+      "_s": {
+        "a$b$c": 3.0,
+        "_s": 3.0,
+        " ": 3.0
+      },
+      " ": {
+        "a$b$c": 3.0,
+        "_s": 3.0,
+        " ": 3.0
+      }
+    },
+    "pearson": {
+      "a$b$c": {
+        "a$b$c": 1.0,
+        "_s": -0.18255204931564312,
+        " ": 0.9999997353062474
+      },
+      "_s": {
+        "a$b$c": -0.18255204931564312,
+        "_s": 1.0,
+        " ": -0.18183663712572845
+      },
+      " ": {
+        "a$b$c": 0.9999997353062474,
+        "_s": -0.18183663712572845,
+        " ": 1.0
+      }
+    },
+    "pearson_p": {
+      "a$b$c": {
+        "a$b$c": 0.0,
+        "_s": 0.8831283902021194,
+        " ": 0.000463198320359397
+      },
+      "_s": {
+        "a$b$c": 0.8831283902021194,
+        "_s": 0.0,
+        " ": 0.8835915885223488
+      },
+      " ": {
+        "a$b$c": 0.000463198320359397,
+        "_s": 0.8835915885223488,
+        " ": 0.0
+      }
+    },
+    "spearman": {
+      "a$b$c": {
+        "a$b$c": 1.0,
+        "_s": 0.5,
+        " ": 1.0
+      },
+      "_s": {
+        "a$b$c": 0.5,
+        "_s": 1.0,
+        " ": 0.5
+      },
+      " ": {
+        "a$b$c": 1.0,
+        "_s": 0.5,
+        " ": 1.0
+      }
+    },
+    "spearman_p": {
+      "a$b$c": {
+        "a$b$c": 0.0,
+        "_s": 0.6666666666666666,
+        " ": 0.0
+      },
+      "_s": {
+        "a$b$c": 0.6666666666666666,
+        "_s": 0.0,
+        " ": 0.6666666666666666
+      },
+      " ": {
+        "a$b$c": 0.0,
+        "_s": 0.6666666666666666,
+        " ": 0.0
+      }
+    },
+    "vif": [],
+    "linear_dependencies": [],
+    "kendall": {
+      "a$b$c": {
+        "a$b$c": 1.0,
+        "_s": 0.33333333333333337,
+        " ": 1.0
+      },
+      "_s": {
+        "a$b$c": 0.33333333333333337,
+        "_s": 1.0,
+        " ": 0.33333333333333337
+      },
+      " ": {
+        "a$b$c": 1.0,
+        "_s": 0.33333333333333337,
+        " ": 1.0
+      }
+    },
+    "kendall_p": {
+      "a$b$c": {
+        "a$b$c": 0.0,
+        "_s": 1.0,
+        " ": 0.3333333333333333
+      },
+      "_s": {
+        "a$b$c": 1.0,
+        "_s": 0.0,
+        " ": 1.0
+      },
+      " ": {
+        "a$b$c": 0.3333333333333333,
+        "_s": 1.0,
+        " ": 0.0
+      }
+    },
+    "cramers_v": {
+      "$x$": {
+        "$x$": 1.0,
+        "C:\\path": 1.0000000000000002,
+        "p_value": null
+      },
+      "C:\\path": {
+        "$x$": 1.0000000000000002,
+        "C:\\path": 1.0,
+        "p_value": null
+      },
+      "p_value": {
+        "$x$": null,
+        "C:\\path": null,
+        "p_value": 1.0
+      }
+    },
+    "cramers_v_p": {
+      "$x$": {
+        "$x$": 0.0,
+        "C:\\path": 0.0832645166635504,
+        "p_value": 0.22313016014842982
+      },
+      "C:\\path": {
+        "$x$": 0.0832645166635504,
+        "C:\\path": 0.0,
+        "p_value": 0.22313016014842973
+      },
+      "p_value": {
+        "$x$": 0.22313016014842982,
+        "C:\\path": 0.22313016014842973,
+        "p_value": 0.0
+      }
+    },
+    "cramers_v_n": {
+      "$x$": {
+        "$x$": 3.0,
+        "C:\\path": 3.0,
+        "p_value": 3.0
+      },
+      "C:\\path": {
+        "$x$": 3.0,
+        "C:\\path": 3.0,
+        "p_value": 3.0
+      },
+      "p_value": {
+        "$x$": 3.0,
+        "C:\\path": 3.0,
+        "p_value": 3.0
+      }
+    },
+    "eta": {
+      "$x$": {
+        "a$b$c": 0.5913422427482004,
+        "_s": 0.6849190260280921,
+        " ": 0.5919288299893107
+      },
+      "C:\\path": {
+        "a$b$c": 0.5913422427482004,
+        "_s": 0.6849190260280921,
+        " ": 0.5919288299893107
+      },
+      "p_value": {
+        "a$b$c": 1.0,
+        "_s": 1.0,
+        " ": 1.0
+      }
+    },
+    "eta_p": {
+      "$x$": {
+        "a$b$c": 0.22067136191984324,
+        "_s": 0.22067136191984324,
+        " ": 0.22067136191984324
+      },
+      "C:\\path": {
+        "a$b$c": 0.22067136191984324,
+        "_s": 0.22067136191984324,
+        " ": 0.22067136191984324
+      },
+      "p_value": {
+        "a$b$c": 0.36787944117144245,
+        "_s": 0.36787944117144245,
+        " ": 0.36787944117144245
+      }
+    },
+    "eta_n": {
+      "$x$": {
+        "a$b$c": 3.0,
+        "_s": 3.0,
+        " ": 3.0
+      },
+      "C:\\path": {
+        "a$b$c": 3.0,
+        "_s": 3.0,
+        " ": 3.0
+      },
+      "p_value": {
+        "a$b$c": 3.0,
+        "_s": 3.0,
+        " ": 3.0
+      }
+    },
+    "pairs": [
+      {
+        "col_a": "$x$",
+        "col_b": "C:\\path",
+        "kind": "cat-cat",
+        "method": "cramers_v",
+        "value": 1.0000000000000002,
+        "abs_value": 1.0000000000000002,
+        "n": 3,
+        "test": "chi-square",
+        "p_value": 0.0832645166635504,
+        "p_adjusted": 0.35859096311974525,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "a$b$c",
+        "col_b": " ",
+        "kind": "num-num",
+        "method": "spearman",
+        "value": 1.0,
+        "abs_value": 1.0,
+        "n": 3,
+        "test": "spearman t-test",
+        "p_value": 0.0,
+        "p_adjusted": 0.0,
+        "significant": true,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "p_value",
+        "col_b": "a$b$c",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 1.0,
+        "abs_value": 1.0,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.36787944117144245,
+        "p_adjusted": 0.4347666122935229,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "p_value",
+        "col_b": " ",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 1.0,
+        "abs_value": 1.0,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.36787944117144245,
+        "p_adjusted": 0.4347666122935229,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "p_value",
+        "col_b": "_s",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 1.0,
+        "abs_value": 1.0,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.36787944117144245,
+        "p_adjusted": 0.4347666122935229,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "C:\\path",
+        "col_b": "_s",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 0.6849190260280921,
+        "abs_value": 0.6849190260280921,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.22067136191984324,
+        "p_adjusted": 0.35859096311974525,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "$x$",
+        "col_b": "_s",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 0.6849190260280921,
+        "abs_value": 0.6849190260280921,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.22067136191984324,
+        "p_adjusted": 0.35859096311974525,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "C:\\path",
+        "col_b": " ",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 0.5919288299893107,
+        "abs_value": 0.5919288299893107,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.22067136191984324,
+        "p_adjusted": 0.35859096311974525,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "$x$",
+        "col_b": " ",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 0.5919288299893107,
+        "abs_value": 0.5919288299893107,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.22067136191984324,
+        "p_adjusted": 0.35859096311974525,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "$x$",
+        "col_b": "a$b$c",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 0.5913422427482004,
+        "abs_value": 0.5913422427482004,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.22067136191984324,
+        "p_adjusted": 0.35859096311974525,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "C:\\path",
+        "col_b": "a$b$c",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 0.5913422427482004,
+        "abs_value": 0.5913422427482004,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.22067136191984324,
+        "p_adjusted": 0.35859096311974525,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "_s",
+        "col_b": " ",
+        "kind": "num-num",
+        "method": "spearman",
+        "value": 0.5,
+        "abs_value": 0.5,
+        "n": 3,
+        "test": "spearman t-test",
+        "p_value": 0.6666666666666666,
+        "p_adjusted": 0.6666666666666666,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "a$b$c",
+        "col_b": "_s",
+        "kind": "num-num",
+        "method": "spearman",
+        "value": 0.5,
+        "abs_value": 0.5,
+        "n": 3,
+        "test": "spearman t-test",
+        "p_value": 0.6666666666666666,
+        "p_adjusted": 0.6666666666666666,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      }
+    ],
+    "top_pairs": [
+      {
+        "col_a": "$x$",
+        "col_b": "C:\\path",
+        "kind": "cat-cat",
+        "method": "cramers_v",
+        "value": 1.0000000000000002,
+        "abs_value": 1.0000000000000002,
+        "n": 3,
+        "test": "chi-square",
+        "p_value": 0.0832645166635504,
+        "p_adjusted": 0.35859096311974525,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "a$b$c",
+        "col_b": " ",
+        "kind": "num-num",
+        "method": "spearman",
+        "value": 1.0,
+        "abs_value": 1.0,
+        "n": 3,
+        "test": "spearman t-test",
+        "p_value": 0.0,
+        "p_adjusted": 0.0,
+        "significant": true,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "p_value",
+        "col_b": "a$b$c",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 1.0,
+        "abs_value": 1.0,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.36787944117144245,
+        "p_adjusted": 0.4347666122935229,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "p_value",
+        "col_b": " ",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 1.0,
+        "abs_value": 1.0,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.36787944117144245,
+        "p_adjusted": 0.4347666122935229,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "p_value",
+        "col_b": "_s",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 1.0,
+        "abs_value": 1.0,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.36787944117144245,
+        "p_adjusted": 0.4347666122935229,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "C:\\path",
+        "col_b": "_s",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 0.6849190260280921,
+        "abs_value": 0.6849190260280921,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.22067136191984324,
+        "p_adjusted": 0.35859096311974525,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "$x$",
+        "col_b": "_s",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 0.6849190260280921,
+        "abs_value": 0.6849190260280921,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.22067136191984324,
+        "p_adjusted": 0.35859096311974525,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "C:\\path",
+        "col_b": " ",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 0.5919288299893107,
+        "abs_value": 0.5919288299893107,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.22067136191984324,
+        "p_adjusted": 0.35859096311974525,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "$x$",
+        "col_b": " ",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 0.5919288299893107,
+        "abs_value": 0.5919288299893107,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.22067136191984324,
+        "p_adjusted": 0.35859096311974525,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "$x$",
+        "col_b": "a$b$c",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 0.5913422427482004,
+        "abs_value": 0.5913422427482004,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.22067136191984324,
+        "p_adjusted": 0.35859096311974525,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "C:\\path",
+        "col_b": "a$b$c",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 0.5913422427482004,
+        "abs_value": 0.5913422427482004,
+        "n": 3,
+        "test": "kruskal-wallis",
+        "p_value": 0.22067136191984324,
+        "p_adjusted": 0.35859096311974525,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "_s",
+        "col_b": " ",
+        "kind": "num-num",
+        "method": "spearman",
+        "value": 0.5,
+        "abs_value": 0.5,
+        "n": 3,
+        "test": "spearman t-test",
+        "p_value": 0.6666666666666666,
+        "p_adjusted": 0.6666666666666666,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "a$b$c",
+        "col_b": "_s",
+        "kind": "num-num",
+        "method": "spearman",
+        "value": 0.5,
+        "abs_value": 0.5,
+        "n": 3,
+        "test": "spearman t-test",
+        "p_value": 0.6666666666666666,
+        "p_adjusted": 0.6666666666666666,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      }
+    ],
+    "association": {
+      "a$b$c": {
+        "a$b$c": 1.0,
+        "_s": 0.5,
+        " ": 1.0,
+        "$x$": 0.5913422427482004,
+        "C:\\path": 0.5913422427482004,
+        "p_value": 1.0
+      },
+      "_s": {
+        "a$b$c": 0.5,
+        "_s": 1.0,
+        " ": 0.5,
+        "$x$": 0.6849190260280921,
+        "C:\\path": 0.6849190260280921,
+        "p_value": 1.0
+      },
+      " ": {
+        "a$b$c": 1.0,
+        "_s": 0.5,
+        " ": 1.0,
+        "$x$": 0.5919288299893107,
+        "C:\\path": 0.5919288299893107,
+        "p_value": 1.0
+      },
+      "$x$": {
+        "a$b$c": 0.5913422427482004,
+        "_s": 0.6849190260280921,
+        " ": 0.5919288299893107,
+        "$x$": 1.0,
+        "C:\\path": 1.0000000000000002,
+        "p_value": null
+      },
+      "C:\\path": {
+        "a$b$c": 0.5913422427482004,
+        "_s": 0.6849190260280921,
+        " ": 0.5919288299893107,
+        "$x$": 1.0000000000000002,
+        "C:\\path": 1.0,
+        "p_value": null
+      },
+      "p_value": {
+        "a$b$c": 1.0,
+        "_s": 1.0,
+        " ": 1.0,
+        "$x$": null,
+        "C:\\path": null,
+        "p_value": 1.0
+      }
+    },
+    "association_p": {
+      "a$b$c": {
+        "a$b$c": 0.0,
+        "_s": 0.6666666666666666,
+        " ": 0.0,
+        "$x$": 0.22067136191984324,
+        "C:\\path": 0.22067136191984324,
+        "p_value": 0.36787944117144245
+      },
+      "_s": {
+        "a$b$c": 0.6666666666666666,
+        "_s": 0.0,
+        " ": 0.6666666666666666,
+        "$x$": 0.22067136191984324,
+        "C:\\path": 0.22067136191984324,
+        "p_value": 0.36787944117144245
+      },
+      " ": {
+        "a$b$c": 0.0,
+        "_s": 0.6666666666666666,
+        " ": 0.0,
+        "$x$": 0.22067136191984324,
+        "C:\\path": 0.22067136191984324,
+        "p_value": 0.36787944117144245
+      },
+      "$x$": {
+        "a$b$c": 0.22067136191984324,
+        "_s": 0.22067136191984324,
+        " ": 0.22067136191984324,
+        "$x$": 0.0,
+        "C:\\path": 0.0832645166635504,
+        "p_value": null
+      },
+      "C:\\path": {
+        "a$b$c": 0.22067136191984324,
+        "_s": 0.22067136191984324,
+        " ": 0.22067136191984324,
+        "$x$": 0.0832645166635504,
+        "C:\\path": 0.0,
+        "p_value": null
+      },
+      "p_value": {
+        "a$b$c": 0.36787944117144245,
+        "_s": 0.36787944117144245,
+        " ": 0.36787944117144245,
+        "$x$": null,
+        "C:\\path": null,
+        "p_value": 0.0
+      }
+    },
+    "missingness": []
+  },
+  "quality": {
+    "duplicate_rows": {
+      "count": 0,
+      "pct": 0.0,
+      "example_indices": []
+    },
+    "duplicate_columns": [],
+    "empty_columns": [],
+    "constant_columns": [
+      "level_0"
+    ],
+    "quasi_constant_columns": {},
+    "high_missing_columns": {},
+    "missing_patterns": {
+      "co_missing": [],
+      "n_rows_many_missing": 0,
+      "rows_many_missing_examples": [],
+      "top_patterns": []
+    },
+    "mixed_type_columns": {},
+    "whitespace_columns": {},
+    "placeholder_values": {},
+    "suspicious_values": {},
+    "id_columns": [],
+    "redundant_pairs": [
+      {
+        "col_a": "$x$",
+        "col_b": "C:\\path",
+        "method": "cramers_v",
+        "value": 1.0000000000000002
+      },
+      {
+        "col_a": "a$b$c",
+        "col_b": " ",
+        "method": "spearman",
+        "value": 1.0
+      },
+      {
+        "col_a": "p_value",
+        "col_b": "a$b$c",
+        "method": "eta",
+        "value": 1.0
+      },
+      {
+        "col_a": "p_value",
+        "col_b": " ",
+        "method": "eta",
+        "value": 1.0
+      },
+      {
+        "col_a": "p_value",
+        "col_b": "_s",
+        "method": "eta",
+        "value": 1.0
+      }
+    ],
+    "dtype_optimizations": [
+      {
+        "column": "a$b$c",
+        "current_dtype": "str",
+        "suggested_dtype": "float64",
+        "current_bytes": 42,
+        "new_bytes": 24,
+        "saving_bytes": 18,
+        "saving_pct": 42.857142857142854,
+        "code": "df['a$b$c'] = elessar.types.parse_numeric(df['a$b$c'])"
+      },
+      {
+        "column": "_s",
+        "current_dtype": "float64",
+        "suggested_dtype": "float32",
+        "current_bytes": 24,
+        "new_bytes": 12,
+        "saving_bytes": 12,
+        "saving_pct": 50.0,
+        "code": "df['_s'] = df['_s'].astype('float32')"
+      },
+      {
+        "column": " ",
+        "current_dtype": "float64",
+        "suggested_dtype": "float32",
+        "current_bytes": 24,
+        "new_bytes": 12,
+        "saving_bytes": 12,
+        "saving_pct": 50.0,
+        "code": "df[' '] = df[' '].astype('float32')"
+      }
+    ],
+    "conversion_suggestions": {
+      "a$b$c": [
+        {
+          "flag": "should-be-numeric",
+          "code": "df['a$b$c'] = elessar.types.parse_numeric(df['a$b$c'])"
+        }
+      ]
+    },
+    "memory_bytes": 235,
+    "potential_saving_bytes": 42,
+    "alerts": [
+      {
+        "severity": "medium",
+        "column": " ",
+        "message": "redundant with 'a$b$c' (spearman +1.000), 'p_value' (eta +1.000) -> keep only one",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "C:\\path",
+        "message": "redundant with '$x$' (cramers_v +1.000) -> keep only one",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "_s",
+        "message": "redundant with 'p_value' (eta +1.000) -> keep only one",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "a$b$c",
+        "message": "redundant with 'p_value' (eta +1.000) -> keep only one",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "a$b$c",
+        "message": "should-be-numeric: df['a$b$c'] = elessar.types.parse_numeric(df['a$b$c'])",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "level_0",
+        "message": "constant column carries no information -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "info",
+        "column": null,
+        "message": "dtype optimizations save ~42 B: a$b$c -> float64, _s -> float32,   -> float32 (see quality['dtype_optimizations'] for code)",
+        "kind": null
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "severity": "medium",
+      "column": " ",
+      "message": "redundant with 'a$b$c' (spearman +1.000), 'p_value' (eta +1.000) -> keep only one",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "C:\\path",
+      "message": "redundant with '$x$' (cramers_v +1.000) -> keep only one",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "_s",
+      "message": "redundant with 'p_value' (eta +1.000) -> keep only one",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "a$b$c",
+      "message": "redundant with 'p_value' (eta +1.000) -> keep only one",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "a$b$c",
+      "message": "should-be-numeric: df['a$b$c'] = elessar.types.parse_numeric(df['a$b$c'])",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "level_0",
+      "message": "constant column carries no information -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "info",
+      "column": null,
+      "message": "dtype optimizations save ~42 B: a$b$c -> float64, _s -> float32,   -> float32 (see quality['dtype_optimizations'] for code)",
+      "kind": null
+    }
+  ],
+  "plots": []
+}

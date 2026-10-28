@@ -26,6 +26,7 @@ import pandas as pd
 from . import __version__
 from ._utils import fmt_bytes, fmt_num, fmt_p, truncate
 from .distributions import _fmt_params
+from .preparation import CLEANING, TRANSFORMATION
 from .report import _overview_md, _pair_rows, _target_rows
 
 if TYPE_CHECKING:
@@ -34,8 +35,10 @@ if TYPE_CHECKING:
 Span = tuple[str, str]
 Inline = Union[str, list[Span]]  # a plain string is one plain span
 Block = tuple[Any, ...]
-SECTIONS = {"findings": "Key findings", "target": "Target analysis", "distributions": "Distributions",
-            "quality": "Data quality", "associations": "Associations", "columns": "Columns", "run": "Run"}
+SECTIONS = {"findings": "Key findings", "overall": "Overall statistics", "target": "Target analysis",
+            "selection": "Feature selection", "timeseries": "Time series", "distributions": "Distributions",
+            "outliers": "Outliers", "quality": "Data quality", "multivariate": "Multivariate statistics",
+            "preparation": "Preparation plan", "columns": "Attribute statistics", "run": "Run"}
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "info": 2}
 
 
@@ -54,11 +57,22 @@ def bold(text: Any) -> Span:
 
 
 def _spans(inline: Inline) -> list[Span]:
-    return [("", inline)] if isinstance(inline, str) else inline
+    if isinstance(inline, str):
+        return [("", inline)]
+    return inline if isinstance(inline, list) else [("", _txt(inline, 200))]
 
 
 def _num(x: Any, digits: int = 4) -> str:
     return "-" if x is None or (isinstance(x, float) and not math.isfinite(x)) or pd.isna(x) else fmt_num(x, digits)
+
+
+def _txt(x: Any, width: int = 60) -> str:
+    try:
+        if x is None or pd.isna(x):
+            return "-"
+    except (TypeError, ValueError):
+        pass
+    return truncate(x, width)
 
 
 def _int(x: Any) -> str:
@@ -230,22 +244,174 @@ class _Recap:
                                  f"({100 * o['n_rows_profiled'] / o['n_rows']:.1f}%). Row counts, missing values, "
                                  "min / max / mean / std, distinct counts and duplicate rows are exact over every row ("),
                                  ("link", "exact"), ("", "exact figures"), ("", ").")])
-        toc = (["findings"] + (["target"] if v.target else []) + (["distributions"] if self.fitted() else [])
-               + ["quality", "associations", "columns", "run"])
+        toc = (["findings", "overall"] + (["target"] if v.target else []) + (["selection"] if v.selection else [])
+               + (["timeseries"] if v.timeseries else []) + (["distributions"] if self.fitted() else [])
+               + (["outliers"] if (v.outliers or {}).get("columns") else [])
+               + ["quality", "multivariate", "preparation", "columns", "run"])
         self.add("toc", [(key, SECTIONS[key]) for key in toc])
-        self.add("table", ["", ""], [[[bold(k.capitalize())], v_] for k, v_ in _overview_md(o).items()], "kv")
-        if v.full is not None:
-            self.exact_section()
         self.findings()
+        self.overall_section()
         if v.target:
             self.target_section()
+        if v.selection:
+            self.selection_section()
+        if v.timeseries:
+            self.timeseries_section()
         if self.fitted():
             self.distribution_section()
+        if (v.outliers or {}).get("columns"):
+            self.outlier_section()
         self.quality_section()
         self.association_section()
+        self.preparation_section()
         self.column_section()
         self.run_section()
         return self.blocks
+
+    def overall_section(self) -> None:
+        v, o = self.v, self.v.overview
+        self.add("h", 2, SECTIONS["overall"], "overall")
+        self.add("table", ["", ""], [[[bold(k.capitalize())], v_] for k, v_ in _overview_md(o).items()], "kv")
+        if v.full is not None:
+            self.exact_section()
+        self.figures(self.charts(("overview",)))
+        summary = v.summary
+        if summary is not None and not summary.empty:
+            num = summary[summary["mean"].notna()] if "mean" in summary else summary.iloc[:0]
+            if not num.empty:
+                self.add("h", 3, "Numeric columns at a glance", None)
+                self.add("table", ["column", "count", "missing", "mean", "std", "min", "median", "max", "skew", "kurtosis",
+                                   "outliers", "best fit"],
+                         [[[("link", f"col-{list(v.columns).index(c)}"), code(c)], _int(r["count"]), f"{r['pct_missing']:.1f}%",
+                           _num(r["mean"]), _num(r["std"]), _num(r["min"]), _num(r["median"]), _num(r["max"]),
+                           _num(r["skewness"], 3), _num(r["kurtosis"], 3),
+                           "-" if pd.isna(r["pct_outliers_iqr"]) else f"{r['pct_outliers_iqr']:.1f}%", _txt(r["best_fit"])]
+                          for c, r in num.iterrows()], "data")
+            cat = summary[summary["semantic_type"].isin(["categorical", "boolean", "ordinal-candidate", "multi_label"])]
+            if not cat.empty:
+                self.add("h", 3, "Categorical columns at a glance", None)
+                self.add("table", ["column", "type", "count", "missing", "distinct", "most frequent", "share", "entropy"],
+                         [[[("link", f"col-{list(v.columns).index(c)}"), code(c)], _txt(r["semantic_type"]), _int(r["count"]),
+                           f"{r['pct_missing']:.1f}%", _int(r["n_unique"]), _txt(r["top_value"], 30),
+                           "-" if pd.isna(r["top_pct"]) else f"{r['top_pct']:.1f}%", _num(r["entropy"], 3)]
+                          for c, r in cat.iterrows()], "data")
+
+    def selection_section(self) -> None:
+        v, sel = self.v, self.v.selection
+        self.add("h", 2, SECTIONS["selection"], "selection")
+        scores = ", ".join(f"{m} {sel['scores'][m]:.3f}" for m in sel["scores"])
+        self.add("p", f"{sel['task'].capitalize()} of {v.target} on {sel['n_rows']:,} rows and {sel['n_features']} "
+                      f"features ({sel['n_design_columns']} model columns after one-hot encoding). Cross-validated "
+                      f"{sel['scoring']} ({sel['cv']}): {scores}.")
+        self.add("p", [bold("Keep: "), ("", ", ".join(map(str, sel["keep"])) or "-"), ("", "  ·  "),
+                       bold("Borderline: "), ("", ", ".join(map(str, sel["borderline"])) or "-"), ("", "  ·  "),
+                       bold("Drop: "), ("", ", ".join(map(str, sel["drop"])) or "-")])
+        if sel.get("excluded_leaks"):
+            self.add("callout", [bold("Left out as leakage suspects: "), ("", ", ".join(sel["excluded_leaks"])),
+                                 ("", " (they predict the target almost perfectly, probably because they are derived "
+                                      "from it).")])
+        methods = [m for m in ("decision tree", "random forest", "lasso", "ridge", "filter") if m in sel["table"].columns]
+        votes = sel["votes"]
+        rows = []
+        for f, r in sel["table"].iterrows():
+            cells: list[Inline] = [[code(f)]]
+            for m in methods:
+                mark = " ✓" if m in votes.columns and votes.loc[f, m] else ""
+                cells.append(f"{r[m]:.2f}{mark}")
+            cells += [str(int(r["votes"])), r["decision"]]
+            rows.append(cells)
+        self.add("table", ["feature"] + methods + ["votes", "decision"], rows, "data")
+        self.add("p", [("i", "Importances scaled to the strongest feature (1); ✓ = selected by that method. Decision "
+                              f"tree depth {sel.get('tree_depth')} chosen by cross-validation; random forest: permutation "
+                              "importance on held-out rows (all one-hot columns of a feature shuffled together); lasso: "
+                              "non-zero coefficient at the penalty chosen by cross-validation; ridge: |coefficient| at "
+                              "least 10% of the largest; filter: significant univariate association.")])
+        self.figures(self.charts(("selection", "lasso_path"), v.target), grid=False)
+
+    def timeseries_section(self) -> None:
+        ts = self.v.timeseries
+        self.add("h", 2, SECTIONS["timeseries"], "timeseries")
+        what = {"single series": "a single time series (one row per timestamp)",
+                "panel": f"a panel: one series per {ts.get('entity')} ({ts.get('n_entities', '?')} series)",
+                "event log": f"timestamped events, aggregated per {ts.get('aggregated_to')} for the analysis"}[ts["kind"]]
+        self.add("p", [("", "The table is "), bold(what), ("", ", indexed by "), code(ts["time_column"]),
+                       ("", f": {ts['frequency']} steps, {100 * ts['regularity']:.0f}% regular, "
+                            f"{ts['start']:%Y-%m-%d} → {ts['end']:%Y-%m-%d}, {ts['n_steps']:,} steps"
+                            + (f", {ts['n_missing_steps']:,} missing steps" if ts.get("n_missing_steps") else "")
+                            + ("" if ts["sorted"] else "; rows are not in time order") + ".")])
+        rows = []
+        for c, a in ts["analyses"].items():
+            adf = a.get("adf") or {}
+            rows.append([[code(c)], f"{a.get('n', 0):,}", a.get("trend", "-") + (
+                f" (tau {a['trend_tau']:+.2f}, p {fmt_p(a['trend_p'])})" if a.get("trend_tau") is not None else ""),
+                adf.get("verdict", "-") + (f" (ADF {adf['statistic']:.2f}, 5% crit {adf['critical']['5%']:.2f})"
+                                           if "statistic" in adf else ""),
+                "-" if a.get("acf_lag1") is None else f"{a['acf_lag1']:.2f}",
+                f"{a['period']} ({a['seasonality']}, {a['seasonal_strength']:.2f})" if a.get("period") else a.get("seasonality", "-")])
+        self.add("table", ["series", "steps", "trend", "stationarity", "lag-1 autocorr.", "seasonality"], rows, "data")
+        self.figures(self.charts(("timeseries",)) + self.charts(("acf", "decomposition"), ts["main"]))
+        self.add("h", 3, "Treatment", None)
+        self.add("table", ["step", "what to do", "code"],
+                 [[st["step"], st["advice"], [code(st["code"])]] for st in ts["treatment"]], "data")
+        if ts.get("folds"):
+            self.add("h", 3, "Validation folds (expanding window, on the real dates)", None)
+            self.add("table", ["fold", "train", "validate", "train steps", "validation steps"],
+                     [[str(f["fold"]), f["train"], f["validate"], f"{f['n_train']:,}", f"{f['n_validate']:,}"]
+                      for f in ts["folds"]], "data")
+
+    def outlier_section(self) -> None:
+        v, out = self.v, self.v.outliers
+        self.add("h", 2, SECTIONS["outliers"], "outliers")
+        self.add("p", "Three methods per numeric column: 3 sigma (|value - mean| > 3 standard deviations), boxplot "
+                      "(outside the Tukey fences Q1 - 1.5 IQR, Q3 + 1.5 IQR) and modified z (Hampel: |0.6745 (value "
+                      "- median) / MAD| > 3.5). A consensus outlier is flagged by at least two.")
+        summary = out["summary"]
+        self.add("table", ["column", "3 sigma", "boxplot", "modified z", "consensus", "fences", "action"],
+                 [[[code(r["column"])], f"{r['3 sigma']:,}", f"{r['boxplot']:,}", f"{r['modified z']:,}",
+                   f"{r['consensus']:,} ({r['pct_consensus']:.1f}%)",
+                   f"[{_num(r['lower_fence'])}, {_num(r['upper_fence'])}]", r["action"]]
+                  for _, r in summary.iterrows()], "data")
+        self.figures(self.charts(("outliers",)))
+        points = out["points"]
+        cons = points[points["n_methods"] >= 2]
+        if not cons.empty:
+            self.add("h", 3, f"Outlier points ({len(cons):,} consensus; the most extreme 40)", None)
+            top = cons.reindex(cons["robust_z"].abs().sort_values(ascending=False).index).head(40)
+            self.add("table", ["column", "row", "value", "z", "robust z", "flagged by"],
+                     [[[code(r["column"])], str(r["row"]), _num(r["value"]), f"{r['z']:+.2f}", f"{r['robust_z']:+.2f}",
+                       r["methods"]] for _, r in top.iterrows()], "data")
+            self.add("p", [("", "Every flagged point, with the methods that flag it: "), ("file", "outliers.csv"),
+                           code("outliers.csv")])
+        mo = (v.multivariate or {}).get("outliers") or {}
+        if mo.get("verdict") == "computed":
+            self.add("h", 3, "Rows that are outliers on several columns at once", None)
+            self.add("p", f"Robust Mahalanobis distance ({mo['method']}) over {mo['n_columns']} numeric columns: "
+                          f"{mo['n_mahalanobis']:,} rows ({mo['pct_mahalanobis']:.1f}%) beyond the chi-square 99.9% "
+                          f"cutoff ({mo['cutoff_distance']:.2f}); {mo['n_both']:,} also isolated by an isolation forest.")
+            if mo.get("note"):
+                self.add("callout", [bold("Caution: "), ("", mo["note"] + ".")])
+            if not mo["top"].empty:
+                self.add("table", ["row", "robust distance", "isolation forest", "values driving it"],
+                         [[str(r["row"]), f"{r['distance']:.2f}", "yes" if r["isolation_forest"] else "no", r["drivers"]]
+                          for _, r in mo["top"].head(20).iterrows()], "data")
+            self.figures(self.charts(("multivariate_outliers",)))
+
+    def preparation_section(self) -> None:
+        prep = self.v.preparation or {}
+        steps = prep.get("steps") or []
+        self.add("h", 2, SECTIONS["preparation"], "preparation")
+        if not steps:
+            self.add("p", "Nothing to clean or transform.")
+            return
+        counts = prep.get("counts", {})
+        self.add("p", "Cleaning: " + ", ".join(f"{a.lower()} {counts[a]}" for a in CLEANING if counts.get(a)) +
+                 ".  Transformation: " + ", ".join(f"{a.lower()} {counts[a]}" for a in TRANSFORMATION if counts.get(a)) + ".")
+        for kind, title in (("cleaning", "Cleaning"), ("transformation", "Transformation")):
+            rows = [[s_["action"], [code(s_["column"])] if s_["column"] else "-", s_["why"],
+                     [code(s_["code"])] if s_["code"] else ""] for s_ in steps if s_["kind"] == kind]
+            if rows:
+                self.add("h", 3, title, None)
+                self.add("table", ["action", "column", "why", "code"], rows, "plan")
 
     def fitted(self) -> list[str]:
         return [c for c, d in self.v.columns.items() if (d.get("distribution") or {}).get("normality")]
@@ -291,7 +457,6 @@ class _Recap:
         if not items:
             items.append("No issue found, and nothing stands out.")
         self.add("ul", items)
-        self.figures(self.charts(("overview",)))
 
     def target_section(self) -> None:
         v = self.v
@@ -337,7 +502,9 @@ class _Recap:
 
     def association_section(self) -> None:
         v = self.v
-        self.add("h", 2, SECTIONS["associations"], "associations")
+        self.add("h", 2, SECTIONS["multivariate"], "multivariate")
+        self.reduction()
+        self.add("h", 3, "Associations between columns", None)
         pairs, top = v.correlations.get("pairs"), v.correlations.get("top_pairs")
         if pairs is not None and not pairs.empty:
             self.add("p", f"{len(pairs):,} pairs tested, {int(pairs['significant'].sum()):,} significant after "
@@ -357,6 +524,48 @@ class _Recap:
             self.add("table", ["column", "VIF"],
                      [[[code(k)], "inf" if val == float("inf") else f"{val:.2f}"] for k, val in vif["vif"].items()], "data")
         self.figures(self.charts(("scatter",), any_column=True), grid=True)
+
+    def reduction(self) -> None:
+        mv = self.v.multivariate or {}
+        pca, fa, groups = mv.get("pca") or {}, mv.get("factor") or {}, mv.get("groups") or []
+        if not pca:
+            return
+        self.add("h", 3, "Dimensionality reduction", None)
+        if "eigenvalues" in pca:
+            self.add("table", ["", ""], [
+                [[bold("Numeric columns")], f"{pca['n_variables']} (standardised; target, identifiers and constants left out)"],
+                [[bold("Bartlett sphericity")], f"chi² {pca['bartlett_chi2']:,.1f}, p {fmt_p(pca['bartlett_p'])} "
+                                                "(significant = the columns share information)"],
+                [[bold("KMO adequacy")], f"{pca['kmo']:.2f} ({pca['kmo_label']})"],
+                [[bold("Components to keep")], f"{pca['k_parallel']} by parallel analysis, {pca['k_kaiser']} by Kaiser "
+                                               f"(eigenvalue > 1), {pca['k80']} / {pca['k90']} / {pca['k95']} for 80 / 90 / "
+                                               "95% of the variance"],
+                [[bold("PCA")], [bold(pca["verdict"]), ("", f": {pca['reason']}")]],
+                [[bold("Factor analysis")], [bold(fa.get("verdict", "-")), ("", f": {fa.get('reason', '')}")]],
+            ], "kv")
+            pcs = pca.get("top_variables") or {}
+            if pcs:
+                self.add("ul", [[bold(pc), ("", f" ({100 * pca['explained'][int(pc[2:]) - 1]:.1f}%): "),
+                                 ("", ", ".join(map(str, cols)))] for pc, cols in list(pcs.items())[:pca["recommended"] + 1]])
+            if pca.get("verdict") == "recommended":
+                self.add("code", pca["code"])
+        else:
+            self.add("p", f"PCA {pca.get('verdict')}: {pca.get('reason')}")
+        self.figures(self.charts(("pca", "factors")))
+        if fa.get("verdict") == "recommended":
+            load = fa["loadings"]
+            self.add("table", ["column"] + list(load.columns) + ["communality"],
+                     [[[code(c)]] + [f"{x:+.2f}" for x in load.loc[c]] + [f"{fa['communality'][c]:.2f}"] for c in load.index],
+                     "data")
+            self.add("code", fa["code"])
+            if fa.get("weak_columns"):
+                self.add("p", "Columns with little shared variance (communality < 0.2), not well described by the "
+                              "factors: " + ", ".join(map(str, fa["weak_columns"])))
+        if groups:
+            self.add("h", 3, "Groups of redundant columns", None)
+            self.add("table", ["columns", "mean |Spearman|", "keep"],
+                     [[", ".join(map(str, g["columns"])), f"{g['mean_abs_spearman']:.2f}", [code(g["representative"])]]
+                      for g in groups], "data")
 
     def distribution_section(self) -> None:
         v = self.v
@@ -493,8 +702,16 @@ def _md_code(text: str, table: bool = False) -> str:
 
 
 def _md_inline(inline: Inline, table: bool = False) -> str:
-    out = []
+    out: list[str] = []
+    target = None
     for style, text in _spans(inline):
+        if style == "file":
+            target = _md_url(text)
+            continue
+        if target is not None:
+            out.append(f"[{_md_inline([(style, text)], table)}]({target})")
+            target = None
+            continue
         if style == "code":
             out.append(_md_code(text, table))
         elif style == "b":
@@ -503,7 +720,7 @@ def _md_inline(inline: Inline, table: bool = False) -> str:
             out.append(f"*{_md_escape(text, table)}*")
         elif style.startswith("sev-"):
             out.append(f"**{_md_escape(text, table)}**")
-        elif style != "link":
+        elif style not in ("link", "file"):
             out.append(_md_escape(text, table))
     return "".join(out)
 
@@ -532,6 +749,9 @@ def render_markdown(blocks: list[Block]) -> str:
             lines.append("")
         elif kind == "callout":
             lines += ["> " + _md_inline(block[1]), ""]
+        elif kind == "code":
+            fence = "`" * max(3, max((len(m) for m in re.findall(r"`+", block[1])), default=0) + 1)
+            lines += [fence + "python", block[1], fence, ""]
         elif kind == "kvgrid":
             for title, pairs in block[1]:
                 lines += [f"**{_md_escape(title)}**", "", "| | |", "|---|---|"]
@@ -557,15 +777,15 @@ def key_slug(title: str) -> str:
 def _html_inline(inline: Inline) -> str:
     out, link = [], None
     for style, text in _spans(inline):
-        if style == "link":
-            link = text
+        if style in ("link", "file"):
+            link = ("#" if style == "link" else "") + (text if style == "link" else quote(text, safe="/._-~"))
             continue
         t = html.escape(text)
         piece = {"code": f"<code>{t}</code>", "b": f"<strong>{t}</strong>", "i": f"<em>{t}</em>"}.get(style, t)
         if style.startswith("sev-"):
             piece = f'<span class="chip {html.escape(style)}">{t}</span>'
         if link:
-            piece, link = f'<a href="#{html.escape(link)}">{piece}</a>', None
+            piece, link = f'<a href="{html.escape(link)}">{piece}</a>', None
         out.append(piece)
     return "".join(out)
 
@@ -604,6 +824,8 @@ def _html_body(blocks: list[Block]) -> str:
             body.append(f'<div class="table-wrap"><table class="{cls}">{head}<tbody>{"".join(trs)}</tbody></table></div>')
         elif kind == "callout":
             body.append(f'<div class="callout">{_html_inline(block[1])}</div>')
+        elif kind == "code":
+            body.append(f"<pre><code>{html.escape(block[1])}</code></pre>")
         elif kind == "kvgrid":
             cards = []
             for title, pairs in block[1]:
@@ -677,6 +899,8 @@ details {{ background:var(--surface); border:1px solid var(--line); border-radiu
 details[open] {{ padding-bottom:12px; }}
 summary {{ cursor:pointer; padding:11px 0; font-weight:600; }}
 details > ul {{ font-size:13.5px; color:var(--ink2); }}
+pre {{ background:#1f2430; color:#e6e4de; border-radius:10px; padding:12px 16px; overflow-x:auto; margin:10px 0 16px; }}
+pre code {{ background:none; color:inherit; padding:0; font-size:12.5px; line-height:1.5; }}
 h4 {{ font-size:14px; margin:20px 0 6px; color:var(--ink2); }}
 .callout {{ background:#fdf6e3; border:1px solid #f1dfb0; border-radius:10px; padding:10px 14px; margin:10px 0 16px; color:var(--ink2); }}
 .kvgrid {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:10px; margin:10px 0 14px; }}
@@ -686,6 +910,9 @@ h4 {{ font-size:14px; margin:20px 0 6px; color:var(--ink2); }}
 .card td:last-child {{ text-align:right; font-variant-numeric:tabular-nums; color:var(--ink); }}
 .card td:first-child {{ color:var(--ink2); }}
 table.data td {{ font-variant-numeric:tabular-nums; }}
+table.plan td:first-child {{ white-space:nowrap; font-weight:600; }}
+table.plan td:last-child code, table.data td:last-child code {{ white-space:pre-wrap; display:inline-block; }}
+table.plan td:nth-child(3) {{ min-width:260px; }}
 @media (max-width: 640px) {{ main {{ padding:16px; }} .figures.grid {{ grid-template-columns:1fr; }} }}
 </style>
 </head>
@@ -715,6 +942,9 @@ def write(vision: Vision, out_dir: str | Path, title: str | None = None, single_
     out.mkdir(parents=True, exist_ok=True)
     blocks = build(vision, out, title)
     name = title or vision.name or "elessar report"
+    points = (vision.outliers or {}).get("points")
+    if points is not None and len(points):
+        points.to_csv(out / "outliers.csv", index=False)
     md, page = out / "report.md", out / "report.html"
     md.write_text(render_markdown(blocks), encoding="utf-8")
     page.write_text(render_html(blocks, name), encoding="utf-8")

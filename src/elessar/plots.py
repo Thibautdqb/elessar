@@ -975,6 +975,7 @@ def plot_jobs(
     correlations: dict[str, pd.DataFrame],
     target: str | None,
     cfg: StoneConfig,
+    advanced: dict[str, Any] | None = None,
 ) -> list[Job]:
     """Every chart to draw, in report order, as independent ``(label, function, args)`` jobs."""
     types = {c: d.get("semantic_type", "mixed") for c, d in details.items()}
@@ -1019,6 +1020,33 @@ def plot_jobs(
         jobs.append(("target ranking", plot_target_ranking, (assoc, target, cfg)))
         for i, row in enumerate(assoc.head(cfg.n_target_plots).itertuples(index=False)):
             jobs.append((f"target/{row.feature}", plot_target_feature, (df, target, row, types, cfg, i)))
+    jobs += _advanced_jobs(advanced or {}, target, cfg)
+    return jobs
+
+
+def _advanced_jobs(adv: dict[str, Any], target: str | None, cfg: StoneConfig) -> list[Job]:
+    from . import plots_advanced as pa
+
+    jobs: list[Job] = []
+    sel = adv.get("selection")
+    if sel:
+        jobs.append(("feature selection", pa.plot_selection, (sel, target, cfg)))
+        if sel.get("lasso_path") is not None:
+            jobs.append(("lasso path", pa.plot_lasso_path, (sel["lasso_path"], target, cfg)))
+    ts = adv.get("timeseries")
+    if ts:
+        jobs += [("time series", pa.plot_series, (ts, cfg)), ("autocorrelation", pa.plot_acf, (ts, cfg)),
+                 ("decomposition", pa.plot_decomposition, (ts, cfg))]
+    out = adv.get("outliers")
+    if out and out.get("columns"):
+        jobs.append(("outliers", pa.plot_outliers, (out, cfg)))
+    mv = adv.get("multivariate") or {}
+    if (mv.get("outliers") or {}).get("verdict") == "computed":
+        jobs.append(("multivariate outliers", pa.plot_multivariate_outliers, (mv["outliers"], cfg)))
+    if (mv.get("pca") or {}).get("eigenvalues"):
+        jobs.append(("pca", pa.plot_pca, (mv["pca"], cfg)))
+    if (mv.get("factor") or {}).get("verdict") == "recommended":
+        jobs.append(("factors", pa.plot_factors, (mv["factor"], cfg)))
     return jobs
 
 
@@ -1047,6 +1075,7 @@ def make_plots(
     errors: list[str] | None = None,
     index: list[dict[str, Any]] | None = None,
     workers: int = 1,
+    advanced: dict[str, Any] | None = None,
 ) -> list[Path]:
     """Write every informative plot given precomputed details and correlations.
 
@@ -1057,7 +1086,7 @@ def make_plots(
     """
     cfg = config or StoneConfig()
     final = _Writer(out_dir, cfg.dpi)  # creates the folder and removes the charts of a previous run
-    jobs = plot_jobs(df, details, correlations, target, cfg)
+    jobs = plot_jobs(df, details, correlations, target, cfg, advanced)
     state = {"jobs": jobs, "out_dir": final.out_dir, "dpi": cfg.dpi}
     for (what, _, _), result in zip(jobs, run_tasks(_run_job, range(len(jobs)), workers, state)):
         if isinstance(result, TaskError):

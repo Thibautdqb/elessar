@@ -1,0 +1,631 @@
+{
+  "overview": {
+    "n_rows": 0,
+    "n_columns": 8,
+    "n_rows_profiled": 0,
+    "sampled": false,
+    "memory_bytes": 132,
+    "potential_saving_bytes": 0,
+    "pandas_dtypes": {
+      "object": 3,
+      "float64": 3,
+      "str": 1,
+      "datetime64[us]": 1
+    },
+    "semantic_types": {
+      "empty": 8
+    },
+    "n_duplicate_rows": 0,
+    "pct_duplicate_rows": 0.0,
+    "pct_missing_cells": 0.0,
+    "n_rows_with_missing": 0,
+    "target": null,
+    "source": "pandas.DataFrame · read in 0.0s",
+    "workers": 3,
+    "chart_workers": 0
+  },
+  "summary": [
+    {
+      "column": "new\nline",
+      "semantic_type": "empty",
+      "pandas_dtype": "object",
+      "count": 0,
+      "pct_missing": 0.0,
+      "n_unique": 0,
+      "pct_unique": 0.0,
+      "top_value": null,
+      "top_pct": null,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 0,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "None",
+      "semantic_type": "empty",
+      "pandas_dtype": "float64",
+      "count": 0,
+      "pct_missing": 0.0,
+      "n_unique": 0,
+      "pct_unique": 0.0,
+      "top_value": null,
+      "top_pct": null,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 0,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "index",
+      "semantic_type": "empty",
+      "pandas_dtype": "float64",
+      "count": 0,
+      "pct_missing": 0.0,
+      "n_unique": 0,
+      "pct_unique": 0.0,
+      "top_value": null,
+      "top_pct": null,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 0,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "\\frac{1}{2}",
+      "semantic_type": "empty",
+      "pandas_dtype": "str",
+      "count": 0,
+      "pct_missing": 0.0,
+      "n_unique": 0,
+      "pct_unique": 0.0,
+      "top_value": null,
+      "top_pct": null,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 0,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "_s",
+      "semantic_type": "empty",
+      "pandas_dtype": "object",
+      "count": 0,
+      "pct_missing": 0.0,
+      "n_unique": 0,
+      "pct_unique": 0.0,
+      "top_value": null,
+      "top_pct": null,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 0,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "quote'\"",
+      "semantic_type": "empty",
+      "pandas_dtype": "float64",
+      "count": 0,
+      "pct_missing": 0.0,
+      "n_unique": 0,
+      "pct_unique": 0.0,
+      "top_value": null,
+      "top_pct": null,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 0,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "a|b",
+      "semantic_type": "empty",
+      "pandas_dtype": "object",
+      "count": 0,
+      "pct_missing": 0.0,
+      "n_unique": 0,
+      "pct_unique": 0.0,
+      "top_value": null,
+      "top_pct": null,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 0,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "1",
+      "semantic_type": "empty",
+      "pandas_dtype": "datetime64[us]",
+      "count": 0,
+      "pct_missing": 0.0,
+      "n_unique": 0,
+      "pct_unique": 0.0,
+      "top_value": null,
+      "top_pct": null,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 0,
+      "n_alerts": 0,
+      "errors": null
+    }
+  ],
+  "columns": {
+    "new\nline": {
+      "name": "new\nline",
+      "errors": {},
+      "semantic_type": "empty",
+      "pandas_dtype": "object",
+      "confidence": 1.0,
+      "reason": "no non-missing values",
+      "suggestions": [],
+      "stats": {
+        "count": 0,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 0,
+        "pct_unique": 0.0,
+        "memory_bytes": 0,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": []
+      },
+      "alerts": []
+    },
+    "None": {
+      "name": "None",
+      "errors": {},
+      "semantic_type": "empty",
+      "pandas_dtype": "float64",
+      "confidence": 1.0,
+      "reason": "no non-missing values",
+      "suggestions": [],
+      "stats": {
+        "count": 0,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 0,
+        "pct_unique": 0.0,
+        "memory_bytes": 0,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": []
+      },
+      "alerts": []
+    },
+    "index": {
+      "name": "index",
+      "errors": {},
+      "semantic_type": "empty",
+      "pandas_dtype": "float64",
+      "confidence": 1.0,
+      "reason": "no non-missing values",
+      "suggestions": [],
+      "stats": {
+        "count": 0,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 0,
+        "pct_unique": 0.0,
+        "memory_bytes": 0,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": []
+      },
+      "alerts": []
+    },
+    "\\frac{1}{2}": {
+      "name": "\\frac{1}{2}",
+      "errors": {},
+      "semantic_type": "empty",
+      "pandas_dtype": "str",
+      "confidence": 1.0,
+      "reason": "no non-missing values",
+      "suggestions": [],
+      "stats": {
+        "count": 0,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 0,
+        "pct_unique": 0.0,
+        "memory_bytes": 0,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": []
+      },
+      "alerts": []
+    },
+    "_s": {
+      "name": "_s",
+      "errors": {},
+      "semantic_type": "empty",
+      "pandas_dtype": "object",
+      "confidence": 1.0,
+      "reason": "no non-missing values",
+      "suggestions": [],
+      "stats": {
+        "count": 0,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 0,
+        "pct_unique": 0.0,
+        "memory_bytes": 0,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": []
+      },
+      "alerts": []
+    },
+    "quote'\"": {
+      "name": "quote'\"",
+      "errors": {},
+      "semantic_type": "empty",
+      "pandas_dtype": "float64",
+      "confidence": 1.0,
+      "reason": "no non-missing values",
+      "suggestions": [],
+      "stats": {
+        "count": 0,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 0,
+        "pct_unique": 0.0,
+        "memory_bytes": 0,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": []
+      },
+      "alerts": []
+    },
+    "a|b": {
+      "name": "a|b",
+      "errors": {},
+      "semantic_type": "empty",
+      "pandas_dtype": "object",
+      "confidence": 1.0,
+      "reason": "no non-missing values",
+      "suggestions": [],
+      "stats": {
+        "count": 0,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 0,
+        "pct_unique": 0.0,
+        "memory_bytes": 0,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": []
+      },
+      "alerts": []
+    },
+    "1": {
+      "name": "1",
+      "errors": {},
+      "semantic_type": "empty",
+      "pandas_dtype": "datetime64[us]",
+      "confidence": 1.0,
+      "reason": "no non-missing values",
+      "suggestions": [],
+      "stats": {
+        "count": 0,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 0,
+        "pct_unique": 0.0,
+        "memory_bytes": 0,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": []
+      },
+      "alerts": []
+    }
+  },
+  "correlations": {
+    "pairs": [],
+    "top_pairs": [],
+    "missingness": []
+  },
+  "quality": {
+    "duplicate_rows": {
+      "count": 0,
+      "pct": 0.0,
+      "example_indices": []
+    },
+    "duplicate_columns": [
+      [
+        "new\nline",
+        "_s",
+        "a|b"
+      ],
+      [
+        "None",
+        "index",
+        "quote'\""
+      ]
+    ],
+    "empty_columns": [
+      "new\nline",
+      "None",
+      "index",
+      "\\frac{1}{2}",
+      "_s",
+      "quote'\"",
+      "a|b",
+      "1"
+    ],
+    "constant_columns": [],
+    "quasi_constant_columns": {},
+    "high_missing_columns": {},
+    "missing_patterns": {
+      "co_missing": [],
+      "n_rows_many_missing": 0,
+      "rows_many_missing_examples": [],
+      "top_patterns": []
+    },
+    "mixed_type_columns": {},
+    "whitespace_columns": {},
+    "placeholder_values": {},
+    "suspicious_values": {},
+    "id_columns": [],
+    "redundant_pairs": [],
+    "dtype_optimizations": [],
+    "conversion_suggestions": {},
+    "memory_bytes": 132,
+    "potential_saving_bytes": 0,
+    "alerts": [
+      {
+        "severity": "high",
+        "column": "1",
+        "message": "column is entirely missing -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "high",
+        "column": "None",
+        "message": "column is entirely missing -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "high",
+        "column": "\\frac{1}{2}",
+        "message": "column is entirely missing -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "high",
+        "column": "_s",
+        "message": "column is entirely missing -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "high",
+        "column": "a|b",
+        "message": "column is entirely missing -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "high",
+        "column": "index",
+        "message": "column is entirely missing -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "high",
+        "column": "new\nline",
+        "message": "column is entirely missing -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "high",
+        "column": "quote'\"",
+        "message": "column is entirely missing -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "_s",
+        "message": "identical to column 'new\nline' -> drop one of them",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "a|b",
+        "message": "identical to column 'new\nline' -> drop one of them",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "index",
+        "message": "identical to column 'None' -> drop one of them",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "quote'\"",
+        "message": "identical to column 'None' -> drop one of them",
+        "kind": null
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "severity": "high",
+      "column": "1",
+      "message": "column is entirely missing -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "high",
+      "column": "None",
+      "message": "column is entirely missing -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "high",
+      "column": "\\frac{1}{2}",
+      "message": "column is entirely missing -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "high",
+      "column": "_s",
+      "message": "column is entirely missing -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "high",
+      "column": "a|b",
+      "message": "column is entirely missing -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "high",
+      "column": "index",
+      "message": "column is entirely missing -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "high",
+      "column": "new\nline",
+      "message": "column is entirely missing -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "high",
+      "column": "quote'\"",
+      "message": "column is entirely missing -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": null,
+      "message": "duplicate or non-string column names were renamed (a, a.1, ...)",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "_s",
+      "message": "identical to column 'new\nline' -> drop one of them",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "a|b",
+      "message": "identical to column 'new\nline' -> drop one of them",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "index",
+      "message": "identical to column 'None' -> drop one of them",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "quote'\"",
+      "message": "identical to column 'None' -> drop one of them",
+      "kind": null
+    }
+  ],
+  "plots": []
+}

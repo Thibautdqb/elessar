@@ -10,13 +10,18 @@ from typing import Any
 import pandas as pd
 
 from ._utils import dedupe_names, finite, prepare, quiet, resolve_target
+from .multivariate import multivariate
+from .outliers import outliers as find_outliers
+from .preparation import plan as preparation_plan
+from .selection import feature_selection
+from .timeseries import detect as detect_time, timeseries
 from .config import StoneConfig
 from .correlations import PAIR_COLUMNS, compute_correlations
 from .distributions import _fmt_params, analyze_distribution, is_fittable
 from .parallel import TaskError, n_workers, run_tasks, shared
 from .picker import pick_target
 from .plots import make_plots
-from .quality import alert, check_quality, column_alerts, column_quality, correlation_alerts, group_alerts, row_order_alert, sort_alerts
+from .quality import advanced_alerts, alert, check_quality, column_alerts, column_quality, correlation_alerts, group_alerts, row_order_alert, sort_alerts
 from . import recap
 from .report import Vision
 from .sources import describe_origin, load
@@ -67,6 +72,45 @@ def _column_task(col: str) -> tuple[dict[str, Any], dict[str, Any]]:
     except Exception as exc:  # noqa: BLE001
         found = {"error": repr(exc)}
     return detail, found
+
+
+_QUANTITY_KINDS = {"outliers", "skewed", "heaping", "zero_inflated", "capped"}
+
+
+def _advanced_task(name: str) -> Any:
+    """One of the dataset-level analyses that only need the column types (runs in a worker)."""
+    st = shared()
+    df, types, target, cfg, correlations = st["df"], st["types"], st["target"], st["cfg"], st["correlations"]
+    with quiet():
+        if name == "multivariate":
+            return multivariate(df, types, target, cfg)
+        if name == "outliers":
+            return find_outliers(df, types, cfg)
+        if name == "timeseries":
+            return timeseries(df, types, target, cfg)
+        if name == "selection":
+            info = detect_time(df, types)
+            ordered = info is not None and info["kind"] != "event log" and info["sorted"]
+            return feature_selection(df, target, types, correlations, cfg, time_ordered=ordered)
+    raise ValueError(name)
+
+
+def advanced(
+    df: pd.DataFrame, details: dict[str, dict[str, Any]], correlations: dict[str, pd.DataFrame], target: str | None,
+    cfg: StoneConfig, workers: int = 1,
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """Multivariate statistics, outliers, time series and feature selection; errors per analysis."""
+    types = {c: d["semantic_type"] for c, d in details.items()}
+    names = ["multivariate", "outliers", "timeseries"] + (["selection"] if target is not None else [])
+    state = {"df": df, "types": types, "target": target, "cfg": cfg, "correlations": correlations}
+    results, errors = {}, {}
+    for name, res in zip(names, run_tasks(_advanced_task, names, min(workers, len(names)), state)):
+        if isinstance(res, TaskError):
+            errors[name] = res.error
+            results[name] = None
+        else:
+            results[name] = res
+    return results, errors
 
 
 def analyze(
@@ -194,11 +238,45 @@ def see(
             alerts = [a for a in alerts if not (a["column"] == target and a["message"].startswith("imbalanced:"))]
             alerts.append(alert("medium", target, f"imbalanced target: '{top[-1]['value']}' is only "
                                 f"{top[-1]['pct']:.1f}% of rows -> stratify splits, use PR-AUC / class weights"))
+    if src.origin.get("headerless"):
+        alerts.append(alert("medium", None, "the file has no header row (its first line is data): columns are numbered "
+                            "0, 1, ... -> pass names=[...] when reading it", kind="headerless"))
     if full is not None:
         alerts.append(alert("info", None, f"profiled on a uniform random sample of {len(df):,} of {full.n_rows:,} rows "
                             f"({100 * len(df) / full.n_rows:.1f}%); row counts, missing values, min/max/mean/std, "
                             "distinct counts and duplicate rows are exact over every row", kind="sampled"))
     timings["quality"] = time.perf_counter() - step
+
+    step = time.perf_counter()
+    adv_workers = n_workers(cfg, df.size * 4, 4)  # each analysis is heavy whatever the table size
+    extra, adv_errors = advanced(df, details, correlations, target, cfg, adv_workers)
+    for name, err in adv_errors.items():
+        alerts.append(alert("info", None, f"{name} analysis skipped after an error: {err[:120]}"))
+    ts = extra.get("timeseries")
+    axis = [c for c in (ts["time_column"].split(" + ") if ts else []) if c in details and c != target]
+    for c in axis:  # a year is a position in time, not a quantity: no fit, no outliers, no transformation
+        details[c].pop("distribution", None)
+        details[c]["alerts"] = [a for a in details[c].get("alerts", []) if a.get("kind") not in _QUANTITY_KINDS]
+        (extra.get("outliers") or {}).get("columns", {}).pop(c, None)
+        out = extra.get("outliers") or {}
+        for key in ("points", "summary"):
+            frame = out.get(key)
+            if frame is not None and "column" in frame:
+                out[key] = frame[frame["column"] != c]
+    alerts = [a for a in alerts if not (a["column"] in axis and a.get("kind") in _QUANTITY_KINDS)]
+    try:
+        prep = preparation_plan(df, details, quality, correlations, target, cfg, extra.get("outliers"),
+                                extra.get("multivariate"), extra.get("timeseries"))
+    except Exception as exc:  # noqa: BLE001 - the plan is advice: never let it stop the report
+        prep = {"steps": [], "counts": {}}
+        alerts.append(alert("info", None, f"preparation plan skipped after an error: {exc!r}"[:140]))
+    if axis:
+        quantity = {"Bucketing", "Transformation", "Rescale", "Normalization", "Remove outliers", "Reassign outliers"}
+        prep["steps"] = [st for st in prep["steps"] if not (st["column"] in axis and st["action"] in quantity)]
+    alerts.extend(advanced_alerts(extra, prep, target))
+    if ts is not None and ts["kind"] != "event log":
+        alerts = [a for a in alerts if not a["message"].startswith("rows are ordered")]  # expected: it is a time series
+    timings["advanced"] = time.perf_counter() - step
 
     step = time.perf_counter()
     plot_paths: list[Path] = []
@@ -209,7 +287,8 @@ def see(
         n_charts = len(df.columns) + 8  # about one per column, plus the dataset and target charts
         # a chart costs ~0.2 s whatever the table size: processes pay off as soon as there are a dozen
         plot_workers = n_workers(cfg, cfg.parallel_min_cells if n_charts >= 12 else df.size, n_charts)
-        plot_paths = make_plots(df, details, correlations, out_dir, target, cfg, plot_errors, plot_index, plot_workers)
+        plot_paths = make_plots(df, details, correlations, out_dir, target, cfg, plot_errors, plot_index, plot_workers,
+                                advanced=extra)
     for err in plot_errors:
         alerts.append(alert("info", None, f"plot skipped after an error: {err[:100]}"))
     timings["charts"] = time.perf_counter() - step
@@ -253,6 +332,11 @@ def see(
         name=name,
         full=full.columns if full is not None else None,
         timings=timings,
+        multivariate=extra.get("multivariate") or {},
+        outliers=extra.get("outliers") or {},
+        timeseries=extra.get("timeseries"),
+        selection=extra.get("selection"),
+        preparation=prep,
     )
     if plots and df.shape[1]:
         step = time.perf_counter()

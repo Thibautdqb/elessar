@@ -1,0 +1,587 @@
+{
+  "overview": {
+    "n_rows": 300,
+    "n_columns": 4,
+    "n_rows_profiled": 100,
+    "sampled": true,
+    "memory_bytes": 28004,
+    "potential_saving_bytes": 400,
+    "pandas_dtypes": {
+      "object": 2,
+      "float64": 1,
+      "bool": 1
+    },
+    "semantic_types": {
+      "boolean": 2,
+      "json_like": 2
+    },
+    "n_duplicate_rows": 146,
+    "pct_duplicate_rows": 48.666666666666664,
+    "pct_missing_cells": 0.0,
+    "n_rows_with_missing": 0,
+    "target": null,
+    "source": "pandas.DataFrame · streamed in 5 chunks (in memory, 3 processes) · read in 0.2s",
+    "workers": 3,
+    "chart_workers": 3
+  },
+  "summary": [
+    {
+      "column": "col/with/slash",
+      "semantic_type": "boolean",
+      "pandas_dtype": "float64",
+      "count": 100,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 2.0,
+      "top_value": 0.0,
+      "top_pct": 89.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": 0.499915958164528,
+      "memory_bytes": 800,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "new\nline",
+      "semantic_type": "boolean",
+      "pandas_dtype": "bool",
+      "count": 100,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 2.0,
+      "top_value": false,
+      "top_pct": 74.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": 0.8267463724926178,
+      "memory_bytes": 100,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": " ",
+      "semantic_type": "json_like",
+      "pandas_dtype": "object",
+      "count": 100,
+      "pct_missing": 0.0,
+      "n_unique": 47,
+      "pct_unique": 47.0,
+      "top_value": "[1, 2]",
+      "top_pct": 54.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 13152,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "1",
+      "semantic_type": "json_like",
+      "pandas_dtype": "object",
+      "count": 100,
+      "pct_missing": 0.0,
+      "n_unique": 47,
+      "pct_unique": 47.0,
+      "top_value": "[1, 2]",
+      "top_pct": 54.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 13152,
+      "n_alerts": 0,
+      "errors": null
+    }
+  ],
+  "columns": {
+    "col/with/slash": {
+      "name": "col/with/slash",
+      "errors": {},
+      "semantic_type": "boolean",
+      "pandas_dtype": "float64",
+      "confidence": 0.9,
+      "reason": "float64 dtype: only 0/1 values",
+      "suggestions": [],
+      "stats": {
+        "count": 100,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 2.0,
+        "memory_bytes": 800,
+        "modes": [
+          0.0
+        ],
+        "mode_freq": 89,
+        "mode_pct": 89.0,
+        "top_values": [
+          {
+            "value": 0.0,
+            "count": 89,
+            "pct": 89.0
+          },
+          {
+            "value": 1.0,
+            "count": 11,
+            "pct": 11.0
+          }
+        ],
+        "cardinality": 2,
+        "entropy": 0.499915958164528,
+        "normalized_entropy": 0.499915958164528,
+        "gini_impurity": 0.19579999999999997,
+        "imbalance_ratio": 8.090909090909092,
+        "n_rare_categories": 0,
+        "pct_rows_rare": 0.0,
+        "rare_categories": [],
+        "uniform_chi2_p": 6.190717543917382e-15,
+        "n_inconsistent_groups": 0,
+        "inconsistent_labels": [],
+        "n_true": 11,
+        "pct_true": 11.0,
+        "ci95_pct_true_low": 6.254196357064568,
+        "ci95_pct_true_high": 18.631296503080314
+      },
+      "alerts": []
+    },
+    "new\nline": {
+      "name": "new\nline",
+      "errors": {},
+      "semantic_type": "boolean",
+      "pandas_dtype": "bool",
+      "confidence": 1.0,
+      "reason": "bool dtype",
+      "suggestions": [],
+      "stats": {
+        "count": 100,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 2.0,
+        "memory_bytes": 100,
+        "modes": [
+          false
+        ],
+        "mode_freq": 74,
+        "mode_pct": 74.0,
+        "top_values": [
+          {
+            "value": false,
+            "count": 74,
+            "pct": 74.0
+          },
+          {
+            "value": true,
+            "count": 26,
+            "pct": 26.0
+          }
+        ],
+        "cardinality": 2,
+        "entropy": 0.8267463724926178,
+        "normalized_entropy": 0.8267463724926178,
+        "gini_impurity": 0.38480000000000003,
+        "imbalance_ratio": 2.8461538461538463,
+        "n_rare_categories": 0,
+        "pct_rows_rare": 0.0,
+        "rare_categories": [],
+        "uniform_chi2_p": 1.5866563039511885e-06,
+        "n_inconsistent_groups": 0,
+        "inconsistent_labels": [],
+        "n_true": 26,
+        "pct_true": 26.0,
+        "ci95_pct_true_low": 18.404698464748133,
+        "ci95_pct_true_high": 35.37098944918718
+      },
+      "alerts": []
+    },
+    " ": {
+      "name": " ",
+      "errors": {},
+      "semantic_type": "json_like",
+      "pandas_dtype": "object",
+      "confidence": 1.0,
+      "reason": "cells contain Python dict/list objects",
+      "suggestions": [],
+      "stats": {
+        "count": 100,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 47,
+        "pct_unique": 47.0,
+        "memory_bytes": 13152,
+        "modes": [
+          "[1, 2]"
+        ],
+        "mode_freq": 54,
+        "mode_pct": 54.0,
+        "top_values": [
+          {
+            "value": "[1, 2]",
+            "count": 54,
+            "pct": 54.0
+          },
+          {
+            "value": "{'k': 4}",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "{'k': 8}",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "{'k': 28}",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "{'k': 36}",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "{'k': 38}",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "{'k': 50}",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "{'k': 58}",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "{'k': 70}",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "{'k': 86}",
+            "count": 1,
+            "pct": 1.0
+          }
+        ],
+        "python_kinds": {
+          "list": 54,
+          "dict": 46
+        },
+        "top_keys": [
+          {
+            "key": "k",
+            "count": 46
+          }
+        ]
+      },
+      "alerts": []
+    },
+    "1": {
+      "name": "1",
+      "errors": {},
+      "semantic_type": "json_like",
+      "pandas_dtype": "object",
+      "confidence": 1.0,
+      "reason": "cells contain Python dict/list objects",
+      "suggestions": [],
+      "stats": {
+        "count": 100,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 47,
+        "pct_unique": 47.0,
+        "memory_bytes": 13152,
+        "modes": [
+          "[1, 2]"
+        ],
+        "mode_freq": 54,
+        "mode_pct": 54.0,
+        "top_values": [
+          {
+            "value": "[1, 2]",
+            "count": 54,
+            "pct": 54.0
+          },
+          {
+            "value": "{'k': 4}",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "{'k': 8}",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "{'k': 28}",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "{'k': 36}",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "{'k': 38}",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "{'k': 50}",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "{'k': 58}",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "{'k': 70}",
+            "count": 1,
+            "pct": 1.0
+          },
+          {
+            "value": "{'k': 86}",
+            "count": 1,
+            "pct": 1.0
+          }
+        ],
+        "python_kinds": {
+          "list": 54,
+          "dict": 46
+        },
+        "top_keys": [
+          {
+            "key": "k",
+            "count": 46
+          }
+        ]
+      },
+      "alerts": []
+    }
+  },
+  "correlations": {
+    "cramers_v": {
+      "col/with/slash": {
+        "col/with/slash": 1.0,
+        "new\nline": 0.0
+      },
+      "new\nline": {
+        "col/with/slash": 0.0,
+        "new\nline": 1.0
+      }
+    },
+    "cramers_v_p": {
+      "col/with/slash": {
+        "col/with/slash": 0.0,
+        "new\nline": 0.40617905130228205
+      },
+      "new\nline": {
+        "col/with/slash": 0.40617905130228205,
+        "new\nline": 0.0
+      }
+    },
+    "cramers_v_n": {
+      "col/with/slash": {
+        "col/with/slash": 100.0,
+        "new\nline": 100.0
+      },
+      "new\nline": {
+        "col/with/slash": 100.0,
+        "new\nline": 100.0
+      }
+    },
+    "pairs": [
+      {
+        "col_a": "col/with/slash",
+        "col_b": "new\nline",
+        "kind": "cat-cat",
+        "method": "cramers_v",
+        "value": 0.0,
+        "abs_value": 0.0,
+        "n": 100,
+        "test": "chi-square",
+        "p_value": 0.40617905130228205,
+        "p_adjusted": 0.40617905130228205,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      }
+    ],
+    "top_pairs": [],
+    "association": {
+      "col/with/slash": {
+        "col/with/slash": 1.0,
+        "new\nline": 0.0
+      },
+      "new\nline": {
+        "col/with/slash": 0.0,
+        "new\nline": 1.0
+      }
+    },
+    "association_p": {
+      "col/with/slash": {
+        "col/with/slash": 0.0,
+        "new\nline": 0.40617905130228205
+      },
+      "new\nline": {
+        "col/with/slash": 0.40617905130228205,
+        "new\nline": 0.0
+      }
+    },
+    "missingness": []
+  },
+  "quality": {
+    "duplicate_rows": {
+      "count": 146,
+      "pct": 48.666666666666664,
+      "example_indices": [
+        "2020-01-28 00:00:00",
+        "2020-02-05 00:00:00",
+        "2020-02-13 00:00:00",
+        "2020-02-19 00:00:00",
+        "2020-02-21 00:00:00",
+        "2020-02-29 00:00:00",
+        "2020-03-02 00:00:00",
+        "2020-03-14 00:00:00",
+        "2020-03-18 00:00:00",
+        "2020-03-28 00:00:00"
+      ],
+      "exact_over_all_rows": true
+    },
+    "duplicate_columns": [
+      [
+        " ",
+        "1"
+      ]
+    ],
+    "empty_columns": [],
+    "constant_columns": [],
+    "quasi_constant_columns": {},
+    "high_missing_columns": {},
+    "missing_patterns": {
+      "co_missing": [],
+      "n_rows_many_missing": 0,
+      "rows_many_missing_examples": [],
+      "top_patterns": []
+    },
+    "mixed_type_columns": {},
+    "whitespace_columns": {},
+    "placeholder_values": {},
+    "suspicious_values": {},
+    "id_columns": [],
+    "redundant_pairs": [],
+    "dtype_optimizations": [
+      {
+        "column": "col/with/slash",
+        "current_dtype": "float64",
+        "suggested_dtype": "float32",
+        "current_bytes": 800,
+        "new_bytes": 400,
+        "saving_bytes": 400,
+        "saving_pct": 50.0,
+        "code": "df['col/with/slash'] = df['col/with/slash'].astype('float32')"
+      }
+    ],
+    "conversion_suggestions": {},
+    "memory_bytes": 28004,
+    "potential_saving_bytes": 400,
+    "alerts": [
+      {
+        "severity": "medium",
+        "column": null,
+        "message": "146 duplicate rows (48.7%), e.g. index ['2020-01-28 00:00:00', '2020-02-05 00:00:00', '2020-02-13 00:00:00'] -> df.drop_duplicates()",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "1",
+        "message": "identical to column ' ' -> drop one of them",
+        "kind": null
+      },
+      {
+        "severity": "info",
+        "column": null,
+        "message": "dtype optimizations save ~400 B: col/with/slash -> float32 (see quality['dtype_optimizations'] for code)",
+        "kind": null
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "severity": "medium",
+      "column": null,
+      "message": "146 duplicate rows (48.7%), e.g. index ['2020-01-28 00:00:00', '2020-02-05 00:00:00', '2020-02-13 00:00:00'] -> df.drop_duplicates()",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "1",
+      "message": "identical to column ' ' -> drop one of them",
+      "kind": null
+    },
+    {
+      "severity": "info",
+      "column": null,
+      "message": "dtype optimizations save ~400 B: col/with/slash -> float32 (see quality['dtype_optimizations'] for code)",
+      "kind": null
+    },
+    {
+      "severity": "info",
+      "column": null,
+      "message": "profiled on a uniform random sample of 100 of 300 rows (33.3%); row counts, missing values, min/max/mean/std, distinct counts and duplicate rows are exact over every row",
+      "kind": "sampled"
+    }
+  ],
+  "plots": [
+    "fuzz/out2/245/00_dataset_overview.png",
+    "fuzz/out2/245/01_col_with_slash_bar.png",
+    "fuzz/out2/245/02_new_line_bar.png"
+  ]
+}

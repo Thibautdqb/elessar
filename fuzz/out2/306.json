@@ -1,0 +1,244 @@
+{
+  "overview": {
+    "n_rows": 40,
+    "n_columns": 1,
+    "n_rows_profiled": 40,
+    "sampled": false,
+    "memory_bytes": 452,
+    "potential_saving_bytes": 0,
+    "pandas_dtypes": {
+      "datetime64[us]": 1
+    },
+    "semantic_types": {
+      "datetime": 1
+    },
+    "n_duplicate_rows": 2,
+    "pct_duplicate_rows": 5.0,
+    "pct_missing_cells": 0.0,
+    "n_rows_with_missing": 0,
+    "target": "0",
+    "source": "pandas.DataFrame · read in 0.0s",
+    "workers": 1,
+    "chart_workers": 0
+  },
+  "summary": [
+    {
+      "column": "0",
+      "semantic_type": "datetime",
+      "pandas_dtype": "datetime64[us]",
+      "count": 40,
+      "pct_missing": 0.0,
+      "n_unique": 38,
+      "pct_unique": 95.0,
+      "top_value": "2022-08-27 00:00:00",
+      "top_pct": 5.0,
+      "mean": null,
+      "std": null,
+      "min": "2020-01-12",
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": "2022-09-07",
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 320,
+      "n_alerts": 0,
+      "errors": null
+    }
+  ],
+  "columns": {
+    "0": {
+      "name": "0",
+      "errors": {},
+      "semantic_type": "datetime",
+      "pandas_dtype": "datetime64[us]",
+      "confidence": 1.0,
+      "reason": "datetime dtype",
+      "suggestions": [],
+      "stats": {
+        "count": 40,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 38,
+        "pct_unique": 95.0,
+        "memory_bytes": 320,
+        "modes": [
+          "2022-08-27 00:00:00",
+          "2020-12-23 00:00:00"
+        ],
+        "mode_freq": 2,
+        "mode_pct": 5.0,
+        "top_values": [
+          {
+            "value": "2022-08-27 00:00:00",
+            "count": 2,
+            "pct": 5.0
+          },
+          {
+            "value": "2020-12-23 00:00:00",
+            "count": 2,
+            "pct": 5.0
+          },
+          {
+            "value": "2021-03-12 00:00:00",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2020-05-28 00:00:00",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2022-01-18 00:00:00",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2022-05-09 00:00:00",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2020-01-14 00:00:00",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2021-09-22 00:00:00",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2022-04-28 00:00:00",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2020-02-09 00:00:00",
+            "count": 1,
+            "pct": 2.5
+          }
+        ],
+        "min": "2020-01-12",
+        "max": "2022-09-07",
+        "span": "969 days 00:00:00",
+        "span_days": 969.0,
+        "inferred_freq": "~16 days 00:00:00 (irregular)",
+        "largest_gaps": [
+          {
+            "start": "2022-01-18",
+            "end": "2022-04-28",
+            "gap": "100 days 00:00:00"
+          },
+          {
+            "start": "2021-10-12",
+            "end": "2022-01-18",
+            "gap": "98 days 00:00:00"
+          },
+          {
+            "start": "2022-05-09",
+            "end": "2022-08-02",
+            "gap": "85 days 00:00:00"
+          }
+        ],
+        "n_duplicated_timestamps": 2,
+        "n_future": 0,
+        "n_before_1900": 0,
+        "n_unparsed": 0,
+        "monotonic_increasing": false,
+        "monotonic_decreasing": false,
+        "counts_resolution": "week",
+        "counts_trend_tau": -0.10144129205680172,
+        "counts_trend_p": 0.13833764438107446,
+        "by_year": {
+          "2020": 21,
+          "2021": 11,
+          "2022": 8
+        },
+        "by_month": {
+          "Jan": 4,
+          "Feb": 4,
+          "Mar": 1,
+          "Apr": 3,
+          "May": 5,
+          "Jun": 1,
+          "Jul": 4,
+          "Aug": 5,
+          "Sep": 4,
+          "Oct": 4,
+          "Dec": 5
+        },
+        "by_weekday": {
+          "Mon": 7,
+          "Tue": 6,
+          "Wed": 5,
+          "Thu": 5,
+          "Fri": 5,
+          "Sat": 7,
+          "Sun": 5
+        }
+      },
+      "alerts": []
+    }
+  },
+  "correlations": {
+    "pairs": [],
+    "top_pairs": [],
+    "missingness": [],
+    "target": [],
+    "missing_target": []
+  },
+  "quality": {
+    "duplicate_rows": {
+      "count": 2,
+      "pct": 5.0,
+      "example_indices": [
+        22,
+        31
+      ]
+    },
+    "duplicate_columns": [],
+    "empty_columns": [],
+    "constant_columns": [],
+    "quasi_constant_columns": {},
+    "high_missing_columns": {},
+    "missing_patterns": {
+      "co_missing": [],
+      "n_rows_many_missing": 0,
+      "rows_many_missing_examples": [],
+      "top_patterns": []
+    },
+    "mixed_type_columns": {},
+    "whitespace_columns": {},
+    "placeholder_values": {},
+    "suspicious_values": {},
+    "id_columns": [],
+    "redundant_pairs": [],
+    "dtype_optimizations": [],
+    "conversion_suggestions": {},
+    "memory_bytes": 452,
+    "potential_saving_bytes": 0,
+    "alerts": [
+      {
+        "severity": "medium",
+        "column": null,
+        "message": "2 duplicate rows (5.0%), e.g. index [22, 31] -> df.drop_duplicates()",
+        "kind": null
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "severity": "medium",
+      "column": null,
+      "message": "2 duplicate rows (5.0%), e.g. index [22, 31] -> df.drop_duplicates()",
+      "kind": null
+    }
+  ],
+  "plots": []
+}

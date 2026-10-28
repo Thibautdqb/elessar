@@ -1,0 +1,662 @@
+{
+  "overview": {
+    "n_rows": 2,
+    "n_columns": 4,
+    "n_rows_profiled": 2,
+    "sampled": false,
+    "memory_bytes": 592,
+    "potential_saving_bytes": 0,
+    "pandas_dtypes": {
+      "object": 3,
+      "float64": 1
+    },
+    "semantic_types": {
+      "numeric_continuous": 1,
+      "categorical": 1,
+      "json_like": 1,
+      "numeric_discrete": 1
+    },
+    "n_duplicate_rows": 0,
+    "pct_duplicate_rows": 0.0,
+    "pct_missing_cells": 0.0,
+    "n_rows_with_missing": 0,
+    "target": "",
+    "source": "pandas.DataFrame · read in 0.0s",
+    "workers": 3,
+    "chart_workers": 0
+  },
+  "summary": [
+    {
+      "column": "shape",
+      "semantic_type": "numeric_continuous",
+      "pandas_dtype": "object",
+      "count": 2,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 100.0,
+      "top_value": -0.4140048582202469,
+      "top_pct": 50.0,
+      "mean": -0.702349334711782,
+      "std": 0.40778066928969886,
+      "min": -0.9906938112033169,
+      "p25": -0.8465215729575494,
+      "median": -0.702349334711782,
+      "p75": -0.5581770964660144,
+      "max": -0.4140048582202469,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": 0.0,
+      "normality": "insufficient data",
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 64,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "column",
+      "semantic_type": "categorical",
+      "pandas_dtype": "object",
+      "count": 2,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 100.0,
+      "top_value": "1.5",
+      "top_pct": 50.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": 1.0,
+      "memory_bytes": 224,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "",
+      "semantic_type": "json_like",
+      "pandas_dtype": "object",
+      "count": 2,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 100.0,
+      "top_value": "{'k': 0}",
+      "top_pct": 50.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 272,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "n",
+      "semantic_type": "numeric_discrete",
+      "pandas_dtype": "float64",
+      "count": 2,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 100.0,
+      "top_value": 1.0025819426358776e+300,
+      "top_pct": 50.0,
+      "mean": 4.481233449232104e+298,
+      "std": null,
+      "min": -9.129572736512356e+299,
+      "p25": -4.340724695794573e+299,
+      "median": 4.481233449232111e+298,
+      "p75": 5.236971385640994e+299,
+      "max": 1.0025819426358776e+300,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": 0.0,
+      "normality": "insufficient data",
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 16,
+      "n_alerts": 0,
+      "errors": null
+    }
+  ],
+  "columns": {
+    "shape": {
+      "name": "shape",
+      "errors": {},
+      "semantic_type": "numeric_continuous",
+      "pandas_dtype": "object",
+      "confidence": 0.9,
+      "reason": "numbers in object column: 2 distinct real values",
+      "suggestions": [
+        {
+          "flag": "should-be-numeric",
+          "code": "df['shape'] = pd.to_numeric(df['shape'], errors='coerce')"
+        }
+      ],
+      "stats": {
+        "count": 2,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 100.0,
+        "memory_bytes": 64,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": -0.4140048582202469,
+            "count": 1,
+            "pct": 50.0
+          },
+          {
+            "value": -0.9906938112033169,
+            "count": 1,
+            "pct": 50.0
+          }
+        ],
+        "n_inf": 0,
+        "mean": -0.702349334711782,
+        "std": 0.40778066928969886,
+        "var": 0.16628507424635475,
+        "sem": 0.288344476491535,
+        "cv": 0.5805952239664851,
+        "min": -0.9906938112033169,
+        "max": -0.4140048582202469,
+        "range": 0.57668895298307,
+        "sum": -1.404698669423564,
+        "p1": -0.9849269216734862,
+        "p5": -0.9618593635541633,
+        "p10": -0.9330249159050099,
+        "p25": -0.8465215729575494,
+        "p50": -0.702349334711782,
+        "p75": -0.5581770964660144,
+        "p90": -0.4716737535185539,
+        "p95": -0.44283930586940046,
+        "p99": -0.41977174775007764,
+        "median": -0.702349334711782,
+        "iqr": 0.28834447649153494,
+        "mad": 0.288344476491535,
+        "trimmed_mean": -0.702349334711782,
+        "geometric_mean": null,
+        "harmonic_mean": null,
+        "skewness": null,
+        "kurtosis": null,
+        "n_zeros": 0,
+        "n_negative": 2,
+        "iqr_lower": -1.2790382876948518,
+        "iqr_upper": -0.12566038172871202,
+        "n_outliers_iqr": 0,
+        "pct_outliers_iqr": 0.0,
+        "n_outliers_z": 0,
+        "pct_outliers_z": 0.0,
+        "n_outliers_mz": 0,
+        "pct_outliers_mz": 0.0,
+        "n_decimals": 10,
+        "pct_round_values": null,
+        "heaping_index": null,
+        "monotonic_increasing": false,
+        "monotonic_decreasing": true,
+        "bimodality_coefficient": null,
+        "n_modes_kde": null,
+        "ci95_mean_low": -4.366113287558337,
+        "ci95_mean_high": 2.961414618134773,
+        "ci95_median_low": null,
+        "ci95_median_high": null,
+        "autocorr_lag1": null,
+        "autocorr_lag1_p": null
+      },
+      "distribution": {
+        "normality": {
+          "n": 2,
+          "alpha": 0.05,
+          "verdict": "insufficient data"
+        },
+        "fit": {
+          "n_used": 0,
+          "fits": [],
+          "best": null,
+          "failed": {},
+          "ks_note": "KS p-values are optimistic: the parameters were estimated from the same data. For integer data the gap is measured on the integer support and the p-value is a chi-square goodness-of-fit test.",
+          "description": "not enough distinct values to fit a distribution"
+        }
+      },
+      "alerts": []
+    },
+    "column": {
+      "name": "column",
+      "errors": {},
+      "semantic_type": "categorical",
+      "pandas_dtype": "object",
+      "confidence": 0.5,
+      "reason": "Decimal objects, treated as labels",
+      "suggestions": [],
+      "stats": {
+        "count": 2,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 100.0,
+        "memory_bytes": 224,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": "1.5",
+            "count": 1,
+            "pct": 50.0
+          },
+          {
+            "value": "2.25",
+            "count": 1,
+            "pct": 50.0
+          }
+        ],
+        "cardinality": 2,
+        "entropy": 1.0,
+        "normalized_entropy": 1.0,
+        "gini_impurity": 0.5,
+        "imbalance_ratio": 1.0,
+        "n_rare_categories": 0,
+        "pct_rows_rare": 0.0,
+        "rare_categories": [],
+        "uniform_chi2_p": 1.0,
+        "n_inconsistent_groups": 0,
+        "inconsistent_labels": []
+      },
+      "alerts": []
+    },
+    "": {
+      "name": "",
+      "errors": {},
+      "semantic_type": "json_like",
+      "pandas_dtype": "object",
+      "confidence": 1.0,
+      "reason": "cells contain Python dict/list objects",
+      "suggestions": [],
+      "stats": {
+        "count": 2,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 100.0,
+        "memory_bytes": 272,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": "{'k': 0}",
+            "count": 1,
+            "pct": 50.0
+          },
+          {
+            "value": "[1, 2]",
+            "count": 1,
+            "pct": 50.0
+          }
+        ],
+        "python_kinds": {
+          "dict": 1,
+          "list": 1
+        },
+        "top_keys": [
+          {
+            "key": "k",
+            "count": 1
+          }
+        ]
+      },
+      "alerts": []
+    },
+    "n": {
+      "name": "n",
+      "errors": {},
+      "semantic_type": "numeric_discrete",
+      "pandas_dtype": "float64",
+      "confidence": 0.85,
+      "reason": "float64 dtype: integer values (2 distinct)",
+      "suggestions": [],
+      "stats": {
+        "count": 2,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 100.0,
+        "memory_bytes": 16,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": 1.0025819426358776e+300,
+            "count": 1,
+            "pct": 50.0
+          },
+          {
+            "value": -9.129572736512356e+299,
+            "count": 1,
+            "pct": 50.0
+          }
+        ],
+        "n_inf": 0,
+        "mean": 4.481233449232104e+298,
+        "std": null,
+        "var": null,
+        "sem": null,
+        "cv": null,
+        "min": -9.129572736512356e+299,
+        "max": 1.0025819426358776e+300,
+        "range": 1.915539216287113e+300,
+        "sum": 8.962466898464207e+298,
+        "p1": -8.938018814883645e+299,
+        "p5": -8.1718031283688e+299,
+        "p10": -7.214033520225242e+299,
+        "p25": -4.340724695794573e+299,
+        "p50": 4.481233449232111e+298,
+        "p75": 5.236971385640994e+299,
+        "p90": 8.110280210071663e+299,
+        "p95": 9.068049818215219e+299,
+        "p99": 9.834265504730066e+299,
+        "median": 4.481233449232111e+298,
+        "iqr": 9.577696081435567e+299,
+        "mad": 9.577696081435565e+299,
+        "trimmed_mean": 4.481233449232104e+298,
+        "geometric_mean": null,
+        "harmonic_mean": null,
+        "skewness": null,
+        "kurtosis": null,
+        "n_zeros": 0,
+        "n_negative": 1,
+        "iqr_lower": -1.8707268817947924e+300,
+        "iqr_upper": 1.9603515507794343e+300,
+        "n_outliers_iqr": 0,
+        "pct_outliers_iqr": 0.0,
+        "n_outliers_z": 0,
+        "pct_outliers_z": 0.0,
+        "n_outliers_mz": 0,
+        "pct_outliers_mz": 0.0,
+        "n_decimals": 0,
+        "pct_round_values": null,
+        "heaping_index": null,
+        "monotonic_increasing": false,
+        "monotonic_decreasing": true,
+        "bimodality_coefficient": null,
+        "n_modes_kde": null,
+        "ci95_mean_low": null,
+        "ci95_mean_high": null,
+        "ci95_median_low": null,
+        "ci95_median_high": null,
+        "autocorr_lag1": null,
+        "autocorr_lag1_p": null
+      },
+      "distribution": {
+        "normality": {
+          "n": 2,
+          "alpha": 0.05,
+          "verdict": "insufficient data"
+        },
+        "fit": {
+          "n_used": 0,
+          "fits": [],
+          "best": null,
+          "failed": {},
+          "ks_note": "KS p-values are optimistic: the parameters were estimated from the same data. For integer data the gap is measured on the integer support and the p-value is a chi-square goodness-of-fit test.",
+          "description": "not enough distinct values to fit a distribution"
+        }
+      },
+      "alerts": []
+    }
+  },
+  "correlations": {
+    "n_numeric": {
+      "shape": {
+        "shape": 2.0,
+        "n": 2.0
+      },
+      "n": {
+        "shape": 2.0,
+        "n": 2.0
+      }
+    },
+    "pearson": {
+      "shape": {
+        "shape": 1.0,
+        "n": 0.0
+      },
+      "n": {
+        "shape": 0.0,
+        "n": null
+      }
+    },
+    "pearson_p": {
+      "shape": {
+        "shape": 0.0,
+        "n": null
+      },
+      "n": {
+        "shape": null,
+        "n": 0.0
+      }
+    },
+    "spearman": {
+      "shape": {
+        "shape": 1.0,
+        "n": 1.0
+      },
+      "n": {
+        "shape": 1.0,
+        "n": 1.0
+      }
+    },
+    "spearman_p": {
+      "shape": {
+        "shape": 0.0,
+        "n": null
+      },
+      "n": {
+        "shape": null,
+        "n": 0.0
+      }
+    },
+    "vif": [],
+    "linear_dependencies": [],
+    "kendall": {
+      "shape": {
+        "shape": 1.0,
+        "n": null
+      },
+      "n": {
+        "shape": null,
+        "n": 1.0
+      }
+    },
+    "kendall_p": {
+      "shape": {
+        "shape": 0.0,
+        "n": null
+      },
+      "n": {
+        "shape": null,
+        "n": 0.0
+      }
+    },
+    "eta": {
+      "column": {
+        "shape": null,
+        "n": null
+      }
+    },
+    "eta_p": {
+      "column": {
+        "shape": null,
+        "n": null
+      }
+    },
+    "eta_n": {
+      "column": {
+        "shape": 2.0,
+        "n": 2.0
+      }
+    },
+    "pairs": [
+      {
+        "col_a": "shape",
+        "col_b": "n",
+        "kind": "num-num",
+        "method": "spearman",
+        "value": 1.0,
+        "abs_value": 1.0,
+        "n": 2,
+        "test": "spearman t-test",
+        "p_value": null,
+        "p_adjusted": null,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      }
+    ],
+    "top_pairs": [
+      {
+        "col_a": "shape",
+        "col_b": "n",
+        "kind": "num-num",
+        "method": "spearman",
+        "value": 1.0,
+        "abs_value": 1.0,
+        "n": 2,
+        "test": "spearman t-test",
+        "p_value": null,
+        "p_adjusted": null,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      }
+    ],
+    "association": {
+      "shape": {
+        "shape": 1.0,
+        "n": 1.0,
+        "column": null
+      },
+      "n": {
+        "shape": 1.0,
+        "n": 1.0,
+        "column": null
+      },
+      "column": {
+        "shape": null,
+        "n": null,
+        "column": 1.0
+      }
+    },
+    "association_p": {
+      "shape": {
+        "shape": 0.0,
+        "n": null,
+        "column": null
+      },
+      "n": {
+        "shape": null,
+        "n": 0.0,
+        "column": null
+      },
+      "column": {
+        "shape": null,
+        "n": null,
+        "column": 0.0
+      }
+    },
+    "missingness": [],
+    "target": [],
+    "missing_target": []
+  },
+  "quality": {
+    "duplicate_rows": {
+      "count": 0,
+      "pct": 0.0,
+      "example_indices": []
+    },
+    "duplicate_columns": [],
+    "empty_columns": [],
+    "constant_columns": [],
+    "quasi_constant_columns": {},
+    "high_missing_columns": {},
+    "missing_patterns": {
+      "co_missing": [],
+      "n_rows_many_missing": 0,
+      "rows_many_missing_examples": [],
+      "top_patterns": []
+    },
+    "mixed_type_columns": {},
+    "whitespace_columns": {},
+    "placeholder_values": {},
+    "suspicious_values": {},
+    "id_columns": [],
+    "redundant_pairs": [
+      {
+        "col_a": "shape",
+        "col_b": "n",
+        "method": "spearman",
+        "value": 1.0
+      }
+    ],
+    "dtype_optimizations": [],
+    "conversion_suggestions": {
+      "shape": [
+        {
+          "flag": "should-be-numeric",
+          "code": "df['shape'] = pd.to_numeric(df['shape'], errors='coerce')"
+        }
+      ]
+    },
+    "memory_bytes": 592,
+    "potential_saving_bytes": 0,
+    "alerts": [
+      {
+        "severity": "medium",
+        "column": "n",
+        "message": "redundant with 'shape' (spearman +1.000) -> keep only one",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "shape",
+        "message": "should-be-numeric: df['shape'] = pd.to_numeric(df['shape'], errors='coerce')",
+        "kind": null
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "severity": "medium",
+      "column": "n",
+      "message": "redundant with 'shape' (spearman +1.000) -> keep only one",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "shape",
+      "message": "should-be-numeric: df['shape'] = pd.to_numeric(df['shape'], errors='coerce')",
+      "kind": null
+    }
+  ],
+  "plots": []
+}

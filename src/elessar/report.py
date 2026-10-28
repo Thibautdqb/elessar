@@ -126,7 +126,16 @@ class Vision:
         name: dataset name shown in the recap title (e.g. the file name).
         full: when the profile ran on a sample of a bigger table, exact figures over every row
             (one row per column: count, missing, distinct, mean, std, min, max, ...); else None.
-        timings: seconds spent in each step (load, columns, associations, quality, charts, report).
+        timings: seconds spent in each step (load, columns, associations, quality, advanced, charts, report).
+        multivariate: PCA (``pca``), factor analysis (``factor``), groups of redundant columns (``groups``),
+            rows that are outliers on several columns (``outliers``), covariance matrix.
+        outliers: per numeric column the three methods (3 sigma, boxplot, modified z), the action
+            (keep / reassign / remove) and every flagged point (``points``: column, row, value, ...).
+        timeseries: the time structure (single series, panel, event log), trend, stationarity,
+            seasonality, treatment and validation folds; None when the table is not time-indexed.
+        selection: feature selection against the target (decision tree, random forest, lasso,
+            ridge, filter): ``table`` of importances and votes, ``keep`` / ``borderline`` / ``drop``.
+        preparation: the cleaning and transformation plan (``steps``: kind, action, column, why, code).
     """
 
     overview: dict[str, Any]
@@ -143,6 +152,11 @@ class Vision:
     name: str | None = None
     full: pd.DataFrame | None = None
     timings: dict[str, float] = field(default_factory=dict)
+    multivariate: dict[str, Any] = field(default_factory=dict)
+    outliers: dict[str, Any] = field(default_factory=dict)
+    timeseries: dict[str, Any] | None = None
+    selection: dict[str, Any] | None = None
+    preparation: dict[str, Any] = field(default_factory=dict)
 
     def __repr__(self) -> str:
         o = self.overview
@@ -169,11 +183,82 @@ class Vision:
             ("COLUMN DETAILS", self._detail_lines(w)),
             ("CORRELATIONS", self._corr_lines(w)),
             ("TARGET ANALYSIS", self._target_lines(w)),
+            ("FEATURE SELECTION", self._selection_lines(w)),
+            ("TIME SERIES", self._timeseries_lines(w)),
+            ("MULTIVARIATE", self._multivariate_lines(w)),
+            ("PREPARATION PLAN", self._preparation_lines(w)),
             ("PLOTS", self._plot_lines(w)),
         ):
             if lines:
                 out += ["", title, "─" * len(title), *lines]
         return "\n".join(out)
+
+    @staticmethod
+    def _wrap(rows: list[tuple[str, str]], w: int) -> list[str]:
+        return [line for k, v in rows for line in textwrap.wrap(v, w, initial_indent=f"  {k:<16}",
+                                                                 subsequent_indent=" " * 18) or [f"  {k}"]]
+
+    def _selection_lines(self, w: int) -> list[str]:
+        sel = self.selection
+        if not sel:
+            return []
+        rows = [("task", f"{sel['task']}, {sel['n_rows']:,} rows, {sel['cv']} CV {sel['scoring']}: "
+                         + ", ".join(f"{m} {v:.3f}" for m, v in sel["scores"].items())),
+                ("keep", ", ".join(map(str, sel["keep"])) or "-"),
+                ("borderline", ", ".join(map(str, sel["borderline"])) or "-"),
+                ("drop", ", ".join(map(str, sel["drop"])) or "-")]
+        if sel.get("excluded_leaks"):
+            rows.append(("leakage suspects", ", ".join(sel["excluded_leaks"])))
+        return self._wrap(rows, w)
+
+    def _timeseries_lines(self, w: int) -> list[str]:
+        ts = self.timeseries
+        if not ts:
+            return []
+        rows = [("structure", f"{ts['kind']} on {ts['time_column']}, {ts['frequency']} steps, "
+                              f"{ts['start']:%Y-%m-%d} -> {ts['end']:%Y-%m-%d}, {ts['n_steps']:,} steps"
+                              + (f", entity {ts['entity']}" if ts.get("entity") else ""))]
+        for c, a in ts["analyses"].items():
+            rows.append((truncate(c, 16), ", ".join(x for x in (
+                f"trend {a.get('trend')}", (a.get("adf") or {}).get("verdict", ""),
+                f"season {a['period']} ({a['seasonality']}, {a['seasonal_strength']:.2f})" if a.get("period") else "no season",
+            ) if x)))
+        rows += [(st["step"].lower(), st["advice"]) for st in ts["treatment"]]
+        return self._wrap(rows, w)
+
+    def _multivariate_lines(self, w: int) -> list[str]:
+        mv = self.multivariate or {}
+        pca, fa, mo = mv.get("pca") or {}, mv.get("factor") or {}, mv.get("outliers") or {}
+        rows = []
+        if pca:
+            rows.append(("PCA", f"{pca.get('verdict')}: {pca.get('reason')}"))
+        if fa:
+            rows.append(("factors", f"{fa.get('verdict')}: {fa.get('reason')}"))
+            for f, cols in (fa.get("defined_by") or {}).items():
+                rows.append(("", f"{f}: {', '.join(map(str, cols))}"))
+        for g in mv.get("groups") or []:
+            rows.append(("redundant group", f"{', '.join(map(str, g['columns']))} (|rho| {g['mean_abs_spearman']:.2f})"))
+        if mo.get("verdict") == "computed":
+            rows.append(("outlier rows", f"{mo['n_both']:,} flagged by robust Mahalanobis and isolation forest"
+                                         + ("" if mo.get("reliable", True) else " (data far from elliptical: indicative)")))
+        out = self.outliers or {}
+        if out.get("summary") is not None and len(out["summary"]):
+            sm = out["summary"]
+            rows.append(("outlier points", ", ".join(f"{r['column']} {r['consensus']:,} ({r['action']})"
+                                                     for _, r in sm[sm["consensus"] > 0].iterrows()) or "none"))
+        return self._wrap(rows, w)
+
+    def _preparation_lines(self, w: int) -> list[str]:
+        steps = (self.preparation or {}).get("steps") or []
+        if not steps:
+            return []
+        lines = []
+        for st in steps[:40]:
+            head = f"{st['action']}" + (f" [{truncate(st['column'], 24)}]" if st["column"] else "")
+            lines += textwrap.wrap(f"{head}: {st['why']}", w, initial_indent="  ", subsequent_indent="      ")
+        if len(steps) > 40:
+            lines.append(f"  ... {len(steps) - 40} more steps in the HTML report (with the code)")
+        return lines
 
     def _overview_lines(self, w: int) -> list[str]:
         o = self.overview

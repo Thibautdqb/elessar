@@ -1,0 +1,1152 @@
+{
+  "overview": {
+    "n_rows": 40,
+    "n_columns": 4,
+    "n_rows_profiled": 40,
+    "sampled": false,
+    "memory_bytes": 2772,
+    "potential_saving_bytes": 720,
+    "pandas_dtypes": {
+      "float64": 2,
+      "str": 1,
+      "object": 1
+    },
+    "semantic_types": {
+      "numeric_continuous": 2,
+      "boolean": 1,
+      "datetime_string": 1
+    },
+    "n_duplicate_rows": 0,
+    "pct_duplicate_rows": 0.0,
+    "pct_missing_cells": 3.125,
+    "n_rows_with_missing": 5,
+    "target": "0",
+    "source": "pandas.DataFrame · read in 0.0s",
+    "workers": 3,
+    "chart_workers": 3
+  },
+  "summary": [
+    {
+      "column": "a",
+      "semantic_type": "numeric_continuous",
+      "pandas_dtype": "float64",
+      "count": 35,
+      "pct_missing": 12.5,
+      "n_unique": 35,
+      "pct_unique": 100.0,
+      "top_value": -0.8635321782229104,
+      "top_pct": 2.857142857142857,
+      "mean": 0.03960042245955406,
+      "std": 0.9344779316541761,
+      "min": -2.1338018698739263,
+      "p25": -0.5757353090776217,
+      "median": -0.07635106019731341,
+      "p75": 0.5734638678236524,
+      "max": 2.5488542509230396,
+      "skewness": 0.2876925814478684,
+      "kurtosis": 0.7182680895474944,
+      "pct_outliers_iqr": 2.857142857142857,
+      "normality": "normal",
+      "best_fit": "logistic(loc=0.0171, scale=0.515)",
+      "entropy": null,
+      "memory_bytes": 320,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "0",
+      "semantic_type": "boolean",
+      "pandas_dtype": "float64",
+      "count": 40,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 5.0,
+      "top_value": 0.0,
+      "top_pct": 92.5,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": 0.38431154412649704,
+      "memory_bytes": 320,
+      "n_alerts": 1,
+      "errors": null
+    },
+    {
+      "column": "$x$",
+      "semantic_type": "datetime_string",
+      "pandas_dtype": "str",
+      "count": 40,
+      "pct_missing": 0.0,
+      "n_unique": 31,
+      "pct_unique": 77.5,
+      "top_value": "08/04/2020",
+      "top_pct": 7.5,
+      "mean": null,
+      "std": null,
+      "min": "2020-01-13",
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": "2020-12-03",
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 720,
+      "n_alerts": 1,
+      "errors": null
+    },
+    {
+      "column": "a.1",
+      "semantic_type": "numeric_continuous",
+      "pandas_dtype": "object",
+      "count": 40,
+      "pct_missing": 0.0,
+      "n_unique": 40,
+      "pct_unique": 100.0,
+      "top_value": -0.01737463919850757,
+      "top_pct": 2.5,
+      "mean": 0.2525401583313603,
+      "std": 1.040598806138361,
+      "min": -2.2143148161352286,
+      "p25": -0.3650230588004299,
+      "median": 0.40704717710825655,
+      "p75": 0.9567862604264759,
+      "max": 2.1503241728120175,
+      "skewness": -0.514797891375727,
+      "kurtosis": -0.1248950740549919,
+      "pct_outliers_iqr": 0.0,
+      "normality": "normal",
+      "best_fit": "norm(loc=0.253, scale=1.03)",
+      "entropy": null,
+      "memory_bytes": 1280,
+      "n_alerts": 0,
+      "errors": null
+    }
+  ],
+  "columns": {
+    "a": {
+      "name": "a",
+      "errors": {},
+      "semantic_type": "numeric_continuous",
+      "pandas_dtype": "float64",
+      "confidence": 0.9,
+      "reason": "float64 dtype: 35 distinct real values",
+      "suggestions": [],
+      "stats": {
+        "count": 35,
+        "n_missing": 5,
+        "pct_missing": 12.5,
+        "n_unique": 35,
+        "pct_unique": 100.0,
+        "memory_bytes": 320,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": -0.8635321782229104,
+            "count": 1,
+            "pct": 2.857142857142857
+          },
+          {
+            "value": -0.3322419822628764,
+            "count": 1,
+            "pct": 2.857142857142857
+          },
+          {
+            "value": 0.2447111089766589,
+            "count": 1,
+            "pct": 2.857142857142857
+          },
+          {
+            "value": 0.8877221266723768,
+            "count": 1,
+            "pct": 2.857142857142857
+          },
+          {
+            "value": 0.25797175018961555,
+            "count": 1,
+            "pct": 2.857142857142857
+          },
+          {
+            "value": -0.6586933064491652,
+            "count": 1,
+            "pct": 2.857142857142857
+          },
+          {
+            "value": -0.9998659740078565,
+            "count": 1,
+            "pct": 2.857142857142857
+          },
+          {
+            "value": 0.9096513539964146,
+            "count": 1,
+            "pct": 2.857142857142857
+          },
+          {
+            "value": 0.18311157947836465,
+            "count": 1,
+            "pct": 2.857142857142857
+          },
+          {
+            "value": 0.8560973862617263,
+            "count": 1,
+            "pct": 2.857142857142857
+          }
+        ],
+        "n_inf": 0,
+        "mean": 0.03960042245955406,
+        "std": 0.9344779316541761,
+        "var": 0.8732490047486671,
+        "sem": 0.15795559997748618,
+        "cv": 23.597675822994223,
+        "min": -2.1338018698739263,
+        "max": 2.5488542509230396,
+        "range": 4.682656120796966,
+        "sum": 1.386014786084392,
+        "p1": -1.869892570790714,
+        "p5": -1.2441937904206457,
+        "p10": -1.042383712262205,
+        "p25": -0.5757353090776217,
+        "p50": -0.07635106019731341,
+        "p75": 0.5734638678236524,
+        "p90": 1.0593668303207573,
+        "p95": 1.512957024658595,
+        "p99": 2.2507137815888822,
+        "median": -0.07635106019731341,
+        "iqr": 1.1491991769012742,
+        "mad": 0.5603053913776215,
+        "trimmed_mean": 0.014047362653606284,
+        "geometric_mean": null,
+        "harmonic_mean": null,
+        "skewness": 0.2876925814478684,
+        "kurtosis": 0.7182680895474944,
+        "n_zeros": 0,
+        "n_negative": 18,
+        "iqr_lower": -2.2995340744295327,
+        "iqr_upper": 2.2972626331755635,
+        "n_outliers_iqr": 1,
+        "pct_outliers_iqr": 2.857142857142857,
+        "n_outliers_z": 0,
+        "pct_outliers_z": 0.0,
+        "n_outliers_mz": 0,
+        "pct_outliers_mz": 0.0,
+        "n_decimals": null,
+        "pct_round_values": null,
+        "heaping_index": null,
+        "monotonic_increasing": false,
+        "monotonic_decreasing": false,
+        "bimodality_coefficient": 0.27053220907682046,
+        "n_modes_kde": 1,
+        "ci95_mean_low": -0.2814039783106782,
+        "ci95_mean_high": 0.36060482322978626,
+        "ci95_median_low": -0.4412257820296266,
+        "ci95_median_high": 0.4005384834057871,
+        "pct_at_max": 2.857142857142857,
+        "capped_max": false,
+        "pct_at_min": 2.857142857142857,
+        "capped_min": false,
+        "autocorr_lag1": 0.18790654962606207,
+        "autocorr_lag1_p": 0.26628000319764167
+      },
+      "distribution": {
+        "normality": {
+          "n": 35,
+          "alpha": 0.05,
+          "shapiro_stat": 0.9894136695899991,
+          "shapiro_p": 0.9789033412806768,
+          "dagostino_stat": 1.6805290232078036,
+          "dagostino_p": 0.43159634608738773,
+          "jarque_bera_stat": 0.7411135805998365,
+          "jarque_bera_p": 0.6903498435115195,
+          "anderson_stat": 0.16377847863896733,
+          "anderson_p": 0.15,
+          "n_tests": 4,
+          "n_reject": 0,
+          "verdict": "normal"
+        },
+        "fit": {
+          "n_used": 35,
+          "fits": [
+            {
+              "distribution": "logistic",
+              "label": "logistic",
+              "params": {
+                "loc": 0.01708422871970563,
+                "scale": 0.5145915538020039
+              },
+              "n_params": 2,
+              "loglik": -46.617889892593155,
+              "aic": 97.23577978518631,
+              "bic": 100.34647590816513,
+              "ks_stat": 0.06568156938754499,
+              "ks_pvalue": 0.9957161834978954,
+              "note": "",
+              "delta_aic": 0.0,
+              "akaike_weight": 0.3924456764332431
+            },
+            {
+              "distribution": "norm",
+              "label": "normal",
+              "params": {
+                "loc": 0.03960042245955406,
+                "scale": 0.9210315049901494
+              },
+              "n_params": 2,
+              "loglik": -46.783712404287854,
+              "aic": 97.56742480857571,
+              "bic": 100.67812093155453,
+              "ks_stat": 0.06437742963966164,
+              "ks_pvalue": 0.9967083738645293,
+              "note": "",
+              "delta_aic": 0.33164502338939883,
+              "akaike_weight": 0.33247863818015183
+            },
+            {
+              "distribution": "t",
+              "label": "Student t",
+              "params": {
+                "df": 10.917349843079702,
+                "loc": 0.02263441895273012,
+                "scale": 0.8346741199709824
+              },
+              "n_params": 3,
+              "loglik": -46.6124589435463,
+              "aic": 99.2249178870926,
+              "bic": 103.89096207156084,
+              "ks_stat": 0.06040936321660012,
+              "ks_pvalue": 0.9986722729910467,
+              "note": "",
+              "delta_aic": 1.989138101906292,
+              "akaike_weight": 0.1451589099038789
+            }
+          ],
+          "best": "logistic",
+          "failed": {},
+          "ks_note": "KS p-values are optimistic: the parameters were estimated from the same data. For integer data the gap is measured on the integer support and the p-value is a chi-square goodness-of-fit test.",
+          "kind": "continuous",
+          "n_candidates_fitted": 13,
+          "description": "roughly symmetric, best fit logistic(loc=0.0171, scale=0.515)"
+        }
+      },
+      "alerts": []
+    },
+    "0": {
+      "name": "0",
+      "errors": {},
+      "semantic_type": "boolean",
+      "pandas_dtype": "float64",
+      "confidence": 0.9,
+      "reason": "float64 dtype: only 0/1 values",
+      "suggestions": [],
+      "stats": {
+        "count": 40,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 5.0,
+        "memory_bytes": 320,
+        "modes": [
+          0.0
+        ],
+        "mode_freq": 37,
+        "mode_pct": 92.5,
+        "top_values": [
+          {
+            "value": 0.0,
+            "count": 37,
+            "pct": 92.5
+          },
+          {
+            "value": 1.0,
+            "count": 3,
+            "pct": 7.5
+          }
+        ],
+        "cardinality": 2,
+        "entropy": 0.38431154412649704,
+        "normalized_entropy": 0.38431154412649704,
+        "gini_impurity": 0.13874999999999993,
+        "imbalance_ratio": 12.333333333333334,
+        "n_rare_categories": 0,
+        "pct_rows_rare": 0.0,
+        "rare_categories": [],
+        "uniform_chi2_p": 7.62129129638297e-08,
+        "n_inconsistent_groups": 0,
+        "inconsistent_labels": [],
+        "n_true": 3,
+        "pct_true": 7.5,
+        "ci95_pct_true_low": 2.58360257745882,
+        "ci95_pct_true_high": 19.864233524310542
+      },
+      "alerts": [
+        {
+          "severity": "info",
+          "column": "0",
+          "message": "imbalanced: '0.0' is 92.5% of values",
+          "kind": "imbalanced"
+        }
+      ]
+    },
+    "$x$": {
+      "name": "$x$",
+      "errors": {},
+      "semantic_type": "datetime_string",
+      "pandas_dtype": "str",
+      "confidence": 1.0,
+      "reason": "100% of values parse as dates",
+      "suggestions": [
+        {
+          "flag": "should-be-datetime",
+          "code": "df['$x$'] = pd.to_datetime(df['$x$'], errors='coerce', format='mixed')"
+        }
+      ],
+      "stats": {
+        "count": 40,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 31,
+        "pct_unique": 77.5,
+        "memory_bytes": 720,
+        "modes": [
+          "08/04/2020"
+        ],
+        "mode_freq": 3,
+        "mode_pct": 7.5,
+        "top_values": [
+          {
+            "value": "08/04/2020",
+            "count": 3,
+            "pct": 7.5
+          },
+          {
+            "value": "16/01/2020",
+            "count": 2,
+            "pct": 5.0
+          },
+          {
+            "value": "15/03/2020",
+            "count": 2,
+            "pct": 5.0
+          },
+          {
+            "value": "09/03/2020",
+            "count": 2,
+            "pct": 5.0
+          },
+          {
+            "value": "24/03/2020",
+            "count": 2,
+            "pct": 5.0
+          },
+          {
+            "value": "20/03/2020",
+            "count": 2,
+            "pct": 5.0
+          },
+          {
+            "value": "07/04/2020",
+            "count": 2,
+            "pct": 5.0
+          },
+          {
+            "value": "02/01/2020",
+            "count": 2,
+            "pct": 5.0
+          },
+          {
+            "value": "09/01/2020",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "13/01/2020",
+            "count": 1,
+            "pct": 2.5
+          }
+        ],
+        "min": "2020-01-13",
+        "max": "2020-12-03",
+        "span": "325 days 00:00:00",
+        "span_days": 325.0,
+        "inferred_freq": "~3 days 00:00:00 (irregular)",
+        "largest_gaps": [
+          {
+            "start": "2020-05-01",
+            "end": "2020-07-03",
+            "gap": "63 days 00:00:00"
+          },
+          {
+            "start": "2020-03-27",
+            "end": "2020-05-01",
+            "gap": "35 days 00:00:00"
+          },
+          {
+            "start": "2020-11-01",
+            "end": "2020-12-03",
+            "gap": "32 days 00:00:00"
+          }
+        ],
+        "n_duplicated_timestamps": 9,
+        "n_future": 0,
+        "n_before_1900": 0,
+        "n_unparsed": 0,
+        "monotonic_increasing": false,
+        "monotonic_decreasing": false,
+        "counts_resolution": "week",
+        "counts_trend_tau": -0.3039198988325025,
+        "counts_trend_p": 0.007805807295097846,
+        "by_month": {
+          "Jan": 8,
+          "Feb": 6,
+          "Mar": 12,
+          "May": 1,
+          "Jul": 3,
+          "Aug": 4,
+          "Sep": 3,
+          "Oct": 1,
+          "Nov": 1,
+          "Dec": 1
+        },
+        "by_weekday": {
+          "Mon": 4,
+          "Tue": 7,
+          "Wed": 3,
+          "Thu": 8,
+          "Fri": 6,
+          "Sat": 7,
+          "Sun": 5
+        }
+      },
+      "alerts": [
+        {
+          "severity": "info",
+          "column": "$x$",
+          "message": "rows per week decrease over time (Kendall tau -0.30, p=0.0078)",
+          "kind": null
+        }
+      ]
+    },
+    "a.1": {
+      "name": "a.1",
+      "errors": {},
+      "semantic_type": "numeric_continuous",
+      "pandas_dtype": "object",
+      "confidence": 0.9,
+      "reason": "numbers in object column: 40 distinct real values",
+      "suggestions": [
+        {
+          "flag": "should-be-numeric",
+          "code": "df['a.1'] = pd.to_numeric(df['a.1'], errors='coerce')"
+        }
+      ],
+      "stats": {
+        "count": 40,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 40,
+        "pct_unique": 100.0,
+        "memory_bytes": 1280,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": -0.01737463919850757,
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": -0.7452305435737255,
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": 0.9541487420762597,
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": -0.4554080429253468,
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": -1.6195287494212198,
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": -0.2149464558000409,
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": 1.8404331162962408,
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": 0.4121169855621743,
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": -0.3329260916144221,
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": 0.2792920041238932,
+            "count": 1,
+            "pct": 2.5
+          }
+        ],
+        "n_inf": 0,
+        "mean": 0.2525401583313603,
+        "std": 1.040598806138361,
+        "var": 1.0828458753365824,
+        "sem": 0.16453311789246125,
+        "cv": 4.120528049930901,
+        "min": -2.2143148161352286,
+        "max": 2.1503241728120175,
+        "range": 4.364638988947246,
+        "sum": 10.101606333254411,
+        "p1": -2.090766348247217,
+        "p5": -1.6334285055917905,
+        "p10": -1.085636812882665,
+        "p25": -0.3650230588004299,
+        "p50": 0.40704717710825655,
+        "p75": 0.9567862604264759,
+        "p90": 1.4523405370080607,
+        "p95": 1.7262065542348464,
+        "p99": 2.0294666607708645,
+        "median": 0.40704717710825655,
+        "iqr": 1.3218093192269058,
+        "mad": 0.6809834508154881,
+        "trimmed_mean": 0.31676830339157774,
+        "geometric_mean": null,
+        "harmonic_mean": null,
+        "skewness": -0.514797891375727,
+        "kurtosis": -0.1248950740549919,
+        "n_zeros": 0,
+        "n_negative": 16,
+        "iqr_lower": -2.3477370376407887,
+        "iqr_upper": 2.9395002392668346,
+        "n_outliers_iqr": 0,
+        "pct_outliers_iqr": 0.0,
+        "n_outliers_z": 0,
+        "pct_outliers_z": 0.0,
+        "n_outliers_mz": 0,
+        "pct_outliers_mz": 0.0,
+        "n_decimals": null,
+        "pct_round_values": null,
+        "heaping_index": null,
+        "monotonic_increasing": false,
+        "monotonic_decreasing": false,
+        "bimodality_coefficient": 0.40539151222875164,
+        "n_modes_kde": 1,
+        "ci95_mean_low": -0.080259485275059,
+        "ci95_mean_high": 0.5853398019377796,
+        "ci95_median_low": -0.2149464558000409,
+        "ci95_median_high": 0.7702599684166515,
+        "pct_at_max": 2.5,
+        "capped_max": false,
+        "pct_at_min": 2.5,
+        "capped_min": false,
+        "autocorr_lag1": 0.04440018030107905,
+        "autocorr_lag1_p": 0.7788550620243055
+      },
+      "distribution": {
+        "normality": {
+          "n": 40,
+          "alpha": 0.05,
+          "shapiro_stat": 0.9711720492672106,
+          "shapiro_p": 0.39172550205980367,
+          "dagostino_stat": 1.9734535805967537,
+          "dagostino_p": 0.37279493214364895,
+          "jarque_bera_stat": 1.744767891965329,
+          "jarque_bera_p": 0.41795398093181657,
+          "anderson_stat": 0.3807280309674539,
+          "anderson_p": 0.15,
+          "n_tests": 4,
+          "n_reject": 0,
+          "verdict": "normal"
+        },
+        "fit": {
+          "n_used": 40,
+          "fits": [
+            {
+              "distribution": "norm",
+              "label": "normal",
+              "params": {
+                "loc": 0.2525401583313603,
+                "scale": 1.0275089919086684
+              },
+              "n_params": 2,
+              "loglik": -57.843038072157825,
+              "aic": 119.68607614431565,
+              "bic": 123.06383505254352,
+              "ks_stat": 0.11038554099820863,
+              "ks_pvalue": 0.6734215175777725,
+              "note": "",
+              "delta_aic": 0.0,
+              "akaike_weight": 0.3886206566380824
+            },
+            {
+              "distribution": "logistic",
+              "label": "logistic",
+              "params": {
+                "loc": 0.3154864851003338,
+                "scale": 0.5887289733497791
+              },
+              "n_params": 2,
+              "loglik": -58.327430540707596,
+              "aic": 120.65486108141519,
+              "bic": 124.03261998964307,
+              "ks_stat": 0.08463508394551478,
+              "ks_pvalue": 0.9136718698681046,
+              "note": "",
+              "delta_aic": 0.9687849370995423,
+              "akaike_weight": 0.239418058722196
+            },
+            {
+              "distribution": "t",
+              "label": "Student t",
+              "params": {
+                "df": 72226419489.71484,
+                "loc": 0.25254047770595744,
+                "scale": 1.0275089147472594
+              },
+              "n_params": 3,
+              "loglik": -57.84303807219546,
+              "aic": 121.68607614439092,
+              "bic": 126.75271450673273,
+              "ks_stat": 0.11038541781902478,
+              "ks_pvalue": 0.6734228360490992,
+              "note": "",
+              "delta_aic": 2.000000000075275,
+              "akaike_weight": 0.14296554998631586
+            }
+          ],
+          "best": "norm",
+          "failed": {},
+          "ks_note": "KS p-values are optimistic: the parameters were estimated from the same data. For integer data the gap is measured on the integer support and the p-value is a chi-square goodness-of-fit test.",
+          "kind": "continuous",
+          "n_candidates_fitted": 13,
+          "description": "moderately left-skewed, best fit normal(loc=0.253, scale=1.03)"
+        }
+      },
+      "alerts": []
+    }
+  },
+  "correlations": {
+    "n_numeric": {
+      "a": {
+        "a": 35.0,
+        "a.1": 35.0
+      },
+      "a.1": {
+        "a": 35.0,
+        "a.1": 40.0
+      }
+    },
+    "pearson": {
+      "a": {
+        "a": 1.0,
+        "a.1": -0.06924079405732687
+      },
+      "a.1": {
+        "a": -0.06924079405732687,
+        "a.1": 1.0
+      }
+    },
+    "pearson_p": {
+      "a": {
+        "a": 0.0,
+        "a.1": 0.6926715333995387
+      },
+      "a.1": {
+        "a": 0.6926715333995387,
+        "a.1": 0.0
+      }
+    },
+    "spearman": {
+      "a": {
+        "a": 1.0,
+        "a.1": 0.033893557422969185
+      },
+      "a.1": {
+        "a": 0.033893557422969185,
+        "a.1": 1.0
+      }
+    },
+    "spearman_p": {
+      "a": {
+        "a": 0.0,
+        "a.1": 0.846731774762666
+      },
+      "a.1": {
+        "a": 0.846731774762666,
+        "a.1": 0.0
+      }
+    },
+    "vif": {
+      "a.1": {
+        "vif": 1.0048173834834035
+      },
+      "a": {
+        "vif": 1.0048173834834033
+      }
+    },
+    "linear_dependencies": [],
+    "kendall": {
+      "a": {
+        "a": 1.0,
+        "a.1": 0.018487394957983194
+      },
+      "a.1": {
+        "a": 0.018487394957983194,
+        "a.1": 1.0
+      }
+    },
+    "kendall_p": {
+      "a": {
+        "a": 0.0,
+        "a.1": 0.8758629604320756
+      },
+      "a.1": {
+        "a": 0.8758629604320756,
+        "a.1": 0.0
+      }
+    },
+    "eta": {
+      "0": {
+        "a": 0.23089030314058798,
+        "a.1": 0.013230120419664423
+      }
+    },
+    "eta_p": {
+      "0": {
+        "a": 0.12550647143746785,
+        "a.1": 0.8978529730530893
+      }
+    },
+    "eta_n": {
+      "0": {
+        "a": 35.0,
+        "a.1": 40.0
+      }
+    },
+    "pairs": [
+      {
+        "col_a": "0",
+        "col_b": "a",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 0.23089030314058798,
+        "abs_value": 0.23089030314058798,
+        "n": 35,
+        "test": "kruskal-wallis",
+        "p_value": 0.12550647143746785,
+        "p_adjusted": 0.37651941431240354,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "a",
+        "col_b": "a.1",
+        "kind": "num-num",
+        "method": "pearson",
+        "value": -0.06924079405732687,
+        "abs_value": 0.06924079405732687,
+        "n": 35,
+        "test": "pearson t-test",
+        "p_value": 0.6926715333995387,
+        "p_adjusted": 0.8978529730530893,
+        "significant": false,
+        "ci_low": -0.3934097026759678,
+        "ci_high": 0.2702413688572735
+      },
+      {
+        "col_a": "0",
+        "col_b": "a.1",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 0.013230120419664423,
+        "abs_value": 0.013230120419664423,
+        "n": 40,
+        "test": "kruskal-wallis",
+        "p_value": 0.8978529730530893,
+        "p_adjusted": 0.8978529730530893,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      }
+    ],
+    "top_pairs": [],
+    "association": {
+      "a": {
+        "a": 1.0,
+        "a.1": 0.033893557422969185,
+        "0": 0.23089030314058798
+      },
+      "a.1": {
+        "a": 0.033893557422969185,
+        "a.1": 1.0,
+        "0": 0.013230120419664423
+      },
+      "0": {
+        "a": 0.23089030314058798,
+        "a.1": 0.013230120419664423,
+        "0": 1.0
+      }
+    },
+    "association_p": {
+      "a": {
+        "a": 0.0,
+        "a.1": 0.6926715333995387,
+        "0": 0.12550647143746785
+      },
+      "a.1": {
+        "a": 0.6926715333995387,
+        "a.1": 0.0,
+        "0": 0.8978529730530893
+      },
+      "0": {
+        "a": 0.12550647143746785,
+        "a.1": 0.8978529730530893,
+        "0": 0.0
+      }
+    },
+    "missingness": [
+      {
+        "column": "a",
+        "pct_missing": 12.5,
+        "depends_on": "a.1",
+        "test": "mann-whitney (AUC)",
+        "effect": 0.6114285714285714,
+        "p_value": 0.4487848172058698,
+        "p_adjusted": 0.4960762252062785,
+        "significant": false,
+        "detail": "median a.1 = 0.954 when missing vs 0.402"
+      },
+      {
+        "column": "a",
+        "pct_missing": 12.5,
+        "depends_on": "0",
+        "test": "chi-square (V)",
+        "effect": 0.0,
+        "p_value": 0.4960762252062785,
+        "p_adjusted": 0.4960762252062785,
+        "significant": false,
+        "detail": "14% missing when 0=0.0 vs 0% when 0=1.0"
+      }
+    ],
+    "target": [
+      {
+        "feature": "a",
+        "feature_type": "numeric_continuous",
+        "method": "eta",
+        "association": 0.23089030314058798,
+        "n": 35,
+        "test": "mann-whitney",
+        "p_value": 0.13995416348357523,
+        "p_adjusted": 0.27990832696715046,
+        "significant": false,
+        "auc": 0.22916666666666666,
+        "mutual_info": 0.25057194545458134,
+        "leakage_suspect": false
+      },
+      {
+        "feature": "a.1",
+        "feature_type": "numeric_continuous",
+        "method": "eta",
+        "association": 0.013230120419664423,
+        "n": 40,
+        "test": "mann-whitney",
+        "p_value": 0.9230769230769234,
+        "p_adjusted": 0.9230769230769234,
+        "significant": false,
+        "auc": 0.4774774774774775,
+        "mutual_info": 0.1409281067887573,
+        "leakage_suspect": false
+      }
+    ],
+    "missing_target": [
+      {
+        "feature": "a",
+        "pct_missing": 12.5,
+        "test": "chi-square (V)",
+        "effect": 0.0,
+        "p_value": 0.4960762252062785,
+        "p_adjusted": 0.4960762252062785,
+        "significant": false,
+        "detail": "0=1.0: 0% when missing vs 9% when present"
+      }
+    ]
+  },
+  "quality": {
+    "duplicate_rows": {
+      "count": 0,
+      "pct": 0.0,
+      "example_indices": []
+    },
+    "duplicate_columns": [],
+    "empty_columns": [],
+    "constant_columns": [],
+    "quasi_constant_columns": {},
+    "high_missing_columns": {},
+    "missing_patterns": {
+      "co_missing": [],
+      "n_rows_many_missing": 0,
+      "rows_many_missing_examples": [],
+      "top_patterns": [
+        {
+          "columns": [
+            "a"
+          ],
+          "rows": 5
+        }
+      ]
+    },
+    "mixed_type_columns": {},
+    "whitespace_columns": {},
+    "placeholder_values": {},
+    "suspicious_values": {},
+    "id_columns": [],
+    "redundant_pairs": [],
+    "dtype_optimizations": [
+      {
+        "column": "a",
+        "current_dtype": "float64",
+        "suggested_dtype": "float32",
+        "current_bytes": 320,
+        "new_bytes": 160,
+        "saving_bytes": 160,
+        "saving_pct": 50.0,
+        "code": "df['a'] = df['a'].astype('float32')"
+      },
+      {
+        "column": "0",
+        "current_dtype": "float64",
+        "suggested_dtype": "float32",
+        "current_bytes": 320,
+        "new_bytes": 160,
+        "saving_bytes": 160,
+        "saving_pct": 50.0,
+        "code": "df['0'] = df['0'].astype('float32')"
+      },
+      {
+        "column": "$x$",
+        "current_dtype": "str",
+        "suggested_dtype": "datetime64",
+        "current_bytes": 720,
+        "new_bytes": 320,
+        "saving_bytes": 400,
+        "saving_pct": 55.55555555555556,
+        "code": "df['$x$'] = pd.to_datetime(df['$x$'], errors='coerce', format='mixed')"
+      }
+    ],
+    "conversion_suggestions": {
+      "$x$": [
+        {
+          "flag": "should-be-datetime",
+          "code": "df['$x$'] = pd.to_datetime(df['$x$'], errors='coerce', format='mixed')"
+        }
+      ],
+      "a.1": [
+        {
+          "flag": "should-be-numeric",
+          "code": "df['a.1'] = pd.to_numeric(df['a.1'], errors='coerce')"
+        }
+      ]
+    },
+    "memory_bytes": 2772,
+    "potential_saving_bytes": 720,
+    "alerts": [
+      {
+        "severity": "medium",
+        "column": "$x$",
+        "message": "should-be-datetime: df['$x$'] = pd.to_datetime(df['$x$'], errors='coerce', format='mixed')",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "a.1",
+        "message": "should-be-numeric: df['a.1'] = pd.to_numeric(df['a.1'], errors='coerce')",
+        "kind": null
+      },
+      {
+        "severity": "info",
+        "column": null,
+        "message": "dtype optimizations save ~720 B: a -> float32, 0 -> float32, $x$ -> datetime64 (see quality['dtype_optimizations'] for code)",
+        "kind": null
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "severity": "medium",
+      "column": null,
+      "message": "duplicate or non-string column names were renamed (a, a.1, ...)",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "$x$",
+      "message": "should-be-datetime: df['$x$'] = pd.to_datetime(df['$x$'], errors='coerce', format='mixed')",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "0",
+      "message": "imbalanced target: '1.0' is only 7.5% of rows -> stratify splits, use PR-AUC / class weights",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "a.1",
+      "message": "should-be-numeric: df['a.1'] = pd.to_numeric(df['a.1'], errors='coerce')",
+      "kind": null
+    },
+    {
+      "severity": "info",
+      "column": null,
+      "message": "dtype optimizations save ~720 B: a -> float32, 0 -> float32, $x$ -> datetime64 (see quality['dtype_optimizations'] for code)",
+      "kind": null
+    },
+    {
+      "severity": "info",
+      "column": "$x$",
+      "message": "rows per week decrease over time (Kendall tau -0.30, p=0.0078)",
+      "kind": null
+    }
+  ],
+  "plots": [
+    "fuzz/out2/237/00_dataset_overview.png",
+    "fuzz/out2/237/01_dataset_missing.png",
+    "fuzz/out2/237/02_dataset_association.png",
+    "fuzz/out2/237/03_a_dist.png",
+    "fuzz/out2/237/04_0_bar.png",
+    "fuzz/out2/237/05_x_time.png",
+    "fuzz/out2/237/06_a.1_dist.png",
+    "fuzz/out2/237/07_0_target_ranking.png",
+    "fuzz/out2/237/08_0__a_target.png",
+    "fuzz/out2/237/09_0__a.1_target.png",
+    "fuzz/out2/237/10_dataset_outliers.png"
+  ]
+}

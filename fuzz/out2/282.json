@@ -1,0 +1,1147 @@
+{
+  "overview": {
+    "n_rows": 40,
+    "n_columns": 5,
+    "n_rows_profiled": 40,
+    "sampled": false,
+    "memory_bytes": 3152,
+    "potential_saving_bytes": 400,
+    "pandas_dtypes": {
+      "period[M]": 1,
+      "str": 1,
+      "bool": 1,
+      "Int64": 1,
+      "interval[int64, right]": 1
+    },
+    "semantic_types": {
+      "categorical": 2,
+      "datetime_string": 1,
+      "boolean": 1,
+      "numeric_discrete": 1
+    },
+    "n_duplicate_rows": 0,
+    "pct_duplicate_rows": 0.0,
+    "pct_missing_cells": 6.0,
+    "n_rows_with_missing": 12,
+    "target": "column",
+    "source": "pandas.DataFrame · read in 0.0s",
+    "workers": 3,
+    "chart_workers": 0
+  },
+  "summary": [
+    {
+      "column": "pipe|name",
+      "semantic_type": "categorical",
+      "pandas_dtype": "period[M]",
+      "count": 40,
+      "pct_missing": 0.0,
+      "n_unique": 40,
+      "pct_unique": 100.0,
+      "top_value": "2020-01",
+      "top_pct": 2.5,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": 1.0,
+      "memory_bytes": 320,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "True",
+      "semantic_type": "datetime_string",
+      "pandas_dtype": "str",
+      "count": 40,
+      "pct_missing": 0.0,
+      "n_unique": 30,
+      "pct_unique": 75.0,
+      "top_value": "08/01/2020",
+      "top_pct": 5.0,
+      "mean": null,
+      "std": null,
+      "min": "2020-01-03",
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": "2020-12-02",
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 720,
+      "n_alerts": 1,
+      "errors": null
+    },
+    {
+      "column": "column",
+      "semantic_type": "boolean",
+      "pandas_dtype": "bool",
+      "count": 40,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 5.0,
+      "top_value": false,
+      "top_pct": 65.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": 0.934068055375491,
+      "memory_bytes": 40,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "n",
+      "semantic_type": "numeric_discrete",
+      "pandas_dtype": "Int64",
+      "count": 28,
+      "pct_missing": 30.0,
+      "n_unique": 9,
+      "pct_unique": 32.142857142857146,
+      "top_value": 6,
+      "top_pct": 14.285714285714286,
+      "mean": 4.392857142857143,
+      "std": 2.643500565177779,
+      "min": 0.0,
+      "p25": 2.0,
+      "median": 4.5,
+      "p75": 7.0,
+      "max": 8.0,
+      "skewness": -0.136175129914505,
+      "kurtosis": -1.3325761123651245,
+      "pct_outliers_iqr": 0.0,
+      "normality": "not normal",
+      "best_fit": "nbinom(n=5.64, p=0.562)",
+      "entropy": null,
+      "memory_bytes": 360,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "pipe|name.1",
+      "semantic_type": "categorical",
+      "pandas_dtype": "interval[int64, right]",
+      "count": 40,
+      "pct_missing": 0.0,
+      "n_unique": 40,
+      "pct_unique": 100.0,
+      "top_value": "(0, 1]",
+      "top_pct": 2.5,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": 1.0,
+      "memory_bytes": 640,
+      "n_alerts": 0,
+      "errors": null
+    }
+  ],
+  "columns": {
+    "pipe|name": {
+      "name": "pipe|name",
+      "errors": {},
+      "semantic_type": "categorical",
+      "pandas_dtype": "period[M]",
+      "confidence": 0.5,
+      "reason": "unrecognised dtype period[M], treated as labels",
+      "suggestions": [],
+      "stats": {
+        "count": 40,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 40,
+        "pct_unique": 100.0,
+        "memory_bytes": 320,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": "2020-01",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2020-02",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2020-03",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2020-04",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2020-05",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2020-06",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2020-07",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2020-08",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2020-09",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2020-10",
+            "count": 1,
+            "pct": 2.5
+          }
+        ],
+        "cardinality": 40,
+        "entropy": 5.321928094887363,
+        "normalized_entropy": 1.0,
+        "gini_impurity": 0.975,
+        "imbalance_ratio": 1.0,
+        "n_rare_categories": 0,
+        "pct_rows_rare": 0.0,
+        "rare_categories": [],
+        "uniform_chi2_p": 1.0,
+        "n_inconsistent_groups": 0,
+        "inconsistent_labels": []
+      },
+      "alerts": []
+    },
+    "True": {
+      "name": "True",
+      "errors": {},
+      "semantic_type": "datetime_string",
+      "pandas_dtype": "str",
+      "confidence": 1.0,
+      "reason": "100% of values parse as dates",
+      "suggestions": [
+        {
+          "flag": "should-be-datetime",
+          "code": "df['True'] = pd.to_datetime(df['True'], errors='coerce', format='mixed')"
+        }
+      ],
+      "stats": {
+        "count": 40,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 30,
+        "pct_unique": 75.0,
+        "memory_bytes": 720,
+        "modes": [
+          "08/01/2020",
+          "13/01/2020",
+          "19/02/2020"
+        ],
+        "mode_freq": 2,
+        "mode_pct": 5.0,
+        "top_values": [
+          {
+            "value": "08/01/2020",
+            "count": 2,
+            "pct": 5.0
+          },
+          {
+            "value": "13/01/2020",
+            "count": 2,
+            "pct": 5.0
+          },
+          {
+            "value": "19/02/2020",
+            "count": 2,
+            "pct": 5.0
+          },
+          {
+            "value": "19/03/2020",
+            "count": 2,
+            "pct": 5.0
+          },
+          {
+            "value": "04/02/2020",
+            "count": 2,
+            "pct": 5.0
+          },
+          {
+            "value": "17/03/2020",
+            "count": 2,
+            "pct": 5.0
+          },
+          {
+            "value": "19/01/2020",
+            "count": 2,
+            "pct": 5.0
+          },
+          {
+            "value": "25/03/2020",
+            "count": 2,
+            "pct": 5.0
+          },
+          {
+            "value": "28/01/2020",
+            "count": 2,
+            "pct": 5.0
+          },
+          {
+            "value": "25/02/2020",
+            "count": 2,
+            "pct": 5.0
+          }
+        ],
+        "min": "2020-01-03",
+        "max": "2020-12-02",
+        "span": "334 days 00:00:00",
+        "span_days": 334.0,
+        "inferred_freq": "~3 days 00:00:00 (irregular)",
+        "largest_gaps": [
+          {
+            "start": "2020-09-02",
+            "end": "2020-12-01",
+            "gap": "90 days 00:00:00"
+          },
+          {
+            "start": "2020-05-01",
+            "end": "2020-07-03",
+            "gap": "63 days 00:00:00"
+          },
+          {
+            "start": "2020-04-02",
+            "end": "2020-05-01",
+            "gap": "29 days 00:00:00"
+          }
+        ],
+        "n_duplicated_timestamps": 10,
+        "n_future": 0,
+        "n_before_1900": 0,
+        "n_unparsed": 0,
+        "monotonic_increasing": false,
+        "monotonic_decreasing": false,
+        "counts_resolution": "week",
+        "counts_trend_tau": -0.3254322086840508,
+        "counts_trend_p": 0.0037326830248125,
+        "by_month": {
+          "Jan": 12,
+          "Feb": 7,
+          "Mar": 9,
+          "Apr": 2,
+          "May": 1,
+          "Jul": 1,
+          "Aug": 4,
+          "Sep": 2,
+          "Dec": 2
+        },
+        "by_weekday": {
+          "Mon": 3,
+          "Tue": 9,
+          "Wed": 7,
+          "Thu": 6,
+          "Fri": 4,
+          "Sat": 8,
+          "Sun": 3
+        }
+      },
+      "alerts": [
+        {
+          "severity": "info",
+          "column": "True",
+          "message": "rows per week decrease over time (Kendall tau -0.33, p=0.0037)",
+          "kind": null
+        }
+      ]
+    },
+    "column": {
+      "name": "column",
+      "errors": {},
+      "semantic_type": "boolean",
+      "pandas_dtype": "bool",
+      "confidence": 1.0,
+      "reason": "bool dtype",
+      "suggestions": [],
+      "stats": {
+        "count": 40,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 5.0,
+        "memory_bytes": 40,
+        "modes": [
+          false
+        ],
+        "mode_freq": 26,
+        "mode_pct": 65.0,
+        "top_values": [
+          {
+            "value": false,
+            "count": 26,
+            "pct": 65.0
+          },
+          {
+            "value": true,
+            "count": 14,
+            "pct": 35.0
+          }
+        ],
+        "cardinality": 2,
+        "entropy": 0.934068055375491,
+        "normalized_entropy": 0.934068055375491,
+        "gini_impurity": 0.45499999999999996,
+        "imbalance_ratio": 1.8571428571428572,
+        "n_rare_categories": 0,
+        "pct_rows_rare": 0.0,
+        "rare_categories": [],
+        "uniform_chi2_p": 0.05777957112359715,
+        "n_inconsistent_groups": 0,
+        "inconsistent_labels": [],
+        "n_true": 14,
+        "pct_true": 35.0,
+        "ci95_pct_true_low": 22.13452887317629,
+        "ci95_pct_true_high": 50.494119162742315
+      },
+      "alerts": []
+    },
+    "n": {
+      "name": "n",
+      "errors": {},
+      "semantic_type": "numeric_discrete",
+      "pandas_dtype": "Int64",
+      "confidence": 0.85,
+      "reason": "Int64 dtype: integer values (9 distinct)",
+      "suggestions": [],
+      "stats": {
+        "count": 28,
+        "n_missing": 12,
+        "pct_missing": 30.0,
+        "n_unique": 9,
+        "pct_unique": 32.142857142857146,
+        "memory_bytes": 360,
+        "modes": [
+          6,
+          3,
+          7
+        ],
+        "mode_freq": 4,
+        "mode_pct": 14.285714285714286,
+        "top_values": [
+          {
+            "value": 6,
+            "count": 4,
+            "pct": 14.285714285714286
+          },
+          {
+            "value": 3,
+            "count": 4,
+            "pct": 14.285714285714286
+          },
+          {
+            "value": 7,
+            "count": 4,
+            "pct": 14.285714285714286
+          },
+          {
+            "value": 8,
+            "count": 4,
+            "pct": 14.285714285714286
+          },
+          {
+            "value": 2,
+            "count": 3,
+            "pct": 10.714285714285714
+          },
+          {
+            "value": 1,
+            "count": 3,
+            "pct": 10.714285714285714
+          },
+          {
+            "value": 4,
+            "count": 2,
+            "pct": 7.142857142857143
+          },
+          {
+            "value": 5,
+            "count": 2,
+            "pct": 7.142857142857143
+          },
+          {
+            "value": 0,
+            "count": 2,
+            "pct": 7.142857142857143
+          }
+        ],
+        "n_inf": 0,
+        "mean": 4.392857142857143,
+        "std": 2.643500565177779,
+        "var": 6.988095238095238,
+        "sem": 0.4995746490085068,
+        "cv": 0.6017724863819335,
+        "min": 0.0,
+        "max": 8.0,
+        "range": 8.0,
+        "sum": 123.0,
+        "p1": 0.0,
+        "p5": 0.3500000000000001,
+        "p10": 1.0,
+        "p25": 2.0,
+        "p50": 4.5,
+        "p75": 7.0,
+        "p90": 8.0,
+        "p95": 8.0,
+        "p99": 8.0,
+        "median": 4.5,
+        "iqr": 5.0,
+        "mad": 2.5,
+        "trimmed_mean": 4.458333333333333,
+        "geometric_mean": null,
+        "harmonic_mean": null,
+        "skewness": -0.136175129914505,
+        "kurtosis": -1.3325761123651245,
+        "n_zeros": 2,
+        "n_negative": 0,
+        "iqr_lower": -5.5,
+        "iqr_upper": 14.5,
+        "n_outliers_iqr": 0,
+        "pct_outliers_iqr": 0.0,
+        "n_outliers_z": 0,
+        "pct_outliers_z": 0.0,
+        "n_outliers_mz": 0,
+        "pct_outliers_mz": 0.0,
+        "n_decimals": 0,
+        "pct_round_values": null,
+        "heaping_index": null,
+        "monotonic_increasing": false,
+        "monotonic_decreasing": false,
+        "bimodality_coefficient": 0.5012421166837525,
+        "n_modes_kde": 2,
+        "ci95_mean_low": 3.367814632761562,
+        "ci95_mean_high": 5.417899652952725,
+        "ci95_median_low": 2.0,
+        "ci95_median_high": 6.0,
+        "autocorr_lag1": 0.007120414163814481,
+        "autocorr_lag1_p": 0.9699446639904352
+      },
+      "distribution": {
+        "normality": {
+          "n": 28,
+          "alpha": 0.05,
+          "shapiro_stat": 0.9227254142096089,
+          "shapiro_p": 0.040525039339337876,
+          "dagostino_stat": 7.391917984745968,
+          "dagostino_p": 0.024823636565971797,
+          "jarque_bera_stat": 2.0890504862211072,
+          "jarque_bera_p": 0.35185882713318295,
+          "anderson_stat": 0.687162379469747,
+          "anderson_p": 0.06830667544027905,
+          "n_tests": 4,
+          "n_reject": 2,
+          "verdict": "not normal"
+        },
+        "fit": {
+          "n_used": 28,
+          "fits": [
+            {
+              "distribution": "nbinom",
+              "label": "negative binomial",
+              "params": {
+                "n": 5.636863134762455,
+                "p": 0.562015986362112
+              },
+              "n_params": 2,
+              "loglik": -66.98619299971932,
+              "aic": 137.97238599943864,
+              "bic": 140.63679501978905,
+              "ks_stat": 0.12920222820787386,
+              "ks_pvalue": 0.19489868402418292,
+              "note": "",
+              "delta_aic": 0.0,
+              "akaike_weight": 0.7227473879666688
+            },
+            {
+              "distribution": "poisson",
+              "label": "Poisson",
+              "params": {
+                "mu": 4.392857142857143
+              },
+              "n_params": 1,
+              "loglik": -68.97611150887784,
+              "aic": 139.95222301775567,
+              "bic": 141.2844275279309,
+              "ks_stat": 0.14968755711615533,
+              "ks_pvalue": 0.06359320496722136,
+              "note": "",
+              "delta_aic": 1.9798370183170277,
+              "akaike_weight": 0.2685779686183925
+            },
+            {
+              "distribution": "geom",
+              "label": "geometric",
+              "params": {
+                "p": 0.18543046357615892,
+                "loc": -1.0
+              },
+              "n_params": 1,
+              "loglik": -72.40885336334053,
+              "aic": 146.81770672668105,
+              "bic": 148.14991123685627,
+              "ks_stat": 0.17379966031631416,
+              "ks_pvalue": 0.13198584451893713,
+              "note": "support starts at 0",
+              "delta_aic": 8.84532072724241,
+              "akaike_weight": 0.008674601630724667
+            }
+          ],
+          "best": "nbinom",
+          "failed": {},
+          "ks_note": "KS p-values are optimistic: the parameters were estimated from the same data. For integer data the gap is measured on the integer support and the p-value is a chi-square goodness-of-fit test.",
+          "kind": "discrete",
+          "n_candidates_fitted": 4,
+          "description": "roughly symmetric, light-tailed, best fit negative binomial(n=5.64, p=0.562)"
+        }
+      },
+      "alerts": []
+    },
+    "pipe|name.1": {
+      "name": "pipe|name.1",
+      "errors": {},
+      "semantic_type": "categorical",
+      "pandas_dtype": "interval[int64, right]",
+      "confidence": 0.5,
+      "reason": "unrecognised dtype interval[int64, right], treated as labels",
+      "suggestions": [],
+      "stats": {
+        "count": 40,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 40,
+        "pct_unique": 100.0,
+        "memory_bytes": 640,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": "(0, 1]",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "(1, 2]",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "(2, 3]",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "(3, 4]",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "(4, 5]",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "(5, 6]",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "(6, 7]",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "(7, 8]",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "(8, 9]",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "(9, 10]",
+            "count": 1,
+            "pct": 2.5
+          }
+        ],
+        "cardinality": 40,
+        "entropy": 5.321928094887363,
+        "normalized_entropy": 1.0,
+        "gini_impurity": 0.975,
+        "imbalance_ratio": 1.0,
+        "n_rare_categories": 0,
+        "pct_rows_rare": 0.0,
+        "rare_categories": [],
+        "uniform_chi2_p": 1.0,
+        "n_inconsistent_groups": 0,
+        "inconsistent_labels": []
+      },
+      "alerts": []
+    }
+  },
+  "correlations": {
+    "cramers_v": {
+      "pipe|name": {
+        "pipe|name": 1.0,
+        "column": null,
+        "pipe|name.1": null
+      },
+      "column": {
+        "pipe|name": null,
+        "column": 1.0,
+        "pipe|name.1": null
+      },
+      "pipe|name.1": {
+        "pipe|name": null,
+        "column": null,
+        "pipe|name.1": 1.0
+      }
+    },
+    "cramers_v_p": {
+      "pipe|name": {
+        "pipe|name": 0.0,
+        "column": 0.42555940164393696,
+        "pipe|name.1": 0.23785667009285985
+      },
+      "column": {
+        "pipe|name": 0.42555940164393696,
+        "column": 0.0,
+        "pipe|name.1": 0.42555940164393696
+      },
+      "pipe|name.1": {
+        "pipe|name": 0.23785667009285985,
+        "column": 0.42555940164393696,
+        "pipe|name.1": 0.0
+      }
+    },
+    "cramers_v_n": {
+      "pipe|name": {
+        "pipe|name": 40.0,
+        "column": 40.0,
+        "pipe|name.1": 40.0
+      },
+      "column": {
+        "pipe|name": 40.0,
+        "column": 40.0,
+        "pipe|name.1": 40.0
+      },
+      "pipe|name.1": {
+        "pipe|name": 40.0,
+        "column": 40.0,
+        "pipe|name.1": 40.0
+      }
+    },
+    "eta": {
+      "pipe|name": {
+        "n": 1.0
+      },
+      "column": {
+        "n": 0.09571552272715839
+      },
+      "pipe|name.1": {
+        "n": 1.0
+      }
+    },
+    "eta_p": {
+      "pipe|name": {
+        "n": 0.46379481562055824
+      },
+      "column": {
+        "n": 0.6633344774873957
+      },
+      "pipe|name.1": {
+        "n": 0.46379481562055824
+      }
+    },
+    "eta_n": {
+      "pipe|name": {
+        "n": 28.0
+      },
+      "column": {
+        "n": 28.0
+      },
+      "pipe|name.1": {
+        "n": 28.0
+      }
+    },
+    "pairs": [
+      {
+        "col_a": "pipe|name",
+        "col_b": "n",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 1.0,
+        "abs_value": 1.0,
+        "n": 28,
+        "test": "kruskal-wallis",
+        "p_value": 0.46379481562055824,
+        "p_adjusted": 0.6633344774873957,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "pipe|name.1",
+        "col_b": "n",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 1.0,
+        "abs_value": 1.0,
+        "n": 28,
+        "test": "kruskal-wallis",
+        "p_value": 0.46379481562055824,
+        "p_adjusted": 0.6633344774873957,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "column",
+        "col_b": "n",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 0.09571552272715839,
+        "abs_value": 0.09571552272715839,
+        "n": 28,
+        "test": "kruskal-wallis",
+        "p_value": 0.6633344774873957,
+        "p_adjusted": 0.6633344774873957,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      }
+    ],
+    "top_pairs": [
+      {
+        "col_a": "pipe|name",
+        "col_b": "n",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 1.0,
+        "abs_value": 1.0,
+        "n": 28,
+        "test": "kruskal-wallis",
+        "p_value": 0.46379481562055824,
+        "p_adjusted": 0.6633344774873957,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "col_a": "pipe|name.1",
+        "col_b": "n",
+        "kind": "cat-num",
+        "method": "eta",
+        "value": 1.0,
+        "abs_value": 1.0,
+        "n": 28,
+        "test": "kruskal-wallis",
+        "p_value": 0.46379481562055824,
+        "p_adjusted": 0.6633344774873957,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      }
+    ],
+    "association": {
+      "n": {
+        "n": 1.0,
+        "pipe|name": 1.0,
+        "column": 0.09571552272715839,
+        "pipe|name.1": 1.0
+      },
+      "pipe|name": {
+        "n": 1.0,
+        "pipe|name": 1.0,
+        "column": null,
+        "pipe|name.1": null
+      },
+      "column": {
+        "n": 0.09571552272715839,
+        "pipe|name": null,
+        "column": 1.0,
+        "pipe|name.1": null
+      },
+      "pipe|name.1": {
+        "n": 1.0,
+        "pipe|name": null,
+        "column": null,
+        "pipe|name.1": 1.0
+      }
+    },
+    "association_p": {
+      "n": {
+        "n": 0.0,
+        "pipe|name": 0.46379481562055824,
+        "column": 0.6633344774873957,
+        "pipe|name.1": 0.46379481562055824
+      },
+      "pipe|name": {
+        "n": 0.46379481562055824,
+        "pipe|name": 0.0,
+        "column": null,
+        "pipe|name.1": null
+      },
+      "column": {
+        "n": 0.6633344774873957,
+        "pipe|name": null,
+        "column": 0.0,
+        "pipe|name.1": null
+      },
+      "pipe|name.1": {
+        "n": 0.46379481562055824,
+        "pipe|name": null,
+        "column": null,
+        "pipe|name.1": 0.0
+      }
+    },
+    "missingness": [
+      {
+        "column": "n",
+        "pct_missing": 30.0,
+        "depends_on": "column",
+        "test": "chi-square (V)",
+        "effect": 0.13109470506889243,
+        "p_value": 0.19288443448048306,
+        "p_adjusted": 0.425559401643938,
+        "significant": false,
+        "detail": "43% missing when column=True vs 23% when column=False"
+      },
+      {
+        "column": "n",
+        "pct_missing": 30.0,
+        "depends_on": "pipe|name",
+        "test": "chi-square (V)",
+        "effect": null,
+        "p_value": 0.42555940164393696,
+        "p_adjusted": 0.425559401643938,
+        "significant": false,
+        "detail": "100% missing when pipe|name=2020-01 vs 0% when pipe|name=2020-04"
+      },
+      {
+        "column": "n",
+        "pct_missing": 30.0,
+        "depends_on": "pipe|name.1",
+        "test": "chi-square (V)",
+        "effect": null,
+        "p_value": 0.425559401643938,
+        "p_adjusted": 0.425559401643938,
+        "significant": false,
+        "detail": "100% missing when pipe|name.1=(0, 1] vs 0% when pipe|name.1=(10, 11]"
+      }
+    ],
+    "target": [
+      {
+        "feature": "n",
+        "feature_type": "numeric_discrete",
+        "method": "eta",
+        "association": 0.09571552272715839,
+        "n": 28,
+        "test": "mann-whitney",
+        "p_value": 0.6820206342136664,
+        "p_adjusted": 0.6820206342136664,
+        "significant": false,
+        "auc": 0.446875,
+        "mutual_info": 0.49652547904911665,
+        "leakage_suspect": false
+      }
+    ],
+    "missing_target": [
+      {
+        "feature": "n",
+        "pct_missing": 30.0,
+        "test": "chi-square (V)",
+        "effect": 0.13109470506889245,
+        "p_value": 0.19288443448048298,
+        "p_adjusted": 0.19288443448048298,
+        "significant": false,
+        "detail": "column=True: 50% when missing vs 29% when present"
+      }
+    ]
+  },
+  "quality": {
+    "duplicate_rows": {
+      "count": 0,
+      "pct": 0.0,
+      "example_indices": []
+    },
+    "duplicate_columns": [],
+    "empty_columns": [],
+    "constant_columns": [],
+    "quasi_constant_columns": {},
+    "high_missing_columns": {
+      "n": 30.0
+    },
+    "missing_patterns": {
+      "co_missing": [],
+      "n_rows_many_missing": 0,
+      "rows_many_missing_examples": [],
+      "top_patterns": [
+        {
+          "columns": [
+            "n"
+          ],
+          "rows": 12
+        }
+      ]
+    },
+    "mixed_type_columns": {},
+    "whitespace_columns": {},
+    "placeholder_values": {},
+    "suspicious_values": {},
+    "id_columns": [],
+    "redundant_pairs": [
+      {
+        "col_a": "pipe|name",
+        "col_b": "n",
+        "method": "eta",
+        "value": 1.0
+      },
+      {
+        "col_a": "pipe|name.1",
+        "col_b": "n",
+        "method": "eta",
+        "value": 1.0
+      }
+    ],
+    "dtype_optimizations": [
+      {
+        "column": "True",
+        "current_dtype": "str",
+        "suggested_dtype": "datetime64",
+        "current_bytes": 720,
+        "new_bytes": 320,
+        "saving_bytes": 400,
+        "saving_pct": 55.55555555555556,
+        "code": "df['True'] = pd.to_datetime(df['True'], errors='coerce', format='mixed')"
+      }
+    ],
+    "conversion_suggestions": {
+      "True": [
+        {
+          "flag": "should-be-datetime",
+          "code": "df['True'] = pd.to_datetime(df['True'], errors='coerce', format='mixed')"
+        }
+      ]
+    },
+    "memory_bytes": 3152,
+    "potential_saving_bytes": 400,
+    "alerts": [
+      {
+        "severity": "medium",
+        "column": "True",
+        "message": "should-be-datetime: df['True'] = pd.to_datetime(df['True'], errors='coerce', format='mixed')",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "n",
+        "message": "30.0% missing -> drop, or impute and add a missing-indicator",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "n",
+        "message": "redundant with 'pipe|name' (eta +1.000), 'pipe|name.1' (eta +1.000) -> keep only one",
+        "kind": null
+      },
+      {
+        "severity": "info",
+        "column": null,
+        "message": "dtype optimizations save ~400 B: True -> datetime64 (see quality['dtype_optimizations'] for code)",
+        "kind": null
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "severity": "medium",
+      "column": null,
+      "message": "duplicate or non-string column names were renamed (a, a.1, ...)",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "True",
+      "message": "should-be-datetime: df['True'] = pd.to_datetime(df['True'], errors='coerce', format='mixed')",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "n",
+      "message": "30.0% missing -> drop, or impute and add a missing-indicator",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "n",
+      "message": "redundant with 'pipe|name' (eta +1.000), 'pipe|name.1' (eta +1.000) -> keep only one",
+      "kind": null
+    },
+    {
+      "severity": "info",
+      "column": null,
+      "message": "dtype optimizations save ~400 B: True -> datetime64 (see quality['dtype_optimizations'] for code)",
+      "kind": null
+    },
+    {
+      "severity": "info",
+      "column": "True",
+      "message": "rows per week decrease over time (Kendall tau -0.33, p=0.0037)",
+      "kind": null
+    },
+    {
+      "severity": "info",
+      "column": "pipe|name",
+      "message": "2 data items per cell joined by '-' (e.g. '2021-11') -> split into 2 columns",
+      "kind": "composite"
+    }
+  ],
+  "plots": []
+}

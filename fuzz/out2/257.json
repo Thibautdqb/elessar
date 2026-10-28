@@ -1,0 +1,906 @@
+{
+  "overview": {
+    "n_rows": 40,
+    "n_columns": 6,
+    "n_rows_profiled": 40,
+    "sampled": false,
+    "memory_bytes": 12680,
+    "potential_saving_bytes": 4216,
+    "pandas_dtypes": {
+      "object": 3,
+      "bool": 1,
+      "float64": 1,
+      "datetime64[us, UTC]": 1
+    },
+    "semantic_types": {
+      "boolean": 1,
+      "constant": 1,
+      "json_like": 1,
+      "datetime": 1,
+      "categorical": 1,
+      "numeric_discrete": 1
+    },
+    "n_duplicate_rows": 0,
+    "pct_duplicate_rows": 0.0,
+    "pct_missing_cells": 0.0,
+    "n_rows_with_missing": 0,
+    "target": null,
+    "source": "pandas.DataFrame · read in 0.0s",
+    "workers": 3,
+    "chart_workers": 3
+  },
+  "summary": [
+    {
+      "column": "../../etc",
+      "semantic_type": "boolean",
+      "pandas_dtype": "bool",
+      "count": 40,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 5.0,
+      "top_value": false,
+      "top_pct": 67.5,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": 0.9097361225311662,
+      "memory_bytes": 40,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "-",
+      "semantic_type": "constant",
+      "pandas_dtype": "float64",
+      "count": 40,
+      "pct_missing": 0.0,
+      "n_unique": 1,
+      "pct_unique": 2.5,
+      "top_value": 0.0,
+      "top_pct": 100.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 320,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "NaN",
+      "semantic_type": "json_like",
+      "pandas_dtype": "object",
+      "count": 40,
+      "pct_missing": 0.0,
+      "n_unique": 21,
+      "pct_unique": 52.5,
+      "top_value": "[1, 2]",
+      "top_pct": 50.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 5440,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "semantic_type": "datetime",
+      "pandas_dtype": "datetime64[us, UTC]",
+      "count": 40,
+      "pct_missing": 0.0,
+      "n_unique": 40,
+      "pct_unique": 100.0,
+      "top_value": "2021-01-01 00:00:00+00:00",
+      "top_pct": 2.5,
+      "mean": null,
+      "std": null,
+      "min": "2021-01-01",
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": "2021-01-02 15:00:00",
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 320,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "-1",
+      "semantic_type": "categorical",
+      "pandas_dtype": "object",
+      "count": 40,
+      "pct_missing": 0.0,
+      "n_unique": 2,
+      "pct_unique": 5.0,
+      "top_value": "1.5",
+      "top_pct": 50.0,
+      "mean": null,
+      "std": null,
+      "min": null,
+      "p25": null,
+      "median": null,
+      "p75": null,
+      "max": null,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": null,
+      "normality": null,
+      "best_fit": null,
+      "entropy": 1.0,
+      "memory_bytes": 4480,
+      "n_alerts": 0,
+      "errors": null
+    },
+    {
+      "column": "price ($)",
+      "semantic_type": "numeric_discrete",
+      "pandas_dtype": "object",
+      "count": 40,
+      "pct_missing": 0.0,
+      "n_unique": 40,
+      "pct_unique": 100.0,
+      "top_value": 1180591620717411303424,
+      "top_pct": 2.5,
+      "mean": 1.1805916207174113e+21,
+      "std": 0.0,
+      "min": 1.1805916207174113e+21,
+      "p25": 1.1805916207174113e+21,
+      "median": 1.1805916207174113e+21,
+      "p75": 1.1805916207174113e+21,
+      "max": 1.1805916207174113e+21,
+      "skewness": null,
+      "kurtosis": null,
+      "pct_outliers_iqr": 0.0,
+      "normality": "constant",
+      "best_fit": null,
+      "entropy": null,
+      "memory_bytes": 1760,
+      "n_alerts": 0,
+      "errors": null
+    }
+  ],
+  "columns": {
+    "../../etc": {
+      "name": "../../etc",
+      "errors": {},
+      "semantic_type": "boolean",
+      "pandas_dtype": "bool",
+      "confidence": 1.0,
+      "reason": "bool dtype",
+      "suggestions": [],
+      "stats": {
+        "count": 40,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 5.0,
+        "memory_bytes": 40,
+        "modes": [
+          false
+        ],
+        "mode_freq": 27,
+        "mode_pct": 67.5,
+        "top_values": [
+          {
+            "value": false,
+            "count": 27,
+            "pct": 67.5
+          },
+          {
+            "value": true,
+            "count": 13,
+            "pct": 32.5
+          }
+        ],
+        "cardinality": 2,
+        "entropy": 0.9097361225311662,
+        "normalized_entropy": 0.9097361225311662,
+        "gini_impurity": 0.43875,
+        "imbalance_ratio": 2.076923076923077,
+        "n_rare_categories": 0,
+        "pct_rows_rare": 0.0,
+        "rare_categories": [],
+        "uniform_chi2_p": 0.02685669550752441,
+        "n_inconsistent_groups": 0,
+        "inconsistent_labels": [],
+        "n_true": 13,
+        "pct_true": 32.5,
+        "ci95_pct_true_low": 20.0845022317827,
+        "ci95_pct_true_high": 47.98225381012233
+      },
+      "alerts": []
+    },
+    "-": {
+      "name": "-",
+      "errors": {},
+      "semantic_type": "constant",
+      "pandas_dtype": "float64",
+      "confidence": 1.0,
+      "reason": "single value: '0.0'",
+      "suggestions": [],
+      "stats": {
+        "count": 40,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 1,
+        "pct_unique": 2.5,
+        "memory_bytes": 320,
+        "modes": [
+          0.0
+        ],
+        "mode_freq": 40,
+        "mode_pct": 100.0,
+        "top_values": [
+          {
+            "value": 0.0,
+            "count": 40,
+            "pct": 100.0
+          }
+        ]
+      },
+      "alerts": []
+    },
+    "NaN": {
+      "name": "NaN",
+      "errors": {},
+      "semantic_type": "json_like",
+      "pandas_dtype": "object",
+      "confidence": 1.0,
+      "reason": "cells contain Python dict/list objects",
+      "suggestions": [],
+      "stats": {
+        "count": 40,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 21,
+        "pct_unique": 52.5,
+        "memory_bytes": 5440,
+        "modes": [
+          "[1, 2]"
+        ],
+        "mode_freq": 20,
+        "mode_pct": 50.0,
+        "top_values": [
+          {
+            "value": "[1, 2]",
+            "count": 20,
+            "pct": 50.0
+          },
+          {
+            "value": "{'k': 0}",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "{'k': 2}",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "{'k': 4}",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "{'k': 6}",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "{'k': 8}",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "{'k': 10}",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "{'k': 12}",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "{'k': 14}",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "{'k': 16}",
+            "count": 1,
+            "pct": 2.5
+          }
+        ],
+        "python_kinds": {
+          "dict": 20,
+          "list": 20
+        },
+        "top_keys": [
+          {
+            "key": "k",
+            "count": 20
+          }
+        ]
+      },
+      "alerts": []
+    },
+    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": {
+      "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "errors": {},
+      "semantic_type": "datetime",
+      "pandas_dtype": "datetime64[us, UTC]",
+      "confidence": 1.0,
+      "reason": "datetime dtype",
+      "suggestions": [],
+      "stats": {
+        "count": 40,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 40,
+        "pct_unique": 100.0,
+        "memory_bytes": 320,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": "2021-01-01 00:00:00+00:00",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2021-01-01 01:00:00+00:00",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2021-01-01 02:00:00+00:00",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2021-01-01 03:00:00+00:00",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2021-01-01 04:00:00+00:00",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2021-01-01 05:00:00+00:00",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2021-01-01 06:00:00+00:00",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2021-01-01 07:00:00+00:00",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2021-01-01 08:00:00+00:00",
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": "2021-01-01 09:00:00+00:00",
+            "count": 1,
+            "pct": 2.5
+          }
+        ],
+        "min": "2021-01-01",
+        "max": "2021-01-02 15:00:00",
+        "span": "1 days 15:00:00",
+        "span_days": 1.625,
+        "inferred_freq": "h",
+        "largest_gaps": [
+          {
+            "start": "2021-01-01",
+            "end": "2021-01-01 01:00:00",
+            "gap": "0 days 01:00:00"
+          },
+          {
+            "start": "2021-01-01 01:00:00",
+            "end": "2021-01-01 02:00:00",
+            "gap": "0 days 01:00:00"
+          },
+          {
+            "start": "2021-01-01 02:00:00",
+            "end": "2021-01-01 03:00:00",
+            "gap": "0 days 01:00:00"
+          }
+        ],
+        "n_duplicated_timestamps": 0,
+        "n_future": 0,
+        "n_before_1900": 0,
+        "n_unparsed": 0,
+        "monotonic_increasing": true,
+        "monotonic_decreasing": false,
+        "by_weekday": {
+          "Fri": 24,
+          "Sat": 16
+        },
+        "by_hour": {
+          "0": 2,
+          "1": 2,
+          "2": 2,
+          "3": 2,
+          "4": 2,
+          "5": 2,
+          "6": 2,
+          "7": 2,
+          "8": 2,
+          "9": 2,
+          "10": 2,
+          "11": 2,
+          "12": 2,
+          "13": 2,
+          "14": 2,
+          "15": 2,
+          "16": 1,
+          "17": 1,
+          "18": 1,
+          "19": 1,
+          "20": 1,
+          "21": 1,
+          "22": 1,
+          "23": 1
+        }
+      },
+      "alerts": []
+    },
+    "-1": {
+      "name": "-1",
+      "errors": {},
+      "semantic_type": "categorical",
+      "pandas_dtype": "object",
+      "confidence": 0.5,
+      "reason": "Decimal objects, treated as labels",
+      "suggestions": [
+        {
+          "flag": "should-be-category",
+          "code": "df['-1'] = df['-1'].astype('category')"
+        }
+      ],
+      "stats": {
+        "count": 40,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 2,
+        "pct_unique": 5.0,
+        "memory_bytes": 4480,
+        "modes": [
+          "1.5",
+          "2.25"
+        ],
+        "mode_freq": 20,
+        "mode_pct": 50.0,
+        "top_values": [
+          {
+            "value": "1.5",
+            "count": 20,
+            "pct": 50.0
+          },
+          {
+            "value": "2.25",
+            "count": 20,
+            "pct": 50.0
+          }
+        ],
+        "cardinality": 2,
+        "entropy": 1.0,
+        "normalized_entropy": 1.0,
+        "gini_impurity": 0.5,
+        "imbalance_ratio": 1.0,
+        "n_rare_categories": 0,
+        "pct_rows_rare": 0.0,
+        "rare_categories": [],
+        "uniform_chi2_p": 1.0,
+        "n_inconsistent_groups": 0,
+        "inconsistent_labels": []
+      },
+      "alerts": []
+    },
+    "price ($)": {
+      "name": "price ($)",
+      "errors": {},
+      "semantic_type": "numeric_discrete",
+      "pandas_dtype": "object",
+      "confidence": 0.85,
+      "reason": "numbers in object column: integer values (1 distinct)",
+      "suggestions": [
+        {
+          "flag": "should-be-numeric",
+          "code": "df['price ($)'] = pd.to_numeric(df['price ($)'], errors='coerce')"
+        }
+      ],
+      "stats": {
+        "count": 40,
+        "n_missing": 0,
+        "pct_missing": 0.0,
+        "n_unique": 40,
+        "pct_unique": 100.0,
+        "memory_bytes": 1760,
+        "modes": [],
+        "mode_freq": null,
+        "mode_pct": null,
+        "top_values": [
+          {
+            "value": 1180591620717411303424,
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": 1180591620717411303425,
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": 1180591620717411303426,
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": 1180591620717411303427,
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": 1180591620717411303428,
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": 1180591620717411303429,
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": 1180591620717411303430,
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": 1180591620717411303431,
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": 1180591620717411303432,
+            "count": 1,
+            "pct": 2.5
+          },
+          {
+            "value": 1180591620717411303433,
+            "count": 1,
+            "pct": 2.5
+          }
+        ],
+        "n_inf": 0,
+        "mean": 1.1805916207174113e+21,
+        "std": 0.0,
+        "var": 0.0,
+        "sem": 0.0,
+        "cv": 0.0,
+        "min": 1.1805916207174113e+21,
+        "max": 1.1805916207174113e+21,
+        "range": 0.0,
+        "sum": 4.722366482869645e+22,
+        "p1": 1.1805916207174113e+21,
+        "p5": 1.1805916207174113e+21,
+        "p10": 1.1805916207174113e+21,
+        "p25": 1.1805916207174113e+21,
+        "p50": 1.1805916207174113e+21,
+        "p75": 1.1805916207174113e+21,
+        "p90": 1.1805916207174113e+21,
+        "p95": 1.1805916207174113e+21,
+        "p99": 1.1805916207174113e+21,
+        "median": 1.1805916207174113e+21,
+        "iqr": 0.0,
+        "mad": 0.0,
+        "trimmed_mean": 1.1805916207174113e+21,
+        "geometric_mean": 1.1805916207174144e+21,
+        "harmonic_mean": 1.1805916207174113e+21,
+        "skewness": null,
+        "kurtosis": null,
+        "n_zeros": 0,
+        "n_negative": 0,
+        "iqr_lower": 1.1805916207174113e+21,
+        "iqr_upper": 1.1805916207174113e+21,
+        "n_outliers_iqr": 0,
+        "pct_outliers_iqr": 0.0,
+        "n_outliers_z": 0,
+        "pct_outliers_z": 0.0,
+        "n_outliers_mz": 0,
+        "pct_outliers_mz": 0.0,
+        "n_decimals": 0,
+        "pct_round_values": null,
+        "heaping_index": null,
+        "monotonic_increasing": true,
+        "monotonic_decreasing": true,
+        "bimodality_coefficient": null,
+        "n_modes_kde": null,
+        "ci95_mean_low": 1.1805916207174113e+21,
+        "ci95_mean_high": 1.1805916207174113e+21,
+        "ci95_median_low": 1.1805916207174113e+21,
+        "ci95_median_high": 1.1805916207174113e+21,
+        "autocorr_lag1": null,
+        "autocorr_lag1_p": null
+      },
+      "distribution": {
+        "normality": {
+          "n": 40,
+          "alpha": 0.05,
+          "verdict": "constant"
+        },
+        "fit": {
+          "n_used": 0,
+          "fits": [],
+          "best": null,
+          "failed": {},
+          "ks_note": "KS p-values are optimistic: the parameters were estimated from the same data. For integer data the gap is measured on the integer support and the p-value is a chi-square goodness-of-fit test.",
+          "description": "not enough distinct values to fit a distribution"
+        }
+      },
+      "alerts": []
+    }
+  },
+  "correlations": {
+    "cramers_v": {
+      "../../etc": {
+        "../../etc": 1.0,
+        "-1": 0.0
+      },
+      "-1": {
+        "../../etc": 0.0,
+        "-1": 1.0
+      }
+    },
+    "cramers_v_p": {
+      "../../etc": {
+        "../../etc": 0.0,
+        "-1": 0.3111846688226151
+      },
+      "-1": {
+        "../../etc": 0.3111846688226151,
+        "-1": 0.0
+      }
+    },
+    "cramers_v_n": {
+      "../../etc": {
+        "../../etc": 40.0,
+        "-1": 40.0
+      },
+      "-1": {
+        "../../etc": 40.0,
+        "-1": 40.0
+      }
+    },
+    "eta": {
+      "../../etc": {
+        "price ($)": null
+      },
+      "-1": {
+        "price ($)": null
+      }
+    },
+    "eta_p": {
+      "../../etc": {
+        "price ($)": null
+      },
+      "-1": {
+        "price ($)": null
+      }
+    },
+    "eta_n": {
+      "../../etc": {
+        "price ($)": 40.0
+      },
+      "-1": {
+        "price ($)": 40.0
+      }
+    },
+    "pairs": [
+      {
+        "col_a": "../../etc",
+        "col_b": "-1",
+        "kind": "cat-cat",
+        "method": "cramers_v",
+        "value": 0.0,
+        "abs_value": 0.0,
+        "n": 40,
+        "test": "chi-square",
+        "p_value": 0.3111846688226151,
+        "p_adjusted": 0.3111846688226151,
+        "significant": false,
+        "ci_low": null,
+        "ci_high": null
+      }
+    ],
+    "top_pairs": [],
+    "association": {
+      "price ($)": {
+        "price ($)": 1.0,
+        "../../etc": null,
+        "-1": null
+      },
+      "../../etc": {
+        "price ($)": null,
+        "../../etc": 1.0,
+        "-1": 0.0
+      },
+      "-1": {
+        "price ($)": null,
+        "../../etc": 0.0,
+        "-1": 1.0
+      }
+    },
+    "association_p": {
+      "price ($)": {
+        "price ($)": 0.0,
+        "../../etc": null,
+        "-1": null
+      },
+      "../../etc": {
+        "price ($)": null,
+        "../../etc": 0.0,
+        "-1": 0.3111846688226151
+      },
+      "-1": {
+        "price ($)": null,
+        "../../etc": 0.3111846688226151,
+        "-1": 0.0
+      }
+    },
+    "missingness": []
+  },
+  "quality": {
+    "duplicate_rows": {
+      "count": 0,
+      "pct": 0.0,
+      "example_indices": []
+    },
+    "duplicate_columns": [],
+    "empty_columns": [],
+    "constant_columns": [
+      "-"
+    ],
+    "quasi_constant_columns": {},
+    "high_missing_columns": {},
+    "missing_patterns": {
+      "co_missing": [],
+      "n_rows_many_missing": 0,
+      "rows_many_missing_examples": [],
+      "top_patterns": []
+    },
+    "mixed_type_columns": {},
+    "whitespace_columns": {},
+    "placeholder_values": {},
+    "suspicious_values": {},
+    "id_columns": [],
+    "redundant_pairs": [],
+    "dtype_optimizations": [
+      {
+        "column": "-1",
+        "current_dtype": "object",
+        "suggested_dtype": "category",
+        "current_bytes": 4480,
+        "new_bytes": 264,
+        "saving_bytes": 4216,
+        "saving_pct": 94.10714285714286,
+        "code": "df['-1'] = df['-1'].astype('category')"
+      }
+    ],
+    "conversion_suggestions": {
+      "-1": [
+        {
+          "flag": "should-be-category",
+          "code": "df['-1'] = df['-1'].astype('category')"
+        }
+      ],
+      "price ($)": [
+        {
+          "flag": "should-be-numeric",
+          "code": "df['price ($)'] = pd.to_numeric(df['price ($)'], errors='coerce')"
+        }
+      ]
+    },
+    "memory_bytes": 12680,
+    "potential_saving_bytes": 4216,
+    "alerts": [
+      {
+        "severity": "medium",
+        "column": "-",
+        "message": "constant column carries no information -> drop it",
+        "kind": null
+      },
+      {
+        "severity": "medium",
+        "column": "price ($)",
+        "message": "should-be-numeric: df['price ($)'] = pd.to_numeric(df['price ($)'], errors='coerce')",
+        "kind": null
+      },
+      {
+        "severity": "info",
+        "column": null,
+        "message": "dtype optimizations save ~4.1 KB: -1 -> category (see quality['dtype_optimizations'] for code)",
+        "kind": null
+      }
+    ]
+  },
+  "alerts": [
+    {
+      "severity": "medium",
+      "column": "-",
+      "message": "constant column carries no information -> drop it",
+      "kind": null
+    },
+    {
+      "severity": "medium",
+      "column": "price ($)",
+      "message": "should-be-numeric: df['price ($)'] = pd.to_numeric(df['price ($)'], errors='coerce')",
+      "kind": null
+    },
+    {
+      "severity": "info",
+      "column": null,
+      "message": "dtype optimizations save ~4.1 KB: -1 -> category (see quality['dtype_optimizations'] for code)",
+      "kind": null
+    },
+    {
+      "severity": "info",
+      "column": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "message": "a time series, hour steps -> time-ordered validation, lags and windows (see Time series)",
+      "kind": "timeseries"
+    }
+  ],
+  "plots": [
+    "fuzz/out2/257/00_dataset_overview.png",
+    "fuzz/out2/257/01_dataset_association.png",
+    "fuzz/out2/257/02_.._.._etc_bar.png",
+    "fuzz/out2/257/03_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_time.png",
+    "fuzz/out2/257/04_-1_bar.png",
+    "fuzz/out2/257/05_dataset_timeseries.png"
+  ]
+}
