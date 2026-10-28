@@ -11,3 +11,4 @@ htmlcov/
 elessar_report/
 elessar_report.*
 .DS_Store
+fuzz/
