@@ -231,9 +231,9 @@ def dtype_optimization(s: pd.Series, stype: str) -> dict[str, Any] | None:
         elif is_text_dtype(s) and stype == "numeric_string":
             new = as_numeric(s)
             suggestion = ("float64", new, f"df[{col}] = elessar.types.parse_numeric(df[{col}])")
-        elif is_text_dtype(s) and stype == "datetime_string":
+        elif stype == "datetime_string":
             new = as_datetime(s)
-            suggestion = ("datetime64", new, f"df[{col}] = pd.to_datetime(df[{col}], errors='coerce', format='mixed')")
+            suggestion = ("datetime64", new, f"df[{col}] = elessar.parse_dates(df[{col}])")
     if suggestion is None:
         return None
     dtype, new, code = suggestion

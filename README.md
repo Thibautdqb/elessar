@@ -165,6 +165,7 @@ pickled. Results are identical to a single-process run (a test checks it). Small
 | `see(data, target=None, config=None, plots=True, out_dir="elessar_report", verbose=True, open_report=None, name=None, **load_options)` | `Vision` | Runs everything below, prints the terminal report, writes the charts and the report page, opens it. `data` is anything `load` reads; `target="ask"` opens the picker. |
 | `load(source, config=None, *, sheet, table, sep, encoding, columns, nrows, engine)` | `Source` | Reads anything into `.df` (every row, or the sample of a big table), with `.full` (exact figures) and `.origin`. |
 | `suggest_targets(df)`, `pick_target(df)` | `list`, label | Ranked target candidates; the window / terminal picker. |
+| `parse_dates(series)` | `Series` | Dates in any of the formats below, as datetimes. |
 | `see_column(series, config=None)` | `dict` | Everything about one column: type, stats, distribution, alerts. |
 | `see_types(df)` | `DataFrame` | Semantic type, pandas dtype, confidence, reason, and conversion suggestions (should-be-numeric / datetime / boolean / category, with the code). |
 | `see_stats(df)` | `DataFrame` | Descriptive statistics, one row per column. |
@@ -212,6 +213,8 @@ anyway when you run interactively without `-t`). `python -m elessar` works too.
 ## What it computes
 
 **Semantic types**: `empty`, `constant`, `boolean` (including 0/1, yes/no, true/false, y/n, oui/non), `id` (unique or near-unique, consecutive ints, UUIDs), `numeric_continuous`, `numeric_discrete` (counts, few levels), `categorical` (labels and high-cardinality codes), `ordinal-candidate` (low/medium/high, sizes, Likert, months, weekdays, quarters, 1-5 integer scales, ordered categoricals), `datetime`, `datetime_string`, `numeric_string` (`"1 234,5"`, `"12%"`, `"$3.2"`), `text`, `multi_label` (lists of labels in a cell: `"Comedies, Dramas"`), `email`, `url`, `phone`, `postal_code`, `ip_address`, `json_like`, `mixed`. Numbers written with units (`"90 min"`, `"60 kg"`) are parsed, and mixed units in one column (`min` and `Seasons`, `kg` and `lbs`) are flagged.
+
+**Dates, whatever the format**: ISO 8601 with or without time and zone; day-first or month-first with any separator (the order that parses every value wins, and a column where both work is reported as ambiguous); month names in English, French, German, Spanish, Italian, Portuguese, Dutch and Czech; compact digits as text or numbers (`YYYYMMDD`, `YYMMDD`, `DDMMYYYY`, `YYYYMM`, `YYYYMMDDHHMM(SS)`, Czech / Slovak birth numbers with month + 50); quarters (`2020Q1`) and ISO weeks (`2020-W05`); Unix timestamps in s / ms / µs / ns; Excel serial days when the column name says it is a date. Two-digit years never land in the future. The suggested conversion uses the exact format found, and `elessar.parse_dates(series)` does it in one call.
 
 **Statistics**
 - *all columns*: count, missing, unique, memory, modes, top-N values

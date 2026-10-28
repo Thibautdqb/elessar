@@ -13,6 +13,7 @@ import pandas as pd
 
 from ._utils import hashable, is_text_dtype, prepare, quiet, sample, truncate
 from .config import StoneConfig
+from .dates import detect as detect_date, parse_dates
 
 SEMANTIC_TYPES: tuple[str, ...] = (
     "empty", "constant", "boolean", "id", "numeric_continuous", "numeric_discrete",
@@ -230,15 +231,9 @@ def as_numeric(s: pd.Series, semantic_type: str | None = None) -> pd.Series:
 
 
 def as_datetime(s: pd.Series) -> pd.Series:
-    """Datetime view (tz-aware values converted to naive UTC)."""
-    if pd.api.types.is_datetime64_any_dtype(s.dtype):
-        out = s
-    else:
-        with quiet():
-            out = pd.to_datetime(hashable(s).astype("object"), errors="coerce", format="mixed", utc=True)
-    if getattr(out.dt, "tz", None) is not None:
-        out = out.dt.tz_convert("UTC").dt.tz_localize(None)
-    return out
+    """Datetime view whatever the way the dates are written (see :mod:`elessar.dates`); naive UTC."""
+    with quiet():
+        return parse_dates(hashable(s) if pd.api.types.is_object_dtype(s.dtype) else s)
 
 
 def ordinal_order(values: Any) -> list[str] | None:
@@ -302,6 +297,11 @@ def _numeric_type(x: pd.Series, s: pd.Series, name: str, cfg: StoneConfig, how: 
     if nunique == 2 and set(np.unique(finite)) <= {0.0, 1.0}:
         return _result("boolean", s, 0.9, f"{how}: only 0/1 values")
     hinted = bool(_HINT_ID.search(name))
+    if not hinted and nunique >= 2 and (is_int or lo >= 1e8):
+        with quiet():
+            fmt = detect_date(finite, name)
+        if fmt is not None:
+            return _result("datetime_string", s, fmt.ratio, f"{how}: dates stored as numbers ({fmt.label})", date_format=fmt)
     if is_int and hinted and uniq_ratio < cfg.id_unique_ratio:
         if uniq_ratio >= 0.8 and (hi - lo + 1) <= 1.5 * nunique:
             return _result("id", s, 0.7, f"{how}: name looks like an id, mostly unique consecutive integers")
@@ -363,6 +363,12 @@ def _string_type(strs: pd.Series, s: pd.Series, name: str, cfg: StoneConfig, n_n
     if m >= r or (postal_hint and _ratio(t.str.match(_POSTAL_STRICT) | t.str.match(_POSTAL_DIGITS)) >= r):
         return _result("postal_code", s, max(m, 0.8), "postal-code pattern" + (" and column name" if postal_hint else ""))
 
+    if _ratio(t.str.fullmatch(r"\d+|-|\?|") .fillna(False)) >= 0.99 and not _HINT_ID.search(name):
+        with quiet():
+            fmt = detect_date(t, name)
+        if fmt is not None:
+            return _result("datetime_string", s, fmt.ratio, f"dates written as {fmt.label}", date_format=fmt)
+
     digits_only = t.str.fullmatch(r"\d+")
     leading_zero_code = _ratio(digits_only) >= r and _ratio(t.str.match(r"0\d")) >= 0.05 and t.str.len().nunique() == 1
     phone_hint = bool(_HINT_PHONE.search(name))
@@ -382,10 +388,11 @@ def _string_type(strs: pd.Series, s: pd.Series, name: str, cfg: StoneConfig, n_n
     has_digit = t.str.contains(r"\d", regex=True)
     if _ratio(has_digit) >= r and not leading_zero_code:
         with quiet():
-            parsed = pd.to_datetime(t.astype("object"), errors="coerce", format="mixed", utc=True)
-        m = _ratio(parsed.notna() & has_digit & (t.str.len() >= 6))  # "T1", "Q3" are not dates
-        if m >= r:
-            return _result("datetime_string", s, m, f"{m:.0%} of values parse as dates")
+            fmt = detect_date(t, name, min_ratio=r)
+        if fmt is not None:
+            amb = f"; also valid as {', '.join(fmt.ambiguous)}" if fmt.ambiguous else ""
+            return _result("datetime_string", s, fmt.ratio, f"{fmt.ratio:.0%} of values are {fmt.label}{amb}",
+                           date_format=fmt)
 
     digit_count = t.str.count(r"\d")
     phone_like = t.str.match(_PHONE) & digit_count.between(7, 15)
@@ -451,9 +458,11 @@ def _suggest(info: dict[str, Any], s: pd.Series, name: str) -> list[dict[str, st
     elif texty and stype in NUMERIC_TYPES:
         out.append({"flag": "should-be-numeric", "code": f"df[{col}] = pd.to_numeric(df[{col}], errors='coerce')"})
     if stype == "datetime_string":
+        fmt = info.get("date_format")
         out.append({
             "flag": "should-be-datetime",
-            "code": f"df[{col}] = pd.to_datetime(df[{col}], errors='coerce', format='mixed')",
+            "note": fmt.label if fmt is not None else "",
+            "code": fmt.code(str(name)) if fmt is not None else f"df[{col}] = elessar.parse_dates(df[{col}])",
         })
     if stype == "boolean" and texty:
         labels = {str(v).strip().lower() for v in s.dropna().unique()}

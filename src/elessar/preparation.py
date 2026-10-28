@@ -392,7 +392,7 @@ def plan(
             if stype in DATETIME_TYPES:
                 steps.append(_step("transformation", "Decomposition", col,
                                    "a date is not a feature: decompose into calendar parts",
-                                   f"d = pd.to_datetime(df[{col!r}], errors='coerce')\n"
+                                   f"d = elessar.parse_dates(df[{col!r}])\n"
                                    f"df[{col!r} + '_year'], df[{col!r} + '_month'] = d.dt.year, d.dt.month\n"
                                    f"df[{col!r} + '_dow'], df[{col!r} + '_hour'] = d.dt.dayofweek, d.dt.hour"))
             elif stype == MULTI_LABEL:

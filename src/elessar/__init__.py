@@ -9,6 +9,7 @@ __version__ = "0.3.0"
 
 from .config import StoneConfig  # noqa: E402 - __version__ first: submodules read it
 from .core import see, see_column  # noqa: E402
+from .dates import parse_dates  # noqa: E402
 from .correlations import see_corr  # noqa: E402
 from .distributions import see_dist  # noqa: E402
 from .picker import pick_target, suggest_targets  # noqa: E402
@@ -25,6 +26,7 @@ __all__ = [
     "StoneConfig",
     "Vision",
     "load",
+    "parse_dates",
     "pick_target",
     "see",
     "see_column",
