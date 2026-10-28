@@ -29,6 +29,7 @@ from ._utils import fmt_bytes, fmt_num, fmt_p, hashable, prepare, quiet, resolve
 from .config import StoneConfig
 from .correlations import bh_adjust
 from .distributions import _fmt_params, frozen_best
+from .parallel import TaskError, n_workers, run_tasks, shared
 from .quality import duplicate_rows
 from .stats import split_labels, time_resolution
 from .types import CATEGORY_TYPES, DATETIME_TYPES, MULTI_LABEL, NUMERIC_TYPES, as_datetime, as_numeric, ordinal_order
@@ -93,18 +94,21 @@ STYLE: dict[str, Any] = {
     "figure.constrained_layout.w_pad": 0.08,
 }
 _PLOT_FILE = re.compile(r"^\d{2,}_.+\.png$")
+_PART_FILE = re.compile(r"^\.part\d{4}-\d{2,}_.+\.png$")
 
 
 # ---------------------------------------------------------------------------------------------- infrastructure
 class _Writer:
     """Numbers and saves figures as ``out_dir/<NN>_<column>_<kind>.png``."""
 
-    def __init__(self, out_dir: str | Path, dpi: int) -> None:
+    def __init__(self, out_dir: str | Path, dpi: int, part: int | None = None) -> None:
         self.out_dir = Path(out_dir)
-        self.out_dir.mkdir(parents=True, exist_ok=True)
-        for old in self.out_dir.iterdir():
-            if old.is_file() and _PLOT_FILE.match(old.name):
-                old.unlink()
+        self.part = part  # set in a parallel job: files get a temporary name, renamed once all jobs are done
+        if part is None:
+            self.out_dir.mkdir(parents=True, exist_ok=True)
+            for old in self.out_dir.iterdir():
+                if old.is_file() and (_PLOT_FILE.match(old.name) or _PART_FILE.match(old.name)):
+                    old.unlink()
         self.dpi = dpi
         self.paths: list[Path] = []
         self.index: list[dict[str, Any]] = []  # {"column", "other", "kind", "path"} per chart written
@@ -120,8 +124,13 @@ class _Writer:
     def save(self, fig: Figure, column: str | None, kind: str, other: str | None = None) -> None:
         """Write the figure; ``column`` is None for dataset-level charts, ``other`` is the second column of a pair."""
         stem = "dataset" if column is None else safe_name(column) + (f"__{safe_name(other)}" if other is not None else "")
-        path = self.out_dir / f"{len(self.paths):02d}_{stem}_{kind}.png"
-        fig.savefig(path, dpi=self.dpi, bbox_inches="tight", pad_inches=0.22)
+        name = f"{len(self.paths):02d}_{stem}_{kind}.png"
+        path = self.out_dir / (name if self.part is None else f".part{self.part:04d}-{name}")
+        width, height = fig.get_size_inches()
+        tight = fig.get_tightbbox()
+        # an artist far outside the figure (extreme data) must not blow the image up to megapixels
+        fits = tight is not None and tight.width <= 2 * width and tight.height <= 2 * height
+        fig.savefig(path, dpi=self.dpi, bbox_inches="tight" if fits else None, pad_inches=0.22)
         fig.clear()
         self.paths.append(path)
         self.index.append({"column": column, "other": other, "kind": kind, "path": path})
@@ -314,6 +323,9 @@ def plot_numeric(writer: _Writer, col: str, x: pd.Series, detail: dict[str, Any]
     if norm.get("verdict") in ("normal", "not normal"):
         parts.append(norm["verdict"])
     shape = (fit.get("description") or "").split(", best fit")[0]
+    if fit.get("point_mass"):  # keep the panel title short: the legend sits on the same line
+        pm = fit["point_mass"]
+        shape = f"{pm['pct']:.0f}% exactly {pm['value']:g}, the rest {shape.split('the rest: ')[-1].split(',')[0]}"
     n_zero = int(np.sum(v <= 0)) if logx else 0
     note = (f"{n_zero:,} zero values ({100 * n_zero / len(v):.1f}%) are not shown on the log axis. " if n_zero else "")
     note += "Histogram in rows; the curve is the count expected under the best fit (MLE, lowest AIC). "
@@ -330,6 +342,9 @@ def plot_numeric(writer: _Writer, col: str, x: pd.Series, detail: dict[str, Any]
     bins = _bins(v, discrete, logx)
     counts, edges, _ = ax_h.hist(v, bins=bins, color=BLUE_FILL, edgecolor=SURFACE, linewidth=0.7, label="observed")
     n = len(v)
+    mass = fit.get("point_mass")
+    if mass is not None:  # the fit describes the values other than the spike
+        n = int(np.sum(v != mass["value"]))
     if best is not None and best_info is not None:
         label = f"{best_info['label']} fit ({_fmt_params(best_info['params'])})"
         with quiet():
@@ -343,9 +358,10 @@ def plot_numeric(writer: _Writer, col: str, x: pd.Series, detail: dict[str, Any]
                 grid = np.linspace(v.min(), v.max(), 400)
                 ax_h.plot(grid, best.pdf(grid) * n * np.diff(edges).mean(), color=ORANGE, lw=2, label=label)
     med = float(np.median(full))
-    ax_h.axvline(med, color=INK, lw=1, ls=(0, (3, 2)))
-    ax_h.annotate(f"median {fmt_num(med)}", xy=(med, 1), xycoords=("data", "axes fraction"), xytext=(4, -2),
-                  textcoords="offset points", fontsize=8, color=INK, va="top")
+    if med > 0 or not n_zero:  # a median of 0 has no place on a log axis
+        ax_h.axvline(med, color=INK, lw=1, ls=(0, (3, 2)))
+        ax_h.annotate(f"median {fmt_num(med)}", xy=(med, 1), xycoords=("data", "axes fraction"), xytext=(4, -2),
+                      textcoords="offset points", fontsize=8, color=INK, va="top")
     ax_h.set_ylabel("rows" + (" (sample)" if len(full) < n_values else ""))
     ax_h.legend(loc="lower right", bbox_to_anchor=(1, 1.0), ncols=2, handlelength=1.4, borderaxespad=0.2)
 
@@ -367,7 +383,9 @@ def plot_numeric(writer: _Writer, col: str, x: pd.Series, detail: dict[str, Any]
         _format_axis(ax_b, "x")
 
     ref = best if best is not None else stats.norm(np.mean(v), np.std(v) or 1)
-    _qq(ax_q, full, ref, best_info["label"] if best is not None else "normal", logx, cfg)
+    qq_values = full if mass is None else full[full != mass["value"]]
+    _qq(ax_q, qq_values, ref, (best_info["label"] if best is not None else "normal")
+        + (f" (values ≠ {mass['value']:g})" if mass is not None else ""), logx, cfg)
     writer.save(fig, col, "dist")
 
 
@@ -872,83 +890,153 @@ def _groups(cat: pd.Series, values: pd.Series, max_groups: int = 10) -> tuple[li
     return [str(k) for k, _ in ranked], [d for _, d in ranked]
 
 
-def plot_target(
-    writer: _Writer, df: pd.DataFrame, target: str, assoc: pd.DataFrame, types: dict[str, str], cfg: StoneConfig
+def plot_target_feature(
+    writer: _Writer, df: pd.DataFrame, target: str, row: Any, types: dict[str, str], cfg: StoneConfig, rank: int = 0
 ) -> None:
-    """Target vs the most associated features: joint plot, grouped boxplots, or stacked proportions."""
+    """Target vs one feature (``row`` of the target association table)."""
     t_type = types[target]
     t_numeric = t_type in NUMERIC_TYPES or t_type == "numeric_string"
-    rng = np.random.default_rng(cfg.random_state)
-    for row in assoc.head(cfg.n_target_plots).itertuples(index=False):
-        feat, f_type = row.feature, row.feature_type
-        f_numeric = row.method == "spearman" or (row.method == "eta" and not t_numeric)
-        auc = f"  ·  AUC {row.auc:.2f}" if pd.notna(row.auc) else ""
-        label = f"{row.method} = {row.association:.3f}  ·  p_adj {fmt_p(row.p_adjusted)}{auc}"
-        if t_numeric and f_numeric:
-            plot_pair(writer, df, feat, target, label, cfg, "target")
-            continue
-        if t_numeric or f_numeric:
-            cat, num, num_name = ((df[feat], as_numeric(df[target], t_type), target) if t_numeric
-                                  else (df[target], as_numeric(df[feat], f_type), feat))
-            labels, data = _groups(cat, num.replace([np.inf, -np.inf], np.nan))
-            if len(data) < 2:
-                continue
-            group_name = feat if t_numeric else target
-            fig, body = _figure(10, 0.62 * len(data) + 2.2, f"{num_name} by {group_name}", label,
-                                "Box = interquartile range, line = median, diamond = mean, dots = individual rows "
-                                "(sampled); groups sorted by median.")
-            ax = body.add_subplot()
-            _boxplot(ax, data, [f"{truncate(lbl, 24)}  (n={len(d):,})" for lbl, d in zip(labels, data)], widths=0.55)
-            for gi, d in enumerate(data, start=1):
-                pts = d if len(d) <= 200 else rng.choice(d, 200, replace=False)
-                ax.scatter(pts, gi + rng.uniform(-0.18, 0.18, len(pts)), s=5, color=INK_2, alpha=0.25,
-                           edgecolors="none", zorder=1)
-            ax.invert_yaxis()
-            pooled = np.concatenate(data)
-            if _log_x(pooled, float(stats.skew(pooled)) if len(pooled) > 2 else None):
-                _set_log(ax, pooled)
-                num_name += " · log scale"
-            ax.set_xlabel(num_name)
-            _value_axis_only(ax, "x")
-            _format_axis(ax, "x")
-        else:
-            mask = df[feat].notna() & df[target].notna()
-            f = hashable(df[feat][mask]).astype(str)
-            t = hashable(df[target][mask]).astype(str)
-            f_top = f.value_counts().index[:12]
-            t_top = list(t.value_counts().index[:7])
-            t = t.where(t.isin(t_top), "other")
-            tab = pd.crosstab(f[f.isin(f_top)], t, normalize="index").reindex(f_top)
-            sizes = f[f.isin(f_top)].value_counts()
-            cols = [c for c in t_top + ["other"] if c in tab.columns]
-            if len(cols) > 1:  # rank feature levels by the share of the second most frequent target class
-                tab = tab.sort_values(cols[1], ascending=False)
-            fig, body = _figure(10, 0.5 * len(tab) + 2.4, f"{target} by {feat}", label,
-                                f"Share of each {target} value within each {feat} level.")
-            ax = body.add_subplot()
-            left = np.zeros(len(tab))
-            yy = np.arange(len(tab))
-            for i, c in enumerate(cols):
-                vals = tab[c].to_numpy()
-                fill = SERIES[i] if c != "other" else LIGHT
-                ax.barh(yy, vals, left=left, color=fill, height=0.68, edgecolor=SURFACE, linewidth=1.5,
-                        label=truncate(c, 20))
-                for yi, (lft, v) in enumerate(zip(left, vals)):
-                    if v >= 0.07:
-                        ax.text(lft + v / 2, yi, f"{100 * v:.0f}%", ha="center", va="center", fontsize=8,
-                                color=_text_color(fill))
-                left += vals
-            ax.set_yticks(yy, [f"{truncate(v, 24)}  (n={sizes[v]:,})" for v in tab.index])
-            ax.invert_yaxis()
-            ax.set_xlim(0, 1)
-            ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{100 * v:.0f}%"))
-            _value_axis_only(ax, "x")
-            ax.legend(title=target, loc="lower left", bbox_to_anchor=(0, 1.0), ncols=min(len(cols), 6),
-                      handlelength=1, columnspacing=1.2, title_fontsize=8.5, alignment="left")
-        writer.save(fig, target, "target", other=feat)
+    rng = np.random.default_rng(cfg.random_state + rank)
+    feat, f_type = row.feature, row.feature_type
+    f_numeric = row.method == "spearman" or (row.method == "eta" and not t_numeric)
+    auc = f"  ·  AUC {row.auc:.2f}" if pd.notna(row.auc) else ""
+    label = f"{row.method} = {row.association:.3f}  ·  p_adj {fmt_p(row.p_adjusted)}{auc}"
+    if t_numeric and f_numeric:
+        plot_pair(writer, df, feat, target, label, cfg, "target")
+        return
+    if t_numeric or f_numeric:
+        cat, num, num_name = ((df[feat], as_numeric(df[target], t_type), target) if t_numeric
+                              else (df[target], as_numeric(df[feat], f_type), feat))
+        labels, data = _groups(cat, num.replace([np.inf, -np.inf], np.nan))
+        if len(data) < 2:
+            return
+        group_name = feat if t_numeric else target
+        fig, body = _figure(10, 0.62 * len(data) + 2.2, f"{num_name} by {group_name}", label,
+                            "Box = interquartile range, line = median, diamond = mean, dots = individual rows "
+                            "(sampled); groups sorted by median.")
+        ax = body.add_subplot()
+        _boxplot(ax, data, [f"{truncate(lbl, 24)}  (n={len(d):,})" for lbl, d in zip(labels, data)], widths=0.55)
+        for gi, d in enumerate(data, start=1):
+            pts = d if len(d) <= 200 else rng.choice(d, 200, replace=False)
+            ax.scatter(pts, gi + rng.uniform(-0.18, 0.18, len(pts)), s=5, color=INK_2, alpha=0.25,
+                       edgecolors="none", zorder=1)
+        ax.invert_yaxis()
+        pooled = np.concatenate(data)
+        if _log_x(pooled, float(stats.skew(pooled)) if len(pooled) > 2 else None):
+            _set_log(ax, pooled)
+            num_name += " · log scale"
+        ax.set_xlabel(num_name)
+        _value_axis_only(ax, "x")
+        _format_axis(ax, "x")
+    else:
+        mask = df[feat].notna() & df[target].notna()
+        f = hashable(df[feat][mask]).astype(str)
+        t = hashable(df[target][mask]).astype(str)
+        f_top = f.value_counts().index[:12]
+        t_top = list(t.value_counts().index[:7])
+        t = t.where(t.isin(t_top), "other")
+        tab = pd.crosstab(f[f.isin(f_top)], t, normalize="index").reindex(f_top)
+        sizes = f[f.isin(f_top)].value_counts()
+        cols = [c for c in t_top + ["other"] if c in tab.columns]
+        if len(cols) > 1:  # rank feature levels by the share of the second most frequent target class
+            tab = tab.sort_values(cols[1], ascending=False)
+        fig, body = _figure(10, 0.5 * len(tab) + 2.4, f"{target} by {feat}", label,
+                            f"Share of each {target} value within each {feat} level.")
+        ax = body.add_subplot()
+        left = np.zeros(len(tab))
+        yy = np.arange(len(tab))
+        for i, c in enumerate(cols):
+            vals = tab[c].to_numpy()
+            fill = SERIES[i] if c != "other" else LIGHT
+            ax.barh(yy, vals, left=left, color=fill, height=0.68, edgecolor=SURFACE, linewidth=1.5,
+                    label=truncate(c, 20))
+            for yi, (lft, v) in enumerate(zip(left, vals)):
+                if v >= 0.07:
+                    ax.text(lft + v / 2, yi, f"{100 * v:.0f}%", ha="center", va="center", fontsize=8,
+                            color=_text_color(fill))
+            left += vals
+        ax.set_yticks(yy, [f"{truncate(v, 24)}  (n={sizes[v]:,})" for v in tab.index])
+        ax.invert_yaxis()
+        ax.set_xlim(0, 1)
+        ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{100 * v:.0f}%"))
+        _value_axis_only(ax, "x")
+        ax.legend(title=target, loc="lower left", bbox_to_anchor=(0, 1.0), ncols=min(len(cols), 6),
+                  handlelength=1, columnspacing=1.2, title_fontsize=8.5, alignment="left")
+    writer.save(fig, target, "target", other=feat)
 
 
 # ---------------------------------------------------------------------------------------------- entry points
+Job = tuple[str, Callable[..., Any], tuple[Any, ...]]
+
+
+def plot_jobs(
+    df: pd.DataFrame,
+    details: dict[str, dict[str, Any]],
+    correlations: dict[str, pd.DataFrame],
+    target: str | None,
+    cfg: StoneConfig,
+) -> list[Job]:
+    """Every chart to draw, in report order, as independent ``(label, function, args)`` jobs."""
+    types = {c: d.get("semantic_type", "mixed") for c, d in details.items()}
+    jobs: list[Job] = [("overview", plot_overview, (df, details, cfg)), ("missing matrix", plot_missing, (df, cfg)),
+                       ("nullity heatmap", plot_nullity, (df, cfg))]
+    for key, title, signed in (
+        ("pearson", "Pearson correlation", True),
+        ("spearman", "Spearman rank correlation", True),
+        ("cramers_v", "Cramér's V between categorical columns", False),
+    ):
+        if key in correlations:
+            jobs.append((f"{key} heatmap", plot_heatmap,
+                         (correlations[key], correlations.get(f"{key}_p"), f"corr_{key}", title, cfg, signed)))
+    assoc_all = correlations.get("association")
+    if assoc_all is not None and "eta" in correlations:
+        jobs.append(("association heatmap", plot_heatmap,
+                     (assoc_all, correlations["association_p"], "association", "All associations", cfg, True,
+                      f"{assoc_all.shape[0]} columns  ·  Spearman for numbers, Cramér's V for labels, eta across")))
+    for col in df.columns:
+        stype, detail = types[col], details[col]
+        if stype in NUMERIC_TYPES or stype == "numeric_string":
+            jobs.append((col, _plot_numeric_column, (col, df[col], stype, detail, cfg)))
+        elif stype in CATEGORY_TYPES:
+            jobs.append((col, plot_categorical, (col, df[col], detail, cfg)))
+        elif stype in DATETIME_TYPES:
+            jobs.append((col, plot_datetime, (col, df[col], detail, cfg)))
+        elif stype == "text":
+            jobs.append((col, plot_text, (col, df[col], detail, cfg)))
+        elif stype == MULTI_LABEL:
+            jobs.append((col, plot_multilabel, (col, df[col], detail, cfg)))
+    pairs = correlations.get("top_pairs")
+    if pairs is not None and not pairs.empty:
+        num_pairs = pairs[pairs["method"].isin(["pearson", "spearman"])]
+        if target is not None:
+            num_pairs = num_pairs[(num_pairs["col_a"] != target) & (num_pairs["col_b"] != target)]
+        for r in num_pairs.head(cfg.n_scatter).itertuples(index=False):
+            ci = f" [{r.ci_low:.3f}, {r.ci_high:.3f}]" if pd.notna(r.ci_low) else ""
+            label = f"{r.method} = {r.value:.3f}{ci}  ·  p_adj {fmt_p(r.p_adjusted)}"
+            jobs.append((f"{r.col_a}/{r.col_b}", plot_pair, (df, r.col_a, r.col_b, label, cfg, "scatter")))
+    assoc = correlations.get("target")
+    if target is not None and assoc is not None and not assoc.empty:
+        jobs.append(("target ranking", plot_target_ranking, (assoc, target, cfg)))
+        for i, row in enumerate(assoc.head(cfg.n_target_plots).itertuples(index=False)):
+            jobs.append((f"target/{row.feature}", plot_target_feature, (df, target, row, types, cfg, i)))
+    return jobs
+
+
+def _plot_numeric_column(writer: _Writer, col: str, s: pd.Series, stype: str, detail: dict[str, Any],
+                         cfg: StoneConfig) -> None:
+    plot_numeric(writer, col, as_numeric(s, stype), detail, cfg)
+
+
+def _run_job(i: int) -> tuple[list[dict[str, Any]], list[str]]:
+    """Draw job ``i`` of the shared job list (in a worker process, or here when serial)."""
+    st = shared()
+    what, step, args = st["jobs"][i]
+    writer = _Writer(st["out_dir"], st["dpi"], part=i)
+    with mpl.rc_context(STYLE), quiet():
+        writer.safe(what, step, *args)
+    return writer.index, writer.errors
+
+
 def make_plots(
     df: pd.DataFrame,
     details: dict[str, dict[str, Any]],
@@ -958,63 +1046,36 @@ def make_plots(
     config: StoneConfig | None = None,
     errors: list[str] | None = None,
     index: list[dict[str, Any]] | None = None,
+    workers: int = 1,
 ) -> list[Path]:
     """Write every informative plot given precomputed details and correlations.
 
     Empty, constant and id columns get no individual plot (they carry nothing to see); failing
     plots are appended to ``errors`` instead of raising, and ``index`` receives one
-    ``{column, other, kind, path}`` record per chart.
+    ``{column, other, kind, path}`` record per chart. Charts are drawn on ``workers`` processes;
+    file names and order do not depend on it.
     """
     cfg = config or StoneConfig()
-    writer = _Writer(out_dir, cfg.dpi)
-    types = {c: d.get("semantic_type", "mixed") for c, d in details.items()}
-    with mpl.rc_context(STYLE), quiet():
-        writer.safe("overview", plot_overview, df, details, cfg)
-        writer.safe("missing matrix", plot_missing, df, cfg)
-        writer.safe("nullity heatmap", plot_nullity, df, cfg)
-        for key, title, signed in (
-            ("pearson", "Pearson correlation", True),
-            ("spearman", "Spearman rank correlation", True),
-            ("cramers_v", "Cramér's V between categorical columns", False),
-        ):
-            if key in correlations:
-                writer.safe(f"{key} heatmap", plot_heatmap, correlations[key], correlations.get(f"{key}_p"),
-                            f"corr_{key}", title, cfg, signed)
-        assoc_all = correlations.get("association")
-        if assoc_all is not None and "eta" in correlations:
-            writer.safe("association heatmap", plot_heatmap, assoc_all, correlations["association_p"], "association",
-                        "All associations", cfg, True,
-                        f"{assoc_all.shape[0]} columns  ·  Spearman for numbers, Cramér's V for labels, eta across")
-        for col in df.columns:
-            stype, detail = types[col], details[col]
-            if stype in NUMERIC_TYPES or stype == "numeric_string":
-                writer.safe(col, plot_numeric, col, as_numeric(df[col], stype), detail, cfg)
-            elif stype in CATEGORY_TYPES:
-                writer.safe(col, plot_categorical, col, df[col], detail, cfg)
-            elif stype in DATETIME_TYPES:
-                writer.safe(col, plot_datetime, col, df[col], detail, cfg)
-            elif stype == "text":
-                writer.safe(col, plot_text, col, df[col], detail, cfg)
-            elif stype == MULTI_LABEL:
-                writer.safe(col, plot_multilabel, col, df[col], detail, cfg)
-        pairs = correlations.get("top_pairs")
-        if pairs is not None and not pairs.empty:
-            num_pairs = pairs[pairs["method"].isin(["pearson", "spearman"])]
-            if target is not None:
-                num_pairs = num_pairs[(num_pairs["col_a"] != target) & (num_pairs["col_b"] != target)]
-            for r in num_pairs.head(cfg.n_scatter).itertuples(index=False):
-                ci = f" [{r.ci_low:.3f}, {r.ci_high:.3f}]" if pd.notna(r.ci_low) else ""
-                label = f"{r.method} = {r.value:.3f}{ci}  ·  p_adj {fmt_p(r.p_adjusted)}"
-                writer.safe(f"{r.col_a}/{r.col_b}", plot_pair, df, r.col_a, r.col_b, label, cfg, "scatter")
-        assoc = correlations.get("target")
-        if target is not None and assoc is not None and not assoc.empty:
-            writer.safe("target ranking", plot_target_ranking, assoc, target, cfg)
-            writer.safe("target", plot_target, df, target, assoc, types, cfg)
+    final = _Writer(out_dir, cfg.dpi)  # creates the folder and removes the charts of a previous run
+    jobs = plot_jobs(df, details, correlations, target, cfg)
+    state = {"jobs": jobs, "out_dir": final.out_dir, "dpi": cfg.dpi}
+    for (what, _, _), result in zip(jobs, run_tasks(_run_job, range(len(jobs)), workers, state)):
+        if isinstance(result, TaskError):
+            final.errors.append(f"{what}: {result.error}")
+            continue
+        records, errs = result
+        final.errors.extend(errs)
+        for rec in records:
+            part = Path(rec["path"])
+            path = final.out_dir / f"{len(final.paths):02d}_{part.name.split('-', 1)[1].split('_', 1)[1]}"
+            part.replace(path)
+            final.paths.append(path)
+            final.index.append({**rec, "path": path})
     if errors is not None:
-        errors.extend(writer.errors)
+        errors.extend(final.errors)
     if index is not None:
-        index.extend(writer.index)
-    return writer.paths
+        index.extend(final.index)
+    return final.paths
 
 
 def see_plot(
@@ -1029,5 +1090,6 @@ def see_plot(
     cfg = config or StoneConfig()
     target = resolve_target(df, target)
     df = prepare(df)
-    details, correlations = analyze(df, target, cfg)
-    return make_plots(df, details, correlations, out_dir, target, cfg)
+    workers = n_workers(cfg, df.size, df.shape[1])
+    details, correlations, _ = analyze(df, target, cfg, workers)
+    return make_plots(df, details, correlations, out_dir, target, cfg, workers=workers)

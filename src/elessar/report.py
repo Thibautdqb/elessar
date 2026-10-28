@@ -124,6 +124,9 @@ class Vision:
         target: name of the target column, if any.
         alpha: significance level used for the tests.
         name: dataset name shown in the recap title (e.g. the file name).
+        full: when the profile ran on a sample of a bigger table, exact figures over every row
+            (one row per column: count, missing, distinct, mean, std, min, max, ...); else None.
+        timings: seconds spent in each step (load, columns, associations, quality, charts, report).
     """
 
     overview: dict[str, Any]
@@ -138,6 +141,8 @@ class Vision:
     target: str | None = None
     alpha: float = 0.05
     name: str | None = None
+    full: pd.DataFrame | None = None
+    timings: dict[str, float] = field(default_factory=dict)
 
     def __repr__(self) -> str:
         o = self.overview
@@ -173,8 +178,10 @@ class Vision:
     def _overview_lines(self, w: int) -> list[str]:
         o = self.overview
         saving = o.get("potential_saving_bytes") or 0
-        rows = [
-            ("rows", f"{o['n_rows']:,}"),
+        rows = [("source", o["source"])] if o.get("source") else []
+        rows += [
+            ("rows", f"{o['n_rows']:,}" + (f"  (profiled on a uniform sample of {o['n_rows_profiled']:,})"
+                                          if o.get("sampled") else "")),
             ("columns", f"{o['n_columns']:,}"),
             ("memory", fmt_bytes(o["memory_bytes"]) + (f"  (suggested dtypes save ~{fmt_bytes(saving)})" if saving else "")),
             ("pandas dtypes", _kv(o["pandas_dtypes"])),
@@ -352,7 +359,8 @@ def _matrix_dict(df: pd.DataFrame) -> Any:
 
 def _overview_md(o: dict[str, Any]) -> dict[str, str]:
     return {
-        "rows": f"{o['n_rows']:,}",
+        "rows": f"{o['n_rows']:,}" + (f" ({o['n_rows_profiled']:,} profiled, uniform random sample)"
+                                       if o.get("sampled") else ""),
         "columns": f"{o['n_columns']:,}",
         "memory": fmt_bytes(o["memory_bytes"]),
         "potential saving": fmt_bytes(o.get("potential_saving_bytes") or 0),

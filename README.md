@@ -4,7 +4,7 @@
 
 **Automated exploratory data analysis and data-quality profiling for pandas DataFrames.**
 
-One function call (`elessar.see(df)`) or one command (`elessar data.csv`) gives you the semantic type of every column, full descriptive statistics, the best-fitting distribution, associations between all columns with significance tests, target and leakage analysis, data-quality alerts with the code to fix them, and report-ready charts.
+One function call (`elessar.see(df)`, or `elessar.see("sales.parquet")`) or one command (`elessar data.csv`) gives you the semantic type of every column, full descriptive statistics, the best-fitting distribution, associations between all columns with significance tests, target and leakage analysis, data-quality alerts with the code to fix them, and report-ready charts.
 
 *About the name: in Tolkien's legend, the Elessar is the green Elfstone through which whatever is seen is made whole again.*
 
@@ -12,7 +12,7 @@ One function call (`elessar.see(df)`) or one command (`elessar data.csv`) gives 
   <img src="docs/terminal.svg" alt="elessar analysing the Titanic dataset in a terminal: install, run, then the report scrolls by (overview, alerts, column summary, correlations, target analysis)" width="766">
 </p>
 
-Pass a `DataFrame` (or a `Series`) to `see()`, or a file to the `elessar` command, and get in your terminal:
+Pass a `DataFrame`, a file or almost anything tabular to `see()`, or a file to the `elessar` command, and get in your terminal and in an HTML report:
 
 - the **semantic type** of every column (not just the dtype): id, boolean in disguise, numbers stored as text, dates stored as text, emails, URLs, phones, postal codes, IPs, JSON, free text, ordinal scales (low/medium/high, months, weekdays, 1-5 ratings), counts, mixed types…
 - **full descriptive statistics** adapted to each type, with confidence intervals
@@ -20,17 +20,20 @@ Pass a `DataFrame` (or a `Series`) to `see()`, or a file to the `elessar` comman
 - **associations of every kind with statistical significance**: Pearson, Spearman, Kendall, Cramér's V, correlation ratio, mutual information, AUC, with p-values, Benjamini-Hochberg correction and confidence intervals
 - **target analysis**: feature ranking, **leakage detection**, informative missingness
 - **data quality** checks and **actionable alerts** (with the code to fix them): placeholders, duplicates, multicollinearity, values missing not at random, sorted rows…
-- a set of **plots that actually carry information**, saved as PNG files
+- a set of **plots that actually carry information**, saved as PNG files, and **one HTML page** with everything
+- **any input, any size**: CSV, Parquet, Excel, JSON, SQLite, SAS, Stata… or polars, pyarrow, dask, NumPy objects;
+  files bigger than memory are **streamed in parallel**, with exact counts over every row
 
-It is built for scripts and the terminal: plain-text output that fits your terminal width, PNG files on disk, and no display needed. It only depends on `pandas`, `numpy`, `scipy` and `matplotlib`.
+It is built for scripts and the terminal: plain-text output that fits your terminal width, files on disk, no display needed (except to click the target, if you ask for it). The core only depends on `pandas`, `numpy`, `scipy` and `matplotlib`; Parquet, Excel and dask are optional extras.
 
 ## Install
 
 ```bash
-pip install git+https://github.com/thibautdqb/elessar
+pip install git+https://github.com/thibautdqb/elessar              # core: CSV, JSON, SQLite, SAS, Stata, pickle
+pip install "elessar[all] @ git+https://github.com/thibautdqb/elessar"  # + Parquet / Feather, Excel, dask
 ```
 
-Requires Python ≥ 3.10.
+Extras: `parquet` (pyarrow), `excel` (openpyxl, python-calamine), `big` (dask + pyarrow), `all`. Requires Python ≥ 3.10.
 
 ## Quickstart
 
@@ -46,16 +49,30 @@ report.alerts                                # [{severity, column, message}, ...
 report.summary                               # one row per column, one column per metric
 report.correlations["target"]                # features ranked, with tests, p-values, AUC, MI, leakage flag
 report.recap                                 # {"md": .../report.md, "html": .../report.html}
+
+elessar.see("data/*.parquet", target="ask")  # any file, glob or folder; pick the target in a window
+elessar.see(polars_df), elessar.see(arrow_table), elessar.see(dask_df), elessar.see(numpy_array)
+src = elessar.load("export.xlsx", sheet="2024")  # just the loader: src.df, src.full (exact figures), src.origin
 ```
 
-### The recap
+### The report page
 
-When the analysis finishes, elessar writes a recap next to the charts, as **`report.md`** (renders on GitHub,
-in VS Code, Obsidian…) and **`report.html`** (the same page, rendered), and opens it:
+When the analysis finishes, elessar writes **`report.html`** next to the charts (and the same content as
+**`report.md`**, which renders on GitHub, in VS Code, Obsidian…), and opens it in your browser. Everything is in it:
 
 - **Key findings** first: the features most associated with the target, then every high and medium alert
-- the **dataset overview**, then **target analysis**, **data quality**, **associations** and one collapsible
-  section per **column**, each with its charts in place
+- the **dataset overview** (and, for a sampled big table, the **exact figures over every row**)
+- **target analysis**: ranking with tests, AUC and mutual information, informative missingness, target charts
+- **distributions**: for every numeric column the normality tests, the best fit with its parameters, Akaike
+  weight, ΔAIC to the runner-up and the size of the misfit (KS D), next to histogram + fit + Q-Q charts
+- **data quality**, **associations** (heatmaps with significance, strongest pairs, linear dependencies, VIF)
+- one collapsible section per **column** with every statistic laid out in cards (center, spread, quantiles,
+  shape, outliers, row order, labels, time, text), its normality tests, its top fits, its top values, its
+  alerts with the fix, and its charts
+- **run** details: source, how it was read, processes used, time per step, versions
+
+`StoneConfig(single_file_report=True)` / `--single-file` also writes `report_single.html` with every chart inlined:
+one file to send or attach.
 
 It opens automatically only when you run from a terminal, never in CI, tests or pipelines. Use
 `open_report="md"` / `--open md` to open the Markdown file instead, or `open_report=False` / `--open none` to
@@ -69,11 +86,66 @@ elessar titanic.csv --target Survived
 
 Run `python examples/demo.py` to see it on a deliberately messy synthetic dataset.
 
+### Choosing the target
+
+The target is the column the others should explain (a label, a price, churn…). elessar never guesses it
+silently. Give it with `target="Survived"` / `--target Survived`, or let a person pick: `target="ask"` opens a
+small window listing every column, with the likely targets first (★, ranked by `suggest_targets(df)`: names such
+as `target`, `label`, `churn`, `price`, few classes, last column; identifiers and free text last). Double-click a
+row or press Enter. Without a display it asks in the terminal. From the command line the picker opens by itself
+when you run `elessar data.csv` interactively without `--target` (`--no-target` skips it).
+
+### Any input, any size
+
+`see()` and `elessar` accept a pandas `DataFrame` / `Series`, a dict, a list of records, a NumPy array, a polars
+DataFrame or LazyFrame, a pyarrow Table, a dask DataFrame, any object with the DataFrame interchange protocol,
+and paths: a file, a URL, a glob pattern (`logs/2024-*.csv`) or a folder.
+
+| Format | Extensions | Notes |
+|---|---|---|
+| delimited text | `.csv .tsv .tab .txt .dat .psv` | delimiter (`,` `;` tab `\|`) and encoding (UTF-8, cp1252, Latin-1) sniffed |
+| JSON | `.json .jsonl .ndjson` | records, columns or lines |
+| Parquet, Feather / Arrow, ORC | `.parquet .pq .feather .arrow .orc` | `[parquet]` extra |
+| Excel, OpenDocument | `.xlsx .xlsm .xls .xlsb .ods` | `[excel]` extra; first sheet with data, or `sheet=` |
+| SQLite | `.sqlite .db` | biggest table, or `table=` |
+| SAS, Stata, SPSS, HDF5, pickle, XML | `.sas7bdat .xpt .dta .sav .h5 .pkl .xml` | |
+
+Compressed files (`.gz .bz2 .zip .xz .zst`) are read directly; a file without a known extension is recognised by
+its content.
+
+**Big tables.** A table with more than `max_rows` rows (default 1,000,000), or larger than half of the free
+memory, is never loaded whole. It is read once in chunks and every chunk is reduced to a small summary:
+
+- **exact over every row**: row count, missing values per column, min / max / mean / standard deviation (Chan's
+  parallel algorithm), zeros, negatives, infinities, frequencies of low-cardinality columns, **duplicate rows**
+  (64-bit row hashes);
+- **distinct counts**: exact below 4,096 values, estimated above (k-minimum-values sketch, ~1.6 % error);
+- a **uniform random sample** of `max_rows` rows without replacement (the rows with the smallest random keys),
+  in the original order and indexed by original row number, on which the full profile runs.
+
+Chunks are independent, so they are reduced on every core: CSV files are split into byte ranges by **dask**,
+Parquet files by row group, in-memory frames by slice. Without dask, CSV files are streamed in one process. The
+report says the profile is sampled and shows the exact table.
+
+**Parallelism.** The heavy steps (per-column statistics and distribution fits, every association test, every chart)
+run as independent tasks on forked processes, one per core: the DataFrame is inherited, never copied or
+pickled. Results are identical to a single-process run (a test checks it). Small tables stay in one process;
+`StoneConfig(n_jobs=1)` / `-j 1` disables it, `n_jobs=k` caps it. On Windows everything runs in one process.
+
+| Table | Time (14 cores) |
+|---|---|
+| Titanic, 891 rows × 12 | 2.3 s |
+| 500,000 rows × 20, synthetic | 11 s (39 s in one process) |
+| 8,000,000 rows × 8, 480 MB CSV | 12.8 s, 0.95 GB of RAM (exact pass 4.5 s) |
+
+
 ## The see functions
 
 | Function | Returns | What it does |
 |---|---|---|
-| `see(df, target=None, config=None, plots=True, out_dir="elessar_report", verbose=True, open_report=None, name=None)` | `Vision` | Runs everything below, prints the terminal report, writes the charts and the recap, opens the recap. |
+| `see(data, target=None, config=None, plots=True, out_dir="elessar_report", verbose=True, open_report=None, name=None, **load_options)` | `Vision` | Runs everything below, prints the terminal report, writes the charts and the report page, opens it. `data` is anything `load` reads; `target="ask"` opens the picker. |
+| `load(source, config=None, *, sheet, table, sep, encoding, columns, nrows, engine)` | `Source` | Reads anything into `.df` (every row, or the sample of a big table), with `.full` (exact figures) and `.origin`. |
+| `suggest_targets(df)`, `pick_target(df)` | `list`, label | Ranked target candidates; the window / terminal picker. |
 | `see_column(series, config=None)` | `dict` | Everything about one column: type, stats, distribution, alerts. |
 | `see_types(df)` | `DataFrame` | Semantic type, pandas dtype, confidence, reason, and conversion suggestions (should-be-numeric / datetime / boolean / category, with the code). |
 | `see_stats(df)` | `DataFrame` | Descriptive statistics, one row per column. |
@@ -87,11 +159,14 @@ Every function accepts a `StoneConfig` to change thresholds (alpha, missing %, c
 ### Command line
 
 ```
-elessar PATH [-t TARGET] [-o OUT] [--no-plots] [--sep SEP] [--nrows N] [--sample N]
-           [--alpha A] [--width W] [--json] [--markdown] [--csv] [-q] [--open {auto,html,md,none}]
+elessar SOURCE [-t TARGET | --no-target] [-o OUT] [--no-plots] [--single-file]
+               [--sheet S] [--table T] [--sep SEP] [--encoding E] [--columns a,b] [--nrows N]
+               [--max-rows N] [--engine {auto,dask,pandas}] [-j JOBS] [--sample N] [--alpha A]
+               [--width W] [--json] [--markdown] [--csv] [-q] [--open {auto,html,md,none}]
 ```
 
-Reads CSV / TSV / TXT (separator sniffed) / JSON / JSONL / Parquet / Feather / Pickle / Excel, compressed or not. `python -m elessar` works too.
+`SOURCE` is a file, URL, glob pattern or folder in any format above. `-t ask` opens the target picker (it opens
+anyway when you run interactively without `-t`). `python -m elessar` works too.
 
 ### `Vision`
 
@@ -104,7 +179,9 @@ Reads CSV / TSV / TXT (separator sniffed) / JSON / JSONL / Parquet / Feather / P
 | `.quality` | all quality checks |
 | `.alerts` | list of `{severity, column, message}`, sorted high → medium → info |
 | `.plots`, `.plot_index` | paths of the PNG files written; one `{column, other, kind, path}` record per chart |
-| `.recap` | paths of `report.md` and `report.html` |
+| `.recap` | paths of `report.html` and `report.md` (and `report_single.html`) |
+| `.full` | for a sampled big table: exact figures over every row, one row per column; else `None` |
+| `.timings` | seconds per step: load, columns, associations, quality, charts, report |
 | `.print()`, `.render(width)` | the terminal report |
 | `.to_dict()`, `.to_json(path)`, `.to_csv(path)`, `.to_markdown(path)`, `.to_html(path)` | exports (CSV = the summary table) |
 
@@ -119,7 +196,7 @@ Reads CSV / TSV / TXT (separator sniffed) / JSON / JSONL / Parquet / Feather / P
 - *datetime*: range, span, inferred frequency, largest gaps, duplicated timestamps, future dates, trend in rows per period (Kendall tau + p), distribution by year / month / weekday / hour (only when not trivial)
 - *text*: length and word counts, empty / whitespace-only strings, share of digits / uppercase / punctuation, most common tokens
 
-**Distributions**: Shapiro-Wilk, D'Agostino K², Jarque-Bera and Anderson-Darling with a majority verdict; MLE fits of `norm, lognorm, expon, gamma, weibull_min, beta, uniform, logistic, t, laplace, pareto, chi2, cauchy` (continuous) or `poisson, nbinom, geom, binom` (discrete), with support handling (shifted / rescaled fits), ranked by AIC, with BIC and KS statistic / p-value (KS p-values are optimistic when the parameters are estimated from the same data: that is reported too). Each candidate has a timeout.
+**Distributions**: Shapiro-Wilk, D'Agostino K², Jarque-Bera and Anderson-Darling with a majority verdict; MLE fits of `norm, lognorm, expon, gamma, weibull_min, beta, uniform, logistic, t, laplace, pareto, chi2, cauchy` (continuous) or `poisson, nbinom, geom, binom` (discrete), with support handling (shifted / rescaled fits), ranked by AIC, with ΔAIC, Akaike weights, BIC and the KS statistic / p-value (KS p-values are optimistic when the parameters are estimated from the same data: that is reported too). Integer data get a proper goodness of fit (gap on the integer support, chi-square test) instead of KS, which ties inflate. A value holding 30 % or more of a continuous column (rain: 57 % exact zeros) is reported as a point mass and the candidates are fitted to the rest; fits that collapse onto repeated values are rejected. Each candidate has a timeout.
 
 **Associations and significance** (`see_corr` keys)
 
@@ -138,11 +215,11 @@ Reads CSV / TSV / TXT (separator sniffed) / JSON / JSONL / Parquet / Feather / P
 
 **Quality**: duplicate rows and columns, constant and quasi-constant columns, high missing, missing-value patterns (columns that go missing together, rows with many missing, most frequent patterns), mixed types, leading/trailing whitespace, placeholders used as missing (`""`, `"NA"`, `"null"`, `"?"`, `-999`, `99999`…), suspicious values (negative ages or prices, future birth dates, default dates like 1970-01-01), id-like columns, redundant columns, multicollinearity, sorted rows, imbalanced target, dtype optimizations with the estimated memory saving.
 
-**Big data**: expensive steps (correlations, Kendall, KDE, pairwise tests) use at most `sample_size` rows (default 100 000); distribution fits and normality tests use at most `fit_sample_size` values (default 20 000). Sampling is deterministic (`random_state`). 500 000 rows × 20 columns take about 45 s on a laptop, plots included (about 30 s without).
+**Sampling inside the profile**: on top of `max_rows` (above), expensive steps (correlations, Kendall, KDE, pairwise tests) use at most `sample_size` rows (default 100 000); distribution fits and normality tests use at most `fit_sample_size` values (default 20 000). Sampling is deterministic (`random_state`).
 
 **Robustness**: elessar runs on any DataFrame, whatever the column names (empty, `None`, `NaN`, numbers, tuples / MultiIndex, duplicates, slashes, newlines, emoji, pandas method names like `count`…) and whatever the content: empty frames, a single row, all-NaN columns, `inf` and 1e±300 values, huge cardinality, lists / dicts / bytes in cells, mixed types, sparse, nullable, categorical, period, interval, complex, Decimal, tz-aware datetimes, timedeltas, duplicated or MultiIndex row index. The target can be given by its original label (tuple, number, timestamp…). A randomized test suite generates hostile frames on every CI run. A failing step on one column is recorded as an error entry and an alert; it never stops the report.
 
-**Real data**: tested on 33 public datasets (Titanic, adult census, California housing, diamonds, Pokémon, Vega movies, NYC taxis, penguins, wine quality, a 62-column MultiIndex brain-network table…). Things it finds there unprompted: Pokémon `Total = 1·HP + 1·Attack + 1·Defense + 1·Sp. Atk + 1·Sp. Def + 1·Speed`; housing values capped at 500,001 and ages at 52; adult capital gain top-coded at 99,999 and 92 % zeros; Titanic survival 30 % vs 67 % depending on whether Cabin is missing; taxi tips always 0 when the payment type is missing; movie titles stored as numbers (*300*, *1776*); files sorted by price or year.
+**Real data**: tested on 43 public datasets (Titanic, adult census, California housing, diamonds, Pokémon, Vega movies, NYC taxis, penguins, wine quality, Netflix, Olympic athletes, Spotify, a 62-column MultiIndex brain-network table…) and on an 8-million-row file. Things it finds there unprompted: Pokémon `Total = 1·HP + 1·Attack + 1·Defense + 1·Sp. Atk + 1·Sp. Def + 1·Speed`; housing values capped at 500,001 and ages at 52; adult capital gain top-coded at 99,999 and 92 % zeros; Titanic survival 30 % vs 67 % depending on whether Cabin is missing; taxi tips always 0 when the payment type is missing; movie titles stored as numbers (*300*, *1776*); files sorted by price or year.
 
 ## Sample terminal output
 
@@ -285,7 +362,7 @@ named `out_dir/<NN>_<column>_<kind>.png`.
 
 ```bash
 git clone https://github.com/thibautdqb/elessar && cd elessar
-pip install -e ".[dev]"
+pip install -e ".[dev,all]"
 pytest
 python examples/demo.py
 ```

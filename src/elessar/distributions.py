@@ -35,7 +35,10 @@ PRETTY_NAMES: dict[str, str] = {
     "geom": "geometric",
     "binom": "binomial",
 }
-KS_NOTE = "KS p-values are optimistic: the parameters were estimated from the same data."
+KS_NOTE = ("KS p-values are optimistic: the parameters were estimated from the same data. For integer data the "
+           "gap is measured on the integer support and the p-value is a chi-square goodness-of-fit test.")
+POINT_MASS_SHARE = 0.3
+"""A single value holding this share of a continuous column is reported apart and left out of the fit."""
 _POSITIVE_SUPPORT = frozenset({"lognorm", "gamma", "weibull_min", "chi2", "pareto"})
 
 
@@ -166,6 +169,38 @@ def _fmt_params(params: dict[str, float]) -> str:
     return ", ".join(f"{k}={v:.3g}" for k, v in shown.items())
 
 
+def _discrete_gof(x: np.ndarray, dist: Any, params: tuple[float, ...], n_fitted: int) -> tuple[float, float]:
+    """Largest gap between the observed and fitted CDF on the integer support, and a chi-square
+    goodness-of-fit p-value (cells merged until each expects at least 5 values).
+
+    The KS test assumes a continuous distribution: on integers its ties inflate the statistic.
+    """
+    values, counts = np.unique(x, return_counts=True)
+    n = len(x)
+    gap = float(np.max(np.abs(np.cumsum(counts) / n - dist.cdf(values, *params))))
+    support = np.arange(values.min(), values.max() + 1)
+    expected = dist.pmf(support, *params) * n
+    expected[0] += dist.cdf(support[0] - 1, *params) * n  # tails folded into the end cells
+    expected[-1] += dist.sf(support[-1], *params) * n
+    observed = np.zeros(len(support))
+    observed[(values - support[0]).astype(int)] = counts
+    obs_cells, exp_cells, o_acc, e_acc = [], [], 0.0, 0.0
+    for o, e in zip(observed, expected):
+        o_acc, e_acc = o_acc + o, e_acc + e
+        if e_acc >= 5:
+            obs_cells.append(o_acc)
+            exp_cells.append(e_acc)
+            o_acc = e_acc = 0.0
+    if exp_cells:
+        obs_cells[-1] += o_acc
+        exp_cells[-1] += e_acc
+    dof = len(exp_cells) - 1 - n_fitted
+    if dof < 1:
+        return gap, float("nan")
+    chi2 = float(np.sum((np.array(obs_cells) - np.array(exp_cells)) ** 2 / np.array(exp_cells)))
+    return gap, float(stats.chi2.sf(chi2, dof))
+
+
 def fit_distributions(
     x: np.ndarray | pd.Series, discrete: bool | None = None, config: StoneConfig | None = None
 ) -> dict[str, Any]:
@@ -188,6 +223,18 @@ def fit_distributions(
             np.all(np.mod(x, 1) == 0) and x.min() >= 0 and np.unique(x).size <= cfg.discrete_max_levels
         )
     out["n_used"], out["kind"] = len(x), "discrete" if discrete else "continuous"
+    if not discrete:
+        values, counts = np.unique(x, return_counts=True)
+        top = int(np.argmax(counts))
+        if counts[top] / len(x) >= POINT_MASS_SHARE and len(values) >= 10:
+            # e.g. rain: 58% exact zeros. A continuous density cannot carry that mass, and MLE then
+            # collapses onto the spike; describe the spike, fit the rest.
+            out["point_mass"] = {"value": float(values[top]), "pct": 100.0 * counts[top] / len(x)}
+            x = x[x != values[top]]
+            if len(x) < 8 or np.ptp(x) == 0:
+                out["description"] = f"point mass at {values[top]:g} ({out['point_mass']['pct']:.0f}% of values)"
+                return out
+            out["n_used"] = len(x)
     candidates = cfg.candidates_discrete if discrete else cfg.candidates_continuous
     n = len(x)
     fits = []
@@ -200,7 +247,10 @@ def fit_distributions(
                 loglik = float(np.sum(logp))
                 if not math.isfinite(loglik):
                     raise ValueError("data outside the fitted support")
-                ks = stats.kstest(x, dist.cdf, args=params)
+                if not discrete and params[-1] < 1e-6 * (np.std(x) or 1.0):
+                    raise ValueError("degenerate fit: the density collapsed onto repeated values")
+                ks_stat, ks_p = (_discrete_gof(x, dist, params, k) if discrete
+                                 else tuple(stats.kstest(x, dist.cdf, args=params))[:2])
         except Exception as exc:  # noqa: BLE001 - a failing candidate is skipped, never fatal
             out["failed"][name] = str(exc) or type(exc).__name__
             continue
@@ -213,19 +263,26 @@ def fit_distributions(
             "loglik": loglik,
             "aic": 2 * k - 2 * loglik,
             "bic": k * math.log(n) - 2 * loglik,
-            "ks_stat": float(ks.statistic),
-            "ks_pvalue": float(ks.pvalue),
+            "ks_stat": float(ks_stat),
+            "ks_pvalue": float(ks_p),
             "note": note,
         })
     fits.sort(key=lambda f: f["aic"])
+    if fits:  # Akaike weights: relative support of each candidate among those fitted
+        rel = np.exp(-0.5 * np.array([f["aic"] - fits[0]["aic"] for f in fits]))
+        for f, w in zip(fits, rel / rel.sum()):
+            f["delta_aic"] = f["aic"] - fits[0]["aic"]
+            f["akaike_weight"] = float(w)
     out["fits"] = fits[: cfg.n_best_fits]
     out["n_candidates_fitted"] = len(fits)
+    pm = out.get("point_mass")
+    prefix = f"point mass at {pm['value']:g} ({pm['pct']:.0f}% of values); the rest: " if pm else ""
     if fits:
         best = fits[0]
         out["best"] = best["distribution"]
-        out["description"] = f"{shape_description(x)}, best fit {best['label']}({_fmt_params(best['params'])})"
+        out["description"] = f"{prefix}{shape_description(x)}, best fit {best['label']}({_fmt_params(best['params'])})"
     else:
-        out["description"] = f"{shape_description(x)}, no candidate could be fitted"
+        out["description"] = f"{prefix}{shape_description(x)}, no candidate could be fitted"
     return out
 
 

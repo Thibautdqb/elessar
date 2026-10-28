@@ -38,6 +38,22 @@ class StoneConfig:
     fit_sample_size: int = 20_000
     """Max values used for distribution fitting and normality tests."""
     random_state: int = 42
+    max_rows: int = 1_000_000
+    """Larger tables are profiled on a uniform random sample of this many rows; row counts, missing
+    values, min/max/mean/std, distinct counts and duplicate rows stay exact over every row."""
+    chunk_rows: int = 250_000
+    """Rows per chunk when a file is streamed (files too big to profile in one piece)."""
+    max_hashed_rows: int = 30_000_000
+    """Duplicate rows are counted exactly up to this many rows (8 bytes of memory per row)."""
+    memory_fraction: float = 0.5
+    """Share of the available RAM a table may take once loaded; bigger files are streamed."""
+
+    # parallelism
+    n_jobs: int | None = None
+    """Processes for the heavy steps: None = automatic (all cores for big tables), 1 = no
+    parallelism, -1 = all cores, k = at most k."""
+    parallel_min_cells: int = 20_000
+    """Below this many cells (rows x columns) the automatic mode stays in one process."""
 
     # types
     id_unique_ratio: float = 0.95
@@ -86,3 +102,5 @@ class StoneConfig:
     n_scatter: int = 4
     n_target_plots: int = 8
     dpi: int = 144
+    single_file_report: bool = False
+    """Also write ``report_single.html`` with every chart inlined (one file to send or attach)."""

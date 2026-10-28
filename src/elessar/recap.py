@@ -7,8 +7,10 @@ names and values are escaped correctly for each format whatever characters they 
 
 from __future__ import annotations
 
+import base64
 import datetime as dt
 import html
+import math
 import os
 import platform
 import re
@@ -18,10 +20,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO, Union
 from urllib.parse import quote
 
+import numpy as np
 import pandas as pd
 
-from ._utils import fmt_bytes, fmt_p
-from .report import _detail_parts, _overview_md, _pair_rows, _target_rows
+from . import __version__
+from ._utils import fmt_bytes, fmt_num, fmt_p, truncate
+from .distributions import _fmt_params
+from .report import _overview_md, _pair_rows, _target_rows
 
 if TYPE_CHECKING:
     from .report import Vision
@@ -29,8 +34,8 @@ if TYPE_CHECKING:
 Span = tuple[str, str]
 Inline = Union[str, list[Span]]  # a plain string is one plain span
 Block = tuple[Any, ...]
-SECTIONS = {"findings": "Key findings", "target": "Target analysis", "quality": "Data quality",
-            "associations": "Associations", "columns": "Columns"}
+SECTIONS = {"findings": "Key findings", "target": "Target analysis", "distributions": "Distributions",
+            "quality": "Data quality", "associations": "Associations", "columns": "Columns", "run": "Run"}
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "info": 2}
 
 
@@ -50,6 +55,141 @@ def bold(text: Any) -> Span:
 
 def _spans(inline: Inline) -> list[Span]:
     return [("", inline)] if isinstance(inline, str) else inline
+
+
+def _num(x: Any, digits: int = 4) -> str:
+    return "-" if x is None or (isinstance(x, float) and not math.isfinite(x)) or pd.isna(x) else fmt_num(x, digits)
+
+
+def _int(x: Any) -> str:
+    return "-" if x is None or pd.isna(x) else f"{int(x):,}"
+
+
+def _ks(d: float) -> str:
+    return f"{d:.3f} ({'close' if d < 0.03 else 'fair' if d < 0.08 else 'poor'})"
+
+
+def _version(module: str) -> str:
+    try:
+        return __import__(module).__version__
+    except Exception:  # noqa: BLE001
+        return "?"
+
+
+def _pct(n: Any, pct: Any) -> str:
+    return f"{n:,} ({pct:.1f}%)" if n is not None and pct is not None else "-"
+
+
+def _cards(d: dict[str, Any]) -> list[tuple[str, list[tuple[str, str]]]]:
+    """Key figures of one column grouped in small titled tables."""
+    st = d.get("stats", {})
+    if not st:
+        return []
+    unique_ish = (st.get("pct_unique") or 0) > 90
+    profile = [("type", str(d.get("semantic_type"))), ("dtype", str(d.get("pandas_dtype"))),
+               ("values", f"{st.get('count', 0):,}"), ("missing", _pct(st.get("n_missing"), st.get("pct_missing"))),
+               ("distinct", _pct(st.get("n_unique"), st.get("pct_unique"))),
+               ("memory", fmt_bytes(st.get("memory_bytes") or 0))]
+    if st.get("modes") and not unique_ish:
+        profile.append(("mode", f"{truncate(st['modes'][0], 30)} ×{st['mode_freq']:,}"))
+    cards = [("Profile", profile)]
+    if "mean" in st:
+        ci = (f"[{_num(st['ci95_mean_low'])}, {_num(st['ci95_mean_high'])}]" if st.get("ci95_mean_low") is not None
+              else "-")
+        mci = (f"[{_num(st['ci95_median_low'])}, {_num(st['ci95_median_high'])}]"
+               if st.get("ci95_median_low") is not None else "-")
+        cards.append(("Center", [("mean", _num(st["mean"])), ("95% CI of mean", ci), ("median", _num(st["median"])),
+                                 ("95% CI of median", mci), ("trimmed mean", _num(st.get("trimmed_mean"))),
+                                 ("geometric mean", _num(st.get("geometric_mean"))),
+                                 ("harmonic mean", _num(st.get("harmonic_mean")))]))
+        cards.append(("Spread", [("std", _num(st["std"])), ("variance", _num(st.get("var"))), ("sem", _num(st.get("sem"))),
+                                 ("IQR", _num(st.get("iqr"))), ("MAD", _num(st.get("mad"))), ("CV", _num(st.get("cv"))),
+                                 ("range", _num(st.get("range")))]))
+        cards.append(("Quantiles", [("min", _num(st["min"]))] + [(f"p{q}", _num(st.get(f"p{q}"))) for q in
+                                                                 (1, 5, 25, 50, 75, 95, 99) if st.get(f"p{q}") is not None]
+                      + [("max", _num(st["max"])), ("sum", _num(st.get("sum")))]))
+        shape = [("skewness", _num(st.get("skewness"), 3)), ("excess kurtosis", _num(st.get("kurtosis"), 3)),
+                 ("KDE modes", str(st.get("n_modes_kde") or "-")),
+                 ("bimodality coef.", _num(st.get("bimodality_coefficient"), 3))]
+        if st.get("n_decimals") is not None:
+            shape.append(("decimals", str(st["n_decimals"])))
+        if st.get("heaping_index"):
+            shape.append(("heaping", f"×{st['heaping_index']:.1f}"))
+        cards.append(("Shape", shape))
+        outl = [("IQR fences", f"[{_num(st.get('iqr_lower'))}, {_num(st.get('iqr_upper'))}]"),
+                ("outside fences", _pct(st.get("n_outliers_iqr"), st.get("pct_outliers_iqr"))),
+                ("|z| > 3", _pct(st.get("n_outliers_z"), st.get("pct_outliers_z"))),
+                ("modified z > 3.5", _pct(st.get("n_outliers_mz"), st.get("pct_outliers_mz"))),
+                ("zeros", f"{st.get('n_zeros', 0):,}"), ("negatives", f"{st.get('n_negative', 0):,}"),
+                ("infinite", f"{st.get('n_inf', 0):,}")]
+        cards.append(("Outliers & counts", outl))
+        order = [("monotonic", "increasing" if st.get("monotonic_increasing") else "decreasing"
+                  if st.get("monotonic_decreasing") else "no")]
+        if st.get("autocorr_lag1") is not None:
+            order.append(("lag-1 autocorrelation", f"{st['autocorr_lag1']:.3f} (p {fmt_p(st.get('autocorr_lag1_p'))})"))
+        cards.append(("Row order", order))
+    if "cardinality" in st:
+        labels = [("cardinality", f"{st['cardinality']:,}"),
+                  ("entropy", f"{st['entropy']:.2f} bits ({st['normalized_entropy']:.2f} of max)"),
+                  ("Gini impurity", f"{st['gini_impurity']:.3f}"), ("imbalance", f"×{_num(st['imbalance_ratio'])}"),
+                  ("rare labels", f"{st['n_rare_categories']} ({st['pct_rows_rare']:.1f}% of rows)")]
+        if st.get("uniform_chi2_p") is not None:
+            labels.append(("uniform? chi²", f"p {fmt_p(st['uniform_chi2_p'])}"))
+        if st.get("pct_true") is not None:
+            labels.append(("true", f"{st['pct_true']:.1f}% [{st['ci95_pct_true_low']:.1f}, {st['ci95_pct_true_high']:.1f}]"))
+        cards.append(("Labels", labels))
+    if "span" in st:
+        tm = [("first", str(st["min"])), ("last", str(st["max"])), ("span", str(st["span"])),
+              ("frequency", str(st.get("inferred_freq") or "irregular")),
+              ("duplicated timestamps", f"{st.get('n_duplicated_timestamps', 0):,}"),
+              ("in the future", f"{st.get('n_future', 0):,}"), ("before 1900", f"{st.get('n_before_1900', 0):,}")]
+        if st.get("largest_gaps"):
+            g = st["largest_gaps"][0]
+            tm.append(("largest gap", f"{g['gap']} ({g['start']} → {g['end']})"))
+        if st.get("counts_trend_tau") is not None:
+            tm.append((f"trend of rows per {st['counts_resolution']}",
+                       f"tau {st['counts_trend_tau']:+.2f} (p {fmt_p(st['counts_trend_p'])})"))
+        cards.append(("Time", tm))
+    if "words_mean" in st:
+        cards.append(("Text", [("length", f"{st['len_min']}–{st['len_max']} (mean {st['len_mean']:.0f})"),
+                               ("words", f"mean {st['words_mean']:.1f}, max {st['words_max']}"),
+                               ("empty", f"{st.get('n_empty', 0):,}"),
+                               ("digits / upper / punct.", f"{st['pct_digits']:.1f}% / {st['pct_uppercase']:.1f}% / "
+                                                          f"{st['pct_punctuation']:.1f}%")]))
+    if "labels_per_row_mean" in st:
+        cards.append(("Lists", [("separator", repr(st["separator"])), ("distinct labels", f"{st['n_labels']:,}"),
+                                ("labels per row", f"{st['labels_per_row_mean']:.1f} (max {st['labels_per_row_max']})"),
+                                ("single label", f"{st['pct_single_label']:.0f}%")]))
+    return cards
+
+
+def _extra_lines(d: dict[str, Any]) -> list[Inline]:
+    """What the cards and tables do not show: label hygiene, time patterns, tokens, fixes, errors."""
+    st = d.get("stats", {})
+    out: list[Inline] = []
+    if st.get("inconsistent_labels"):
+        out.append("Inconsistent labels: " + "; ".join(" / ".join(map(repr, g)) for g in st["inconsistent_labels"][:5]))
+    for key in ("by_weekday", "by_month", "by_hour"):
+        if key in st:
+            out.append(f"Rows {key.replace('_', ' ')}: " + ", ".join(f"{k} {v}" for k, v in st[key].items()))
+    if st.get("top_tokens"):
+        out.append("Top tokens: " + ", ".join(f"{t['token']} ({t['count']})" for t in st["top_tokens"][:12]))
+    if st.get("top_labels"):
+        out.append("Top labels: " + ", ".join(f"{truncate(x['label'], 30)} {x['pct_rows']:.0f}% of rows"
+                                              for x in st["top_labels"][:12]))
+    if st.get("top_domains"):
+        out.append(f"{st['n_domains']} domains: " + ", ".join(f"{x['domain']} ({x['count']})" for x in st["top_domains"][:8]))
+    if st.get("python_kinds"):
+        out.append("Python types: " + ", ".join(f"{k} {v}" for k, v in st["python_kinds"].items()))
+    if st.get("top_keys"):
+        out.append("Top keys: " + ", ".join(f"{k['key']} ({k['count']})" for k in st["top_keys"][:10]))
+    if (st.get("rare_categories") or []) and isinstance(st["rare_categories"], list):
+        out.append("Rare labels: " + ", ".join(truncate(r, 24) for r in st["rare_categories"][:12]))
+    for sug in d.get("suggestions", []):
+        out.append([bold(sug["flag"]), ("", ": "), code(sug["code"])] + ([("", f" ({sug['note']})")] if sug.get("note") else []))
+    for step, err in d.get("errors", {}).items():
+        out.append([bold(f"Error in {step}"), ("", f": {err}")])
+    return out
 
 
 # ------------------------------------------------------------------------------------------- building
@@ -80,18 +220,52 @@ class _Recap:
     def build(self, title: str) -> list[Block]:
         v, o = self.v, self.v.overview
         self.add("h", 1, title, "top")
-        self.add("p", [("i", f"{o['n_rows']:,} rows × {o['n_columns']} columns · generated "
-                             f"{dt.datetime.now():%Y-%m-%d %H:%M} by elessar")])
-        toc = ["findings"] + (["target"] if v.target else []) + ["quality", "associations", "columns"]
+        meta = f"{o['n_rows']:,} rows × {o['n_columns']} columns"
+        if o.get("source"):
+            meta += f" · {o['source']}"
+        self.add("p", [("i", f"{meta} · generated {dt.datetime.now():%Y-%m-%d %H:%M} by elessar {__version__}")])
+        if o.get("sampled"):
+            self.add("callout", [bold("Sampled profile. "), ("", f"The table has {o['n_rows']:,} rows: statistics, tests "
+                                 f"and charts use a uniform random sample of {o['n_rows_profiled']:,} rows "
+                                 f"({100 * o['n_rows_profiled'] / o['n_rows']:.1f}%). Row counts, missing values, "
+                                 "min / max / mean / std, distinct counts and duplicate rows are exact over every row ("),
+                                 ("link", "exact"), ("", "exact figures"), ("", ").")])
+        toc = (["findings"] + (["target"] if v.target else []) + (["distributions"] if self.fitted() else [])
+               + ["quality", "associations", "columns", "run"])
         self.add("toc", [(key, SECTIONS[key]) for key in toc])
         self.add("table", ["", ""], [[[bold(k.capitalize())], v_] for k, v_ in _overview_md(o).items()], "kv")
+        if v.full is not None:
+            self.exact_section()
         self.findings()
         if v.target:
             self.target_section()
+        if self.fitted():
+            self.distribution_section()
         self.quality_section()
         self.association_section()
         self.column_section()
+        self.run_section()
         return self.blocks
+
+    def fitted(self) -> list[str]:
+        return [c for c, d in self.v.columns.items() if (d.get("distribution") or {}).get("normality")]
+
+    def exact_section(self) -> None:
+        full, o = self.v.full, self.v.overview
+        self.add("h", 3, f"Exact figures over all {o['n_rows']:,} rows", "exact")
+        rows = []
+        for col, r in full.iterrows():
+            distinct = f"{int(r['n_distinct']):,}" if r["distinct_exact"] else f"≈ {int(r['n_distinct']):,}"
+            top = "" if r["top_value"] is None or pd.isna(r["top_count"]) else (
+                f"{truncate(r['top_value'], 24)} ({100 * r['top_count'] / o['n_rows']:.1f}%)")
+            rows.append([[code(col)], f"{int(r['count']):,}", f"{int(r['n_missing']):,} ({r['pct_missing']:.1f}%)", distinct,
+                         _num(r["mean"]), _num(r["std"]), _num(r["min"]), _num(r["max"]), _int(r["n_zeros"]),
+                         _int(r["n_negative"]), top])
+        self.add("table", ["column", "count", "missing", "distinct", "mean", "std", "min", "max", "zeros", "negatives",
+                           "most frequent"], rows, "data")
+        self.add("p", [("i", "Distinct counts marked ≈ are estimated (k-minimum-values sketch, about 1.6% relative "
+                              "error); every other figure is exact. Means and standard deviations are combined across "
+                              "chunks with Chan's parallel algorithm.")])
 
     def findings(self) -> None:
         v = self.v
@@ -184,6 +358,41 @@ class _Recap:
                      [[[code(k)], "inf" if val == float("inf") else f"{val:.2f}"] for k, val in vif["vif"].items()], "data")
         self.figures(self.charts(("scatter",), any_column=True), grid=True)
 
+    def distribution_section(self) -> None:
+        v = self.v
+        self.add("h", 2, SECTIONS["distributions"], "distributions")
+        self.add("p", "Normality is tested four ways (Shapiro-Wilk on up to 5,000 values, D'Agostino K², Jarque-Bera, "
+                      "Anderson-Darling); the verdict is 'not normal' when at least half of them reject at "
+                      f"alpha {v.alpha:g}. Every candidate distribution is fitted by maximum likelihood and ranked by AIC; "
+                      "the Akaike weight is its relative support among the candidates.")
+        self.add("p", [("i", "With thousands of values every test rejects even a good fit, so read KS D (the largest gap "
+                              "between the fitted and the observed cumulative distribution) as the size of the misfit: "
+                              "below 0.03 close, below 0.08 fair, above poor. KS p-values are optimistic since the "
+                              "parameters come from the same data. For integer columns the gap is measured on the "
+                              "integer support and the p-value comes from a chi-square goodness-of-fit test.")])
+        rows = []
+        for i, name in enumerate(v.columns):
+            d = v.columns[name]
+            dist = d.get("distribution") or {}
+            norm, fit = dist.get("normality") or {}, dist.get("fit") or {}
+            if not norm:
+                continue
+            fits = fit.get("fits") or []
+            best = fits[0] if fits else None
+            rejecting = f"{norm['n_reject']} of {norm['n_tests']}" if norm.get("n_tests") else ""
+            second = fits[1] if len(fits) > 1 else None
+            rows.append([
+                [("link", f"col-{i}"), code(name)], f"{norm.get('n', 0):,}", norm.get("verdict", ""), rejecting,
+                best["label"] if best else "-", _fmt_params(best["params"]) if best else "",
+                f"{best['akaike_weight']:.2f}" if best and "akaike_weight" in best else "",
+                f"{second['delta_aic']:.1f} ({second['label']})" if second and "delta_aic" in second else "",
+                _ks(best["ks_stat"]) if best else "", fmt_p(best["ks_pvalue"]) if best else "",
+                (fit.get("description") or "").split(", best fit")[0],
+            ])
+        self.add("table", ["column", "n", "normality", "tests rejecting", "best fit", "parameters", "weight",
+                           "ΔAIC to 2nd", "KS D", "KS p", "shape"], rows, "data")
+        self.figures(self.charts(("dist",), any_column=True), grid=True)
+
     def column_section(self) -> None:
         v = self.v
         self.add("h", 2, SECTIONS["columns"], "columns")
@@ -195,15 +404,75 @@ class _Recap:
                          str(len(d.get("alerts", [])))])
         self.add("table", ["column", "type", "missing", "distinct", "alerts"], rows, "data")
         for i, (name, d) in enumerate(v.columns.items()):
-            body: list[Block] = [("p", [("i", f"{d.get('pandas_dtype')} · {d.get('reason')}")]),
-                                 ("ul", [" · ".join(p for p in parts if p) for parts in _detail_parts(d) if any(parts)])]
-            for path, label in self.charts(("dist", "bar", "time", "text"), name):
-                body.append(("img", path, f"{name}: {label}"))
             summary = [code(name), ("", f" · {d.get('semantic_type')}")]
             n_alerts = len(d.get("alerts", []))
             if n_alerts:
                 summary.append(("", f" · {n_alerts} alert{'s' if n_alerts > 1 else ''}"))
-            self.add("details", summary, body, f"col-{i}")
+            self.add("details", summary, self.column_body(name, d), f"col-{i}")
+
+    def column_body(self, name: str, d: dict[str, Any]) -> list[Block]:
+        st = d.get("stats", {})
+        body: list[Block] = [("p", [("i", f"{d.get('pandas_dtype')} · {d.get('reason')}")])]
+        alerts = d.get("alerts") or []
+        if alerts:
+            body.append(("ul", [[(f"sev-{a['severity']}", a["severity"].upper()), ("", " " + a["message"])]
+                                for a in alerts]))
+        cards = _cards(d)
+        if cards:
+            body.append(("kvgrid", cards))
+        dist = d.get("distribution") or {}
+        norm, fit = dist.get("normality") or {}, dist.get("fit") or {}
+        if norm.get("shapiro_p") is not None:
+            tests = [("Shapiro-Wilk", "shapiro"), ("D'Agostino K²", "dagostino"), ("Jarque-Bera", "jarque_bera"),
+                     ("Anderson-Darling", "anderson")]
+            trows = []
+            for label, key in tests:
+                stat, p = norm.get(f"{key}_stat"), norm.get(f"{key}_p")
+                if stat is None:
+                    continue
+                verdict = "-" if p is None else ("rejects normality" if p < self.v.alpha else "consistent with normal")
+                trows.append([label, _num(stat), fmt_p(p) if p is not None else "critical values only", verdict])
+            body += [("h", 4, f"Normality: {norm.get('verdict')} (n = {norm.get('n', 0):,})", None),
+                     ("table", ["test", "statistic", "p-value", "at alpha " + f"{self.v.alpha:g}"], trows, "data")]
+        if fit.get("fits"):
+            frows = [[f"{j + 1}", f["label"], _fmt_params(f["params"]), _num(f["aic"], 6),
+                      f"{f.get('delta_aic', 0):.1f}", f"{f.get('akaike_weight', float('nan')):.2f}", _num(f["bic"], 6),
+                      _ks(f["ks_stat"]), fmt_p(f["ks_pvalue"])] for j, f in enumerate(fit["fits"])]
+            n_tried = fit.get("n_candidates_fitted", len(fit["fits"]))
+            body += [("h", 4, f"Best fits ({fit.get('kind', '')}, {n_tried} candidates fitted on "
+                              f"{fit.get('n_used', 0):,} values)", None),
+                     ("table", ["#", "distribution", "parameters", "AIC", "ΔAIC", "weight", "BIC", "KS D", "KS p"],
+                      frows, "data")]
+        top = st.get("top_values") or []
+        if top and (st.get("pct_unique") or 0) <= 90 and d.get("semantic_type") not in ("numeric_continuous", "text"):
+            body += [("h", 4, "Most frequent values", None),
+                     ("table", ["value", "count", "share"],
+                      [[[code(truncate(t["value"], 60))], f"{t['count']:,}", f"{t['pct']:.1f}%"] for t in top], "data")]
+        extra = _extra_lines(d)
+        if extra:
+            body.append(("ul", extra))
+        for path, label in self.charts(("dist", "bar", "time", "text"), name):
+            body.append(("img", path, f"{name}: {label}"))
+        return body
+
+    def run_section(self) -> None:
+        v, o, t = self.v, self.v.overview, self.v.timings
+        self.add("h", 2, SECTIONS["run"], "run")
+        rows: list[list[Inline]] = [[[bold("Source")], o.get("source") or "DataFrame"]]
+        if o.get("sampled"):
+            rows.append([[bold("Rows profiled")], f"{o['n_rows_profiled']:,} of {o['n_rows']:,} (uniform random sample)"])
+        procs = f"{o.get('workers', 1)} for the analysis"
+        if o.get("chart_workers"):
+            procs += f", {o['chart_workers']} for the charts"
+        rows.append([[bold("Processes")], procs + f" ({os.cpu_count() or 1} cores available)"])
+        if t:
+            steps = ", ".join(f"{k} {t[k]:.1f}s" for k in ("load", "columns", "associations", "quality", "charts", "report")
+                              if k in t)
+            rows.append([[bold("Time")], f"{t.get('total', sum(t.values())):.1f}s ({steps})"])
+        rows.append([[bold("Significance")], f"alpha {v.alpha:g}, Benjamini-Hochberg false discovery rate per family of tests"])
+        rows.append([[bold("Versions")], f"elessar {__version__} · Python {platform.python_version()} · pandas {pd.__version__}"
+                                         f" · numpy {np.__version__} · scipy {_version('scipy')}"])
+        self.add("table", ["", ""], rows, "kv")
 
     def figures(self, charts: list[tuple[str, str]], grid: bool = False) -> None:
         if charts:
@@ -261,6 +530,13 @@ def render_markdown(blocks: list[Block]) -> str:
             lines.append("|" + "|".join("---" for _ in headers) + "|")
             lines += ["| " + " | ".join(_md_inline(c, True) for c in row) + " |" for row in rows]
             lines.append("")
+        elif kind == "callout":
+            lines += ["> " + _md_inline(block[1]), ""]
+        elif kind == "kvgrid":
+            for title, pairs in block[1]:
+                lines += [f"**{_md_escape(title)}**", "", "| | |", "|---|---|"]
+                lines += [f"| {_md_escape(k, True)} | {_md_escape(v, True)} |" for k, v in pairs]
+                lines.append("")
         elif kind == "img":
             lines += [f"![{_md_escape(block[2])}]({_md_url(block[1])})", ""]
         elif kind == "figures":
@@ -294,8 +570,14 @@ def _html_inline(inline: Inline) -> str:
     return "".join(out)
 
 
-def render_html(blocks: list[Block], title: str) -> str:
-    return _PAGE.format(title=html.escape(title), body=_html_body(blocks))
+def render_html(blocks: list[Block], title: str, embed_from: Path | None = None) -> str:
+    """The recap page; with ``embed_from`` (the folder chart paths are relative to) the charts are
+    inlined, so the page is one file that can be sent or attached on its own."""
+    _EMBED["base"] = embed_from
+    try:
+        return _PAGE.format(title=html.escape(title), body=_html_body(blocks))
+    finally:
+        _EMBED["base"] = None
 
 
 def _html_body(blocks: list[Block]) -> str:
@@ -320,6 +602,15 @@ def _html_body(blocks: list[Block]) -> str:
                 attrs = f' class="sev-{row[0]}"' if cls == "alerts" else ""
                 trs.append(f"<tr{attrs}>" + "".join(f"<td>{_html_inline(c)}</td>" for c in row) + "</tr>")
             body.append(f'<div class="table-wrap"><table class="{cls}">{head}<tbody>{"".join(trs)}</tbody></table></div>')
+        elif kind == "callout":
+            body.append(f'<div class="callout">{_html_inline(block[1])}</div>')
+        elif kind == "kvgrid":
+            cards = []
+            for title, pairs in block[1]:
+                trs = "".join(f"<tr><td>{html.escape(k)}</td><td>{html.escape(v)}</td></tr>" for k, v in pairs)
+                cards.append(f'<div class="card"><div class="card-title">{html.escape(title)}</div>'
+                             f"<table>{trs}</table></div>")
+            body.append(f'<div class="kvgrid">{"".join(cards)}</div>')
         elif kind == "img":
             body.append(_figure(block[1], block[2]))
         elif kind == "figures":
@@ -331,7 +622,15 @@ def _html_body(blocks: list[Block]) -> str:
     return "\n".join(body)
 
 
+_EMBED: dict[str, Path | None] = {"base": None}
+
+
 def _figure(path: str, label: str) -> str:
+    base = _EMBED["base"]
+    if base is not None:  # one self-contained file: the PNG inlined as a data URI
+        data = base64.b64encode((base / path).read_bytes()).decode("ascii")
+        return (f'<figure><img src="data:image/png;base64,{data}" alt="{html.escape(label)}" '
+                'loading="lazy"></figure>')
     src = html.escape(quote(path, safe="/._-~"))
     return f'<figure><a href="{src}"><img src="{src}" alt="{html.escape(label)}" loading="lazy"></a></figure>'
 
@@ -378,6 +677,15 @@ details {{ background:var(--surface); border:1px solid var(--line); border-radiu
 details[open] {{ padding-bottom:12px; }}
 summary {{ cursor:pointer; padding:11px 0; font-weight:600; }}
 details > ul {{ font-size:13.5px; color:var(--ink2); }}
+h4 {{ font-size:14px; margin:20px 0 6px; color:var(--ink2); }}
+.callout {{ background:#fdf6e3; border:1px solid #f1dfb0; border-radius:10px; padding:10px 14px; margin:10px 0 16px; color:var(--ink2); }}
+.kvgrid {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:10px; margin:10px 0 14px; }}
+.card {{ background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px 4px 4px; }}
+.card-title {{ font-size:11.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); padding:0 10px 4px; }}
+.card table {{ font-size:13px; }} .card td {{ padding:4px 10px; border-bottom:1px solid #f0efea; }}
+.card td:last-child {{ text-align:right; font-variant-numeric:tabular-nums; color:var(--ink); }}
+.card td:first-child {{ color:var(--ink2); }}
+table.data td {{ font-variant-numeric:tabular-nums; }}
 @media (max-width: 640px) {{ main {{ padding:16px; }} .figures.grid {{ grid-template-columns:1fr; }} }}
 </style>
 </head>
@@ -398,15 +706,23 @@ def build(vision: Vision, base: Path, title: str | None = None) -> list[Block]:
     return _Recap(vision, base).build(title or vision.name or "elessar report")
 
 
-def write(vision: Vision, out_dir: str | Path, title: str | None = None) -> dict[str, Path]:
-    """Write ``report.md`` and ``report.html`` in ``out_dir``; returns their paths."""
+def write(vision: Vision, out_dir: str | Path, title: str | None = None, single_file: bool = False) -> dict[str, Path]:
+    """Write ``report.html`` and ``report.md`` in ``out_dir``; returns their paths.
+
+    ``single_file`` also writes ``report_single.html``, with every chart inlined.
+    """
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     blocks = build(vision, out, title)
+    name = title or vision.name or "elessar report"
     md, page = out / "report.md", out / "report.html"
     md.write_text(render_markdown(blocks), encoding="utf-8")
-    page.write_text(render_html(blocks, title or vision.name or "elessar report"), encoding="utf-8")
-    return {"md": md, "html": page}
+    page.write_text(render_html(blocks, name), encoding="utf-8")
+    paths = {"md": md, "html": page}
+    if single_file:
+        paths["single"] = out / "report_single.html"
+        paths["single"].write_text(render_html(blocks, name, embed_from=out.resolve()), encoding="utf-8")
+    return paths
 
 
 def maybe_open(vision: Vision, open_report: bool | str | None, stream: TextIO | None = None) -> Path | None:

@@ -268,14 +268,57 @@ def redundant_pairs(
     ]
 
 
+_COLUMN_KEYS = ("high_missing_columns", "quasi_constant_columns", "mixed_type_columns", "whitespace_columns",
+                "placeholder_values", "suspicious_values", "conversion_suggestions")
+
+
+def column_quality(s: pd.Series, info: dict[str, Any], config: StoneConfig | None = None) -> dict[str, Any]:
+    """Quality checks of one column given its type info; only the findings are returned."""
+    cfg = config or StoneConfig()
+    stype = info["semantic_type"]
+    found: dict[str, Any] = {}
+    n = len(s)
+    pct_missing = 100.0 * s.isna().sum() / n if n else 0.0
+    if pct_missing >= cfg.medium_missing_pct and stype != "empty":
+        found["high_missing_columns"] = pct_missing
+    nonnull = hashable(s.dropna())
+    if stype not in ("empty", "constant") and len(nonnull):
+        top_pct = 100.0 * nonnull.value_counts().iloc[0] / len(nonnull)
+        if top_pct >= cfg.quasi_constant_pct:
+            found["quasi_constant_columns"] = top_pct
+    kinds = python_kinds(sample(s, cfg.sample_size, cfg.random_state))
+    if len({_KIND_FAMILY.get(k, k) for k in kinds}) > 1:
+        found["mixed_type_columns"] = kinds
+    checks = (("whitespace_columns", lambda: whitespace_issues(s)),
+              ("placeholder_values", lambda: placeholder_values(s, stype, cfg)),
+              ("suspicious_values", lambda: suspicious_values(s, stype)))
+    for key, check in checks:
+        res = check()
+        if res:
+            found[key] = res
+    opt = dtype_optimization(s, stype) if stype not in ("empty", "constant") else None
+    if opt:
+        found["dtype_optimization"] = opt
+    if info.get("suggestions"):
+        found["conversion_suggestions"] = info["suggestions"]
+    return found
+
+
 def check_quality(
     df: pd.DataFrame,
     types: dict[str, dict[str, Any]],
     correlations: dict[str, pd.DataFrame],
     config: StoneConfig | None = None,
     target: str | None = None,
+    per_column: dict[str, dict[str, Any]] | None = None,
+    exact_duplicates: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Run every dataset-level check given precomputed type info and correlations."""
+    """Run every dataset-level check given precomputed type info and correlations.
+
+    ``per_column`` holds :func:`column_quality` results already computed (e.g. in parallel);
+    missing columns are checked here. ``exact_duplicates`` (``{count, pct}`` over the full table
+    when ``df`` is a sample) replaces the duplicate count measured on ``df``.
+    """
     cfg = config or StoneConfig()
     out: dict[str, Any] = {
         "duplicate_rows": duplicate_rows(df),
@@ -294,44 +337,30 @@ def check_quality(
         "dtype_optimizations": [],
         "conversion_suggestions": {},
     }
-    n = len(df)
+    per_column = per_column or {}
     for col in df.columns:
-        s, info = df[col], types[col]
+        info = types[col]
         stype = info["semantic_type"]
+        if stype == "empty":
+            out["empty_columns"].append(col)
+        elif stype == "constant":
+            out["constant_columns"].append(col)
+        elif stype == "id":
+            out["id_columns"].append(col)
         try:
-            if stype == "empty":
-                out["empty_columns"].append(col)
-            elif stype == "constant":
-                out["constant_columns"].append(col)
-            elif stype == "id":
-                out["id_columns"].append(col)
-            pct_missing = 100.0 * s.isna().sum() / n if n else 0.0
-            if pct_missing >= cfg.medium_missing_pct and stype != "empty":
-                out["high_missing_columns"][col] = pct_missing
-            nonnull = hashable(s.dropna())
-            if stype not in ("empty", "constant") and len(nonnull):
-                top_pct = 100.0 * nonnull.value_counts().iloc[0] / len(nonnull)
-                if top_pct >= cfg.quasi_constant_pct:
-                    out["quasi_constant_columns"][col] = top_pct
-            kinds = python_kinds(sample(s, cfg.sample_size, cfg.random_state))
-            if len({_KIND_FAMILY.get(k, k) for k in kinds}) > 1:
-                out["mixed_type_columns"][col] = kinds
-            ws = whitespace_issues(s)
-            if ws:
-                out["whitespace_columns"][col] = ws
-            ph = placeholder_values(s, stype, cfg)
-            if ph:
-                out["placeholder_values"][col] = ph
-            sus = suspicious_values(s, stype)
-            if sus:
-                out["suspicious_values"][col] = sus
-            opt = dtype_optimization(s, stype) if stype not in ("empty", "constant") else None
-            if opt:
-                out["dtype_optimizations"].append(opt)
-            if info.get("suggestions"):
-                out["conversion_suggestions"][col] = info["suggestions"]
+            found = per_column[col] if col in per_column else column_quality(df[col], info, cfg)
         except Exception as exc:  # noqa: BLE001 - quality checks must not stop on one column
             out.setdefault("errors", {})[col] = repr(exc)
+            continue
+        if "error" in found:
+            out.setdefault("errors", {})[col] = found["error"]
+        for key in _COLUMN_KEYS:
+            if key in found:
+                out[key][col] = found[key]
+        if "dtype_optimization" in found:
+            out["dtype_optimizations"].append(found["dtype_optimization"])
+    if exact_duplicates is not None:
+        out["duplicate_rows"] = {**out["duplicate_rows"], **exact_duplicates, "exact_over_all_rows": True}
     out["memory_bytes"] = int(df.memory_usage(deep=True, index=True).sum()) if df.shape[1] else 0
     out["potential_saving_bytes"] = int(sum(o["saving_bytes"] for o in out["dtype_optimizations"]))
     out["alerts"] = sort_alerts(quality_alerts(out, cfg))
@@ -354,8 +383,9 @@ def quality_alerts(q: dict[str, Any], config: StoneConfig | None = None) -> list
     alerts = []
     dr = q["duplicate_rows"]
     if dr["count"]:
-        alerts.append(alert("medium", None, f"{dr['count']:,} duplicate rows ({dr['pct']:.1f}%), e.g. index "
-                            f"{dr['example_indices'][:3]} -> df.drop_duplicates()"))
+        examples = f", e.g. index {dr['example_indices'][:3]}" if dr.get("example_indices") else ""
+        alerts.append(alert("medium", None, f"{dr['count']:,} duplicate rows ({dr['pct']:.1f}%){examples} "
+                            "-> df.drop_duplicates()"))
     for group in q["duplicate_columns"]:
         for other in group[1:]:
             alerts.append(alert("medium", other, f"identical to column '{group[0]}' -> drop one of them"))

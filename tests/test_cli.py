@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from elessar.cli import main, read_table
+from elessar.cli import main
 
 
 @pytest.fixture
@@ -35,14 +35,23 @@ def test_cli_quiet_no_plots_and_bad_target(csv_file: Path, tmp_path: Path, capsy
     assert main([str(csv_file), "-t", "nope", "--no-plots"]) == 2
 
 
-def test_read_table_formats(tmp_path: Path) -> None:
-    df = pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
-    df.to_csv(tmp_path / "t.tsv", sep="\t", index=False)
-    df.to_csv(tmp_path / "t.csv.gz", index=False)
-    df.to_json(tmp_path / "t.json")
-    df.to_csv(tmp_path / "semi.txt", sep=";", index=False)
-    for name in ("t.tsv", "t.csv.gz", "t.json", "semi.txt"):
-        assert read_table(tmp_path / name).shape == (3, 2), name
-    assert len(read_table(tmp_path / "t.tsv", nrows=2)) == 2
-    with pytest.raises(SystemExit):
-        read_table(tmp_path / "t.unknown")
+def test_cli_reads_any_format_and_streams(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    rng = np.random.default_rng(1)
+    df = pd.DataFrame({"x": rng.normal(size=3000), "y": rng.integers(0, 2, 3000)})
+    df.to_csv(tmp_path / "d.csv.gz", sep=";", index=False)
+    out = tmp_path / "o"
+    assert main([str(tmp_path / "d.csv.gz"), "-t", "y", "-q", "--no-plots", "--max-rows", "1000", "-o", str(out),
+                 "--json"]) == 0
+    overview = json.loads((out / "report.json").read_text())["overview"]
+    assert overview["n_rows"] == 3000 and overview["n_rows_profiled"] == 1000 and overview["sampled"]
+    assert main([str(tmp_path / "missing.csv"), "--no-plots"]) == 2
+    assert "no such file" in capsys.readouterr().err
+
+
+def test_cli_never_asks_when_not_interactive(csv_file: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # stdin is not a terminal under pytest and there is no display: no picker, no target
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    monkeypatch.setattr("sys.platform", "linux")
+    assert main([str(csv_file), "-q", "--no-plots", "-o", str(tmp_path / "o")]) == 0
+    assert main([str(csv_file), "-q", "--no-plots", "-t", "ask"]) == 2  # asked explicitly, but nobody can answer

@@ -16,6 +16,7 @@ from scipy import stats
 
 from ._utils import hashable, prepare, quiet, resolve_target, sample
 from .config import StoneConfig
+from .parallel import TaskError, run_tasks, shared
 from .types import CATEGORY_TYPES, NUMERIC_TYPES, as_numeric, infer_type
 
 PAIR_COLUMNS = [
@@ -174,19 +175,6 @@ def _p_matrix(r: pd.DataFrame, n: pd.DataFrame) -> pd.DataFrame:
     p = np.vectorize(corr_pvalue, otypes=[float])(r.to_numpy(), n.to_numpy().astype(int))
     np.fill_diagonal(p, 0.0)
     return pd.DataFrame(p, index=r.index, columns=r.columns)
-
-
-def _kendall(num: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
-    cols = list(num.columns)
-    tau = pd.DataFrame(np.eye(len(cols)), index=cols, columns=cols)
-    pv = pd.DataFrame(np.zeros((len(cols), len(cols))), index=cols, columns=cols)
-    for i, a in enumerate(cols):
-        for b in cols[i + 1:]:
-            pair = num[[a, b]].dropna()
-            t, p = stats.kendalltau(pair[a], pair[b]) if len(pair) > 2 else (np.nan, np.nan)
-            tau.loc[a, b] = tau.loc[b, a] = t
-            pv.loc[a, b] = pv.loc[b, a] = p
-    return tau, pv
 
 
 def variance_inflation(num: pd.DataFrame, config: StoneConfig | None = None) -> pd.DataFrame:
@@ -408,6 +396,48 @@ def missing_vs_target(
     return out[MISSING_TARGET_COLUMNS].sort_values("p_value", ignore_index=True)
 
 
+def _missingness_rows(
+    df: pd.DataFrame, col: str, numeric: list[str], categorical: list[str], num: pd.DataFrame
+) -> list[list[Any]]:
+    """Tests of the missing indicator of ``col`` against every other usable column (raw p-values)."""
+    rows: list[list[Any]] = []
+    miss = df[col].isna()
+    if miss.sum() < 5 or (~miss).sum() < 5:
+        return rows
+    with quiet():
+        for other in numeric + categorical:
+            if other == col:
+                continue
+            if other in numeric:
+                x = num[other]
+                a, b = x[miss & x.notna()], x[~miss & x.notna()]
+                if len(a) < 5 or len(b) < 5 or x.nunique() < 2:
+                    continue
+                res = stats.mannwhitneyu(a, b, alternative="two-sided")
+                effect = float(res.statistic / (len(a) * len(b)))
+                detail = f"median {other} = {_fmt_level(float(a.median()))} when missing vs {_fmt_level(float(b.median()))}"
+                rows.append([col, other, "mann-whitney (AUC)", effect, float(res.pvalue), detail])
+            else:
+                v, p, n = cramers_v_test(miss, df[other])
+                if not np.isfinite(p):
+                    continue
+                rates = miss[df[other].notna()].groupby(_labels(df[other].dropna())).mean()
+                detail = (f"{100 * rates.max():.0f}% missing when {other}={rates.idxmax()} vs "
+                          f"{100 * rates.min():.0f}% when {other}={rates.idxmin()}")
+                rows.append([col, other, "chi-square (V)", v, p, detail])
+    return rows
+
+
+def _missingness_frame(df: pd.DataFrame, rows: list[list[Any]], cfg: StoneConfig) -> pd.DataFrame:
+    out = pd.DataFrame(rows, columns=["column", "depends_on", "test", "effect", "p_value", "detail"])
+    out.insert(1, "pct_missing", out["column"].map(100 * df.isna().mean()))
+    out["p_adjusted"] = bh_adjust(out["p_value"])
+    out["significant"] = out["p_adjusted"] < cfg.alpha
+    strength = np.where(out["test"].str.startswith("mann"), (out["effect"] - 0.5).abs() * 2, out["effect"])
+    out = out.assign(_s=strength).sort_values(["significant", "_s"], ascending=False, ignore_index=True)
+    return out.drop(columns="_s")[MISSINGNESS_COLUMNS]
+
+
 def missingness_dependence(
     df: pd.DataFrame, types: dict[str, str], config: StoneConfig | None = None
 ) -> pd.DataFrame:
@@ -421,76 +451,103 @@ def missingness_dependence(
     df = sample(df, cfg.sample_size, cfg.random_state)
     numeric, categorical = _roles(df, types, cfg)
     num = _numeric_frame(df, numeric, types)
-    rows = []
-    with quiet():
-        for col in df.columns:
-            miss = df[col].isna()
-            if miss.sum() < 5 or (~miss).sum() < 5:
-                continue
-            for other in numeric + categorical:
-                if other == col:
-                    continue
-                if other in numeric:
-                    x = num[other]
-                    a, b = x[miss & x.notna()], x[~miss & x.notna()]
-                    if len(a) < 5 or len(b) < 5 or x.nunique() < 2:
-                        continue
-                    res = stats.mannwhitneyu(a, b, alternative="two-sided")
-                    effect = float(res.statistic / (len(a) * len(b)))
-                    detail = f"median {other} = {_fmt_level(float(a.median()))} when missing vs {_fmt_level(float(b.median()))}"
-                    rows.append([col, other, "mann-whitney (AUC)", effect, float(res.pvalue), detail])
-                else:
-                    v, p, n = cramers_v_test(miss, df[other])
-                    if not np.isfinite(p):
-                        continue
-                    rates = miss[df[other].notna()].groupby(_labels(df[other].dropna())).mean()
-                    detail = (f"{100 * rates.max():.0f}% missing when {other}={rates.idxmax()} vs "
-                              f"{100 * rates.min():.0f}% when {other}={rates.idxmin()}")
-                    rows.append([col, other, "chi-square (V)", v, p, detail])
-    out = pd.DataFrame(rows, columns=["column", "depends_on", "test", "effect", "p_value", "detail"])
-    out.insert(1, "pct_missing", out["column"].map(100 * df.isna().mean()))
-    out["p_adjusted"] = bh_adjust(out["p_value"])
-    out["significant"] = out["p_adjusted"] < cfg.alpha
-    strength = np.where(out["test"].str.startswith("mann"), (out["effect"] - 0.5).abs() * 2, out["effect"])
-    out = out.assign(_s=strength).sort_values(["significant", "_s"], ascending=False, ignore_index=True)
-    return out.drop(columns="_s")[MISSINGNESS_COLUMNS]
+    rows = [row for col in df.columns for row in _missingness_rows(df, col, numeric, categorical, num)]
+    return _missingness_frame(df, rows, cfg)
 
 
 # --------------------------------------------------------------------------- entry points
+def _corr_task(key: tuple[str, ...]) -> Any:
+    """One independent piece of :func:`compute_correlations` (runs in a worker process)."""
+    st = shared()
+    df, types, target, cfg = st["df"], st["types"], st["target"], st["cfg"]
+    numeric, categorical, num = st["numeric"], st["categorical"], st["num"]
+    kind = key[0]
+    with quiet():
+        if kind == "numeric":
+            out: dict[str, Any] = {"n_numeric": _pairwise_n(num)}
+            for method in ("pearson", "spearman"):
+                out[method] = num.corr(method=method)
+                out[f"{method}_p"] = _p_matrix(out[method], out["n_numeric"])
+            features = num.drop(columns=[target], errors="ignore")
+            out["vif"] = variance_inflation(features, cfg)
+            out["linear_dependencies"] = linear_dependencies(features, out["vif"], cfg)
+            return out
+        if kind == "kendall":
+            a = key[1]
+            rest = list(num.columns)[list(num.columns).index(a) + 1:]
+            out_rows = []
+            for b in rest:
+                pair = num[[a, b]].dropna()
+                out_rows.append((b, *(stats.kendalltau(pair[a], pair[b]) if len(pair) > 2 else (np.nan, np.nan))))
+            return out_rows
+        if kind == "cramers":
+            a = key[1]
+            return [(b, *cramers_v_test(df[a], df[b])) for b in categorical[categorical.index(a) + 1:]]
+        if kind == "eta":
+            return [(n_col, *correlation_ratio_test(df[key[1]], num[n_col])) for n_col in numeric]
+        if kind == "missing":
+            return _missingness_rows(df, key[1], numeric, categorical, num)
+        if kind == "target":
+            return target_associations(df, target, types, cfg)
+        if kind == "missing_target":
+            return missing_vs_target(df, target, types, cfg)
+    raise ValueError(f"unknown correlation task {key!r}")
+
+
 def compute_correlations(
-    df: pd.DataFrame, types: dict[str, str], target: str | None = None, config: StoneConfig | None = None
+    df: pd.DataFrame, types: dict[str, str], target: str | None = None, config: StoneConfig | None = None,
+    workers: int = 1,
 ) -> dict[str, pd.DataFrame]:
-    """All association matrices and tests given precomputed semantic types (see :func:`see_corr`)."""
+    """All association matrices and tests given precomputed semantic types (see :func:`see_corr`).
+
+    The tests are independent pieces run on ``workers`` processes (see :mod:`elessar.parallel`);
+    the multiple-testing corrections are applied once every piece is back.
+    """
     cfg = config or StoneConfig()
     df = sample(df, cfg.sample_size, cfg.random_state)
     numeric, categorical = _roles(df, types, cfg)
     num = _numeric_frame(df, numeric, types)
+    keys: list[tuple[str, ...]] = [("numeric",)] + [("kendall", a) for a in numeric[:-1]] if len(numeric) >= 2 else []
+    if len(categorical) >= 2:
+        keys += [("cramers", a) for a in categorical[:-1]]
+    if numeric and categorical:
+        keys += [("eta", c) for c in categorical]
+    keys += [("missing", col) for col in df.columns]
+    if target is not None:
+        keys += [("target",), ("missing_target",)]
+    state = {"df": df, "types": types, "target": target, "cfg": cfg, "numeric": numeric,
+             "categorical": categorical, "num": num}
+    results = dict(zip(keys, run_tasks(_corr_task, keys, workers, state)))
+    failed = [f"{k[0]}: {r.error}" for k, r in results.items() if isinstance(r, TaskError)]
+    if failed:
+        raise RuntimeError("; ".join(failed[:3]))
+
     out: dict[str, pd.DataFrame] = {}
     with quiet():
-        if len(numeric) >= 2:
-            out["n_numeric"] = _pairwise_n(num)
-            for method in ("pearson", "spearman"):
-                out[method] = num.corr(method=method)
-                out[f"{method}_p"] = _p_matrix(out[method], out["n_numeric"])
-            out["kendall"], out["kendall_p"] = _kendall(num)
-            features = num.drop(columns=[target], errors="ignore")
-            out["vif"] = variance_inflation(features, cfg)
-            out["linear_dependencies"] = linear_dependencies(features, out["vif"], cfg)
+        if ("numeric",) in results:
+            out.update(results[("numeric",)])
+            cols = list(num.columns)
+            tau = pd.DataFrame(np.eye(len(cols)), index=cols, columns=cols)
+            pv = pd.DataFrame(np.zeros((len(cols), len(cols))), index=cols, columns=cols)
+            for a in cols[:-1]:
+                for b, t, p in results[("kendall", a)]:
+                    tau.loc[a, b] = tau.loc[b, a] = t
+                    pv.loc[a, b] = pv.loc[b, a] = p
+            out["kendall"], out["kendall_p"] = tau, pv
         if len(categorical) >= 2:
             shape = (len(categorical), len(categorical))
             frames = [pd.DataFrame(np.full(shape, fill), index=categorical, columns=categorical) for fill in (1.0, 0.0, 0.0)]
-            for i, a in enumerate(categorical):
+            for a in categorical:
                 frames[2].loc[a, a] = int(df[a].notna().sum())
-                for b in categorical[i + 1:]:
-                    v, p, n = cramers_v_test(df[a], df[b])
-                    for frame, val in zip(frames, (v, p, n)):
+                for b, *vals in results.get(("cramers", a), []):
+                    for frame, val in zip(frames, vals):
                         frame.loc[a, b] = frame.loc[b, a] = val
             out["cramers_v"], out["cramers_v_p"], out["cramers_v_n"] = frames
         if numeric and categorical:
             frames = [pd.DataFrame(index=categorical, columns=numeric, dtype="float64") for _ in range(3)]
             for c in categorical:
-                for n_col in numeric:
-                    for frame, val in zip(frames, correlation_ratio_test(df[c], num[n_col])):
+                for n_col, *vals in results[("eta", c)]:
+                    for frame, val in zip(frames, vals):
                         frame.loc[c, n_col] = val
             out["eta"], out["eta_p"], out["eta_n"] = frames
         pairs = _pairs(out, cfg)
@@ -498,10 +555,11 @@ def compute_correlations(
         out["top_pairs"] = pairs[pairs["abs_value"] >= cfg.corr_threshold].reset_index(drop=True)
         if len(numeric) + len(categorical) >= 2:
             out.update(_association_matrix(out, pairs, numeric + categorical))
-        out["missingness"] = missingness_dependence(df, types, cfg)
+        rows = [row for col in df.columns for row in results[("missing", col)]]
+        out["missingness"] = _missingness_frame(df, rows, cfg)
         if target is not None:
-            out["target"] = target_associations(df, target, types, cfg)
-            out["missing_target"] = missing_vs_target(df, target, types, cfg)
+            out["target"] = results[("target",)]
+            out["missing_target"] = results[("missing_target",)]
     return out
 
 
