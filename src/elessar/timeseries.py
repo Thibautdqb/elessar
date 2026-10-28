@@ -117,7 +117,8 @@ def detect(df: pd.DataFrame, types: dict[str, str]) -> dict[str, Any] | None:
                     continue
                 key = pd.DataFrame({"t": t, "e": hashable(df[e])}).dropna()
                 n_ent = key["e"].nunique()
-                if 2 <= n_ent <= max(2, len(key) // 5) and not key.duplicated().mean() > 0.05:
+                coverage = len(key) / n_ent / max(len(unique), 1)  # share of the time steps each entity has
+                if 2 <= n_ent <= max(2, len(key) // 5) and not key.duplicated().mean() > 0.05 and coverage >= 0.2:
                     info.update(kind="panel", entity=e, n_entities=int(n_ent))
                     break
         score = {"single series": 2, "panel": 2, "event log": 1}[info["kind"]] + regular
