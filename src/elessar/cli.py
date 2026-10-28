@@ -25,7 +25,7 @@ def build_parser() -> argparse.ArgumentParser:
     target = p.add_mutually_exclusive_group()
     target.add_argument("-t", "--target", help="target column to analyse features against ('ask' opens a picker)")
     target.add_argument("--no-target", action="store_true", help="do not ask for a target")
-    p.add_argument("-o", "--out", default="elessar_report", help="output directory for the report and charts")
+    p.add_argument("-o", "--out", help="output folder (default: elessar_report/<file name>_<YYYY-MM-DD>/)")
     p.add_argument("--no-plots", action="store_true", help="skip the charts (and the HTML recap)")
     p.add_argument("--single-file", action="store_true", help="also write report_single.html with the charts inlined")
     read = p.add_argument_group("reading")
@@ -87,8 +87,9 @@ def main(argv: list[str] | None = None) -> int:
     if not args.quiet:
         report.print(width=args.width)
         sys.stdout.flush()  # keep the report before the "wrote ..." messages when both streams share a file
-    recap.maybe_open(report, open_report, sys.stderr)
-    out = Path(args.out)
+    if recap.maybe_open(report, open_report, sys.stderr) is None and report.recap:
+        print(f"\nReport: {report.recap['html'].resolve()}", file=sys.stderr)
+    out = report.out_dir or Path(args.out or ".")
     if args.json or args.markdown or args.csv:
         out.mkdir(parents=True, exist_ok=True)
     written = [

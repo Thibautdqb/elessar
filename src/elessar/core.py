@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import datetime as dt
+import inspect
 import sys
 import time
 from pathlib import Path
@@ -9,7 +11,7 @@ from typing import Any
 
 import pandas as pd
 
-from ._utils import dedupe_names, finite, prepare, quiet, resolve_target
+from ._utils import dedupe_names, finite, prepare, quiet, resolve_target, safe_name
 from .multivariate import multivariate
 from .outliers import outliers as find_outliers
 from .preparation import plan as preparation_plan
@@ -24,6 +26,7 @@ from .plots import make_plots
 from .quality import advanced_alerts, alert, duplicates_text, check_quality, column_alerts, column_quality, correlation_alerts, group_alerts, row_order_alert, sort_alerts
 from . import recap
 from .report import Vision
+from .readers import COMPRESSIONS, FORMATS
 from .sources import Source, describe_origin, load
 from .stats import column_stats
 from .types import as_numeric, infer_type
@@ -250,12 +253,52 @@ def _summary_row(detail: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+DEFAULT_ROOT = "elessar_report"
+
+
+def dataset_stem(name: str | None) -> str:
+    """A folder-safe name for a dataset: the file name without its extensions (``trans.asc`` -> ``trans``,
+    ``sales.csv.gz`` -> ``sales``), or ``dataframe`` when there is no name."""
+    if not name:
+        return "dataframe"
+    base = Path(str(name)).name
+    known = set(FORMATS) | set(COMPRESSIONS) | {".asc"}
+    while Path(base).suffix.lower() in known and Path(base).stem:
+        base = Path(base).stem
+    return safe_name(base) or "dataframe"
+
+
+def report_dir(name: str | None, out_dir: str | Path | None = None, root: str | Path = DEFAULT_ROOT,
+               day: dt.date | None = None) -> Path:
+    """Where a run writes its report: ``out_dir`` when given, else ``<root>/<name>_<YYYY-MM-DD>``.
+
+    One folder per dataset and per day, so reports of different tables never overwrite each other;
+    running the same table again the same day refreshes that day's report.
+    """
+    if out_dir is not None:
+        return Path(out_dir)
+    return Path(root) / f"{dataset_stem(name)}_{(day or dt.date.today()):%Y-%m-%d}"
+
+
+def _variable_name(obj: Any, frame: Any) -> str | None:
+    """The caller's variable name for ``obj`` (``see(sales)`` -> ``"sales"``), when it is a table object."""
+    if isinstance(obj, (str, Path, Source)) or frame is None or frame.f_back is None:
+        return None
+    try:
+        for key, value in frame.f_back.f_locals.items():
+            if value is obj and not key.startswith("_"):
+                return key
+    except Exception:  # noqa: BLE001 - only a nicety
+        return None
+    return None
+
+
 def see(
     data: Any,
     target: str | None = None,
     config: StoneConfig | None = None,
     plots: bool = True,
-    out_dir: str | Path = "elessar_report",
+    out_dir: str | Path | None = None,
     verbose: bool = True,
     open_report: bool | str | None = None,
     name: str | None = None,
@@ -272,19 +315,23 @@ def see(
     ``target``: the column to explain, or ``"ask"`` to pick it in a window (or at the terminal).
 
     Prints a terminal report when ``verbose``. When ``plots``, writes the charts and a recap
-    (``report.html`` and ``report.md``, charts embedded) to ``out_dir``.
+    (``report.html`` and ``report.md``, charts embedded) to ``out_dir``; by default a folder of
+    its own, ``elessar_report/<name>_<YYYY-MM-DD>/`` (see :func:`report_dir`).
 
     ``open_report``: ``None`` opens the HTML recap only for a person at a terminal (never in CI,
     tests or pipes); ``True`` or ``"html"`` always opens it, ``"md"`` opens the Markdown one,
-    ``False`` never opens. ``name`` titles the recap (default: the file name).
+    ``False`` never opens. ``name`` titles the recap and names its folder (default: the file name,
+    or the name of the variable holding the DataFrame).
     """
     cfg = config or StoneConfig()
+    variable = _variable_name(data, inspect.currentframe())
     started = time.perf_counter()
     timings: dict[str, float] = {}
     src = load(data, cfg, **load_options)
     timings["load"] = time.perf_counter() - started
     df, full = src.df, src.full
-    name = name or src.name
+    name = name or src.name or variable  # the file name first; for a DataFrame, its variable name
+    out_dir = report_dir(name, out_dir)
     if isinstance(target, str) and target == "ask" and "ask" not in map(str, df.columns):
         target = pick_target(df)
     original = list(df.columns) if isinstance(df, pd.DataFrame) else []
@@ -413,6 +460,7 @@ def see(
         alpha=cfg.alpha,
         name=name,
         full=full.columns if full is not None else None,
+        out_dir=Path(out_dir),
         timings=timings,
         multivariate=extra.get("multivariate") or {},
         outliers=extra.get("outliers") or {},

@@ -88,3 +88,20 @@ def test_target_validation() -> None:
 def test_render_respects_width(messy_df: pd.DataFrame) -> None:
     text = see(messy_df, plots=False, verbose=False).render(width=90)
     assert max(len(line) for line in text.splitlines()) <= 90
+
+
+def test_report_folders_per_dataset_and_day(tmp_path, monkeypatch) -> None:  # noqa: ANN001
+    import datetime as dt
+
+    from elessar.core import dataset_stem, report_dir
+
+    assert dataset_stem("trans.asc") == "trans" and dataset_stem("sales.csv.gz") == "sales"
+    assert dataset_stem(None) == "dataframe" and dataset_stem("a b/c?.csv") == "c"
+    day = dt.date(2026, 10, 28)
+    assert report_dir("trans.asc", day=day).as_posix() == "elessar_report/trans_2026-10-28"
+    assert report_dir("trans.asc", "here").as_posix() == "here"
+    monkeypatch.chdir(tmp_path)
+    sales = pd.DataFrame({"x": range(30), "y": list("ab") * 15})
+    v = see(sales, verbose=False, open_report=False)
+    assert v.out_dir == Path("elessar_report") / f"sales_{dt.date.today():%Y-%m-%d}"
+    assert (tmp_path / v.out_dir / "report.html").exists()

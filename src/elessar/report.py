@@ -126,6 +126,7 @@ class Vision:
         name: dataset name shown in the recap title (e.g. the file name).
         full: when the profile ran on a sample of a bigger table, exact figures over every row
             (one row per column: count, missing, distinct, mean, std, min, max, ...); else None.
+        out_dir: the folder the charts and the report page were written to.
         timings: seconds spent in each step (load, columns, associations, quality, advanced, charts, report).
         multivariate: PCA (``pca``), factor analysis (``factor``), groups of redundant columns (``groups``),
             rows that are outliers on several columns (``outliers``), covariance matrix.
@@ -152,6 +153,7 @@ class Vision:
     name: str | None = None
     full: pd.DataFrame | None = None
     timings: dict[str, float] = field(default_factory=dict)
+    out_dir: Path | None = None
     multivariate: dict[str, Any] = field(default_factory=dict)
     outliers: dict[str, Any] = field(default_factory=dict)
     timeseries: dict[str, Any] | None = None

@@ -9,6 +9,7 @@ the plot body, and an optional footer note explaining the method.
 
 from __future__ import annotations
 
+import inspect
 import math
 import re
 import textwrap
@@ -1109,11 +1110,15 @@ def make_plots(
 
 def see_plot(
     df: pd.DataFrame | pd.Series,
-    out_dir: str | Path = "elessar_report",
+    out_dir: str | Path | None = None,
     target: str | None = None,
     config: StoneConfig | None = None,
 ) -> list[Path]:
-    """Analyse ``df`` and write all informative plots to ``out_dir``. Returns the PNG paths."""
+    """Analyse ``df`` and write all informative plots to ``out_dir`` (default: the run's own folder,
+    ``elessar_report/<name>_<YYYY-MM-DD>/``). Returns the PNG paths."""
+    from .core import _variable_name, report_dir
+
+    out_dir = report_dir(_variable_name(df, inspect.currentframe()), out_dir)
     from .core import analyze
 
     cfg = config or StoneConfig()
