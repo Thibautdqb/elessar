@@ -13,7 +13,7 @@ import pandas as pd
 
 from ._utils import hashable, is_text_dtype, prepare, quiet, sample, truncate
 from .config import StoneConfig
-from .dates import detect as detect_date, parse_dates
+from .dates import _HINT as DATE_HINT, detect as detect_date, parse_dates
 
 SEMANTIC_TYPES: tuple[str, ...] = (
     "empty", "constant", "boolean", "id", "numeric_continuous", "numeric_discrete",
@@ -297,7 +297,7 @@ def _numeric_type(x: pd.Series, s: pd.Series, name: str, cfg: StoneConfig, how: 
     if nunique == 2 and set(np.unique(finite)) <= {0.0, 1.0}:
         return _result("boolean", s, 0.9, f"{how}: only 0/1 values")
     hinted = bool(_HINT_ID.search(name))
-    if not hinted and nunique >= 2 and (is_int or lo >= 1e8):
+    if (not hinted or DATE_HINT.search(name)) and nunique >= 2 and (is_int or lo >= 1e8):
         with quiet():
             fmt = detect_date(finite, name)
         if fmt is not None:
@@ -363,7 +363,7 @@ def _string_type(strs: pd.Series, s: pd.Series, name: str, cfg: StoneConfig, n_n
     if m >= r or (postal_hint and _ratio(t.str.match(_POSTAL_STRICT) | t.str.match(_POSTAL_DIGITS)) >= r):
         return _result("postal_code", s, max(m, 0.8), "postal-code pattern" + (" and column name" if postal_hint else ""))
 
-    if _ratio(t.str.fullmatch(r"\d+|-|\?|") .fillna(False)) >= 0.99 and not _HINT_ID.search(name):
+    if _ratio(t.str.fullmatch(r"\d+|-|\?|").fillna(False)) >= 0.99 and (not _HINT_ID.search(name) or DATE_HINT.search(name)):
         with quiet():
             fmt = detect_date(t, name)
         if fmt is not None:

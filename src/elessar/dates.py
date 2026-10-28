@@ -140,13 +140,33 @@ def _translate(t: pd.Series) -> tuple[pd.Series, bool]:
     return out, bool((out != t).any())
 
 
-def _fix_century(d: pd.Series) -> pd.Series:
-    """Two-digit years: a date in the future (more than a year ahead) belongs to the previous century."""
-    limit = pd.Timestamp.now() + pd.Timedelta(days=366)
-    late = d > limit
-    if late.any():
-        d = d.where(~late, d - pd.DateOffset(years=100))
-    return d
+def _fix_century(d: pd.Series, past_only: bool = False) -> pd.Series:
+    """Two-digit years: one century split for the whole column, the one that keeps the dates the most
+    tightly grouped without putting any in the future (more than a year ahead; at all for birth dates).
+
+    1911-1987 birth years stay in the 1900s; '95' and '20' in recent data become 1995 and 2020.
+    """
+    ok = d.dropna()
+    if ok.empty:
+        return d
+    limit = pd.Timestamp.now() + pd.Timedelta(days=0 if past_only else 366)
+    yy = np.unique(ok.dt.year.to_numpy() % 100)
+    best, best_span = None, None
+    for pivot in range(0, 101):  # yy >= pivot -> 1900s, below -> 2000s
+        years = np.where(yy >= pivot, 1900 + yy, 2000 + yy)
+        if years.max() > limit.year:
+            continue
+        span = years.max() - years.min()
+        if best_span is None or span < best_span or (span == best_span and pivot > best):
+            best, best_span = pivot, span
+    if best is None:
+        best = 0
+    shift = np.where(d.dt.year % 100 >= best, 1900, 2000) + d.dt.year % 100 - d.dt.year
+    out = d + pd.to_timedelta(0, unit="D")
+    for delta in np.unique(shift.dropna()):
+        mask = shift == delta
+        out[mask] = d[mask] + pd.DateOffset(years=int(delta))
+    return out.where(out <= limit, out - pd.DateOffset(years=100))
 
 
 def _plausible(d: pd.Series) -> bool:
@@ -166,7 +186,10 @@ def _birth_number(t: pd.Series) -> pd.Series:
     month = pd.to_numeric(digits[1], errors="coerce")
     month = month.where(month <= 12, month - 50)
     text = digits[0] + month.astype("Int64").astype("string").str.zfill(2) + digits[2]
-    return _parse_format(text, "%y%m%d")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        d = pd.to_datetime(text, format="%y%m%d", errors="coerce")
+    return _fix_century(d, past_only=True)  # people are born in the past
 
 
 def _quarters(t: pd.Series) -> pd.Series:
@@ -285,7 +308,8 @@ def parse_dates(values: pd.Series, fmt: DateFormat | None = None, name: Any = No
     if pd.api.types.is_datetime64_any_dtype(s.dtype):
         out = s
     else:
-        fmt = fmt or detect(s, name if name is not None else s.name, min_ratio=0.5)
+        label = name if name is not None else s.name
+        fmt = fmt or detect(s, label) or detect(s, label, min_ratio=0.5)  # the strict reading first
         if fmt is None:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
