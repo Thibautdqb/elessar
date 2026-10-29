@@ -106,6 +106,16 @@ def _target_rows(assoc: pd.DataFrame) -> tuple[list[str], list[list[str]]]:
     return ["feature", "type", "method", "association", "test", "n", "p_adj", "sig", "AUC", "MI", "flag"], rows
 
 
+_ASCII = str.maketrans({"═": "=", "─": "-", "│": "|", "▸": ">", "·": ".", "→": "->", "←": "<-", "×": "x", "≥": ">=",
+                        "≤": "<=", "±": "+/-", "…": "...", "²": "2", "χ": "chi", "≈": "~", "—": "-", "–": "-"})
+
+
+def _ascii(text: str) -> str:
+    """The terminal report with box-drawing and typographic characters spelled in ASCII; anything else
+    the console cannot show becomes ``?``."""
+    return text.translate(_ASCII).encode("ascii", "replace").decode("ascii")
+
+
 @dataclass
 class Vision:
     """Everything elessar found about a DataFrame.
@@ -171,7 +181,12 @@ class Vision:
     # ------------------------------------------------------------------ terminal
     def print(self, file: TextIO | None = None, width: int | None = None) -> None:
         """Print the full plain-text report (fits the terminal width by default)."""
-        print(self.render(width), file=file or sys.stdout)
+        stream = file or sys.stdout
+        text = self.render(width)
+        try:
+            print(text, file=stream)
+        except UnicodeEncodeError:  # a console without UTF-8 (Windows cp1252): plain ASCII look-alikes
+            print(_ascii(text), file=stream)
 
     def render(self, width: int | None = None) -> str:
         """Return the plain-text report as a string."""
