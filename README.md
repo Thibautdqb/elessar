@@ -3,10 +3,10 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/elessar/"><img src="https://img.shields.io/pypi/v/elessar" alt="PyPI version"></a>
-  <a href="https://pypi.org/project/elessar/"><img src="https://img.shields.io/pypi/pyversions/elessar" alt="Python versions"></a>
+  <a href="https://pypi.org/project/elessar/"><img src="https://img.shields.io/pypi/v/elessar?cacheSeconds=3600" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/elessar/"><img src="https://img.shields.io/pypi/pyversions/elessar?cacheSeconds=3600" alt="Python versions"></a>
   <a href="https://github.com/thibautdqb/elessar/actions/workflows/ci.yml"><img src="https://github.com/thibautdqb/elessar/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.com/thibautdqb/elessar/blob/main/LICENSE"><img src="https://img.shields.io/pypi/l/elessar" alt="License: MIT"></a>
+  <a href="https://github.com/thibautdqb/elessar/blob/main/LICENSE"><img src="https://img.shields.io/pypi/l/elessar?cacheSeconds=3600" alt="License: MIT"></a>
 </p>
 
 **Automated exploratory data analysis and data-quality profiling for pandas DataFrames.**
