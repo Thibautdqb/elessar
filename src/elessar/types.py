@@ -22,6 +22,7 @@ SEMANTIC_TYPES: tuple[str, ...] = (
     "text", "email", "url", "phone", "postal_code", "ip_address", "json_like", "mixed", "multi_label",
 )
 NUMERIC_TYPES = frozenset({"numeric_continuous", "numeric_discrete"})
+FORCEABLE_TYPES = ("numeric_continuous", "numeric_discrete", "categorical", "ordinal-candidate", "id", "text")
 CATEGORY_TYPES = frozenset({"categorical", "boolean", "ordinal-candidate"})
 MULTI_LABEL = "multi_label"
 DATETIME_TYPES = frozenset({"datetime", "datetime_string"})
@@ -77,6 +78,26 @@ _HINT_ID = re.compile(r"(^|[_\s.-])(id|uuid|guid|pk)($|[_\s.-])|^#$|_key$|^key_|
 _UNIT_NUM = re.compile(r"(?P<num>[+-]?\d[\d,.]*)(?P<space>\s*)(?P<unit>[°µ]?[^\W\d_][^\d]{0,14}?)\.?")
 _NOT_UNITS = frozenset({"st", "nd", "rd", "th", "e", "x"})  # ordinals, exponents, multipliers
 LIST_SEPARATORS: tuple[str, ...] = (", ", ",", "|", ";", " / ")
+# a category written with numbers: the first or last word of the name says what the integers are
+# (region 11, store 7, payment_type 3, mcc 5411); "code" alone is too vague (a test called Code) and
+# only counts with another word (code_region, mcc_code)
+_CODE_WORDS = frozenset((
+    "region regions dept department departement store shop branch agency agence zip zipcode postal postcode cp plz "
+    "mcc naf ape sic naics nace isic icd cim atc country pays state province district county commune insee sex sexe "
+    "gender genre status statut type kind category categorie cat segment cluster group groupe team mode method "
+    "channel canal payment paiement brand marque race ethnicity religion marital nationality nationalite language "
+    "langue occupation profession job industry sector secteur color colour couleur origin vendor carrier airline "
+    "station site zone ward tract").split())
+# ...unless a word of the name says it measures or counts something
+_QUANTITY_WORDS = frozenset((
+    "n nb nbr num number count counts cnt nombre total sum qty quantity amount montant price prix cost cout salary "
+    "salaire income revenue weight poids height taille length size age duration duree time score scores rate ratio "
+    "pct percent temp temperature distance km kg year years annee month day days hour hours minutes seconds "
+    "population pop votes rank rating level niveau grade defects defect errors faults items units visits calls cases "
+    "deaths births points goals wins losses sales orders clicks views stars reviews words pages children members "
+    "employees rooms beds seats").split())
+
+
 _HINT_PHONE = re.compile(r"phone|tel|mobile|cell|fax")
 _HINT_POSTAL = re.compile(r"zip|postal|post_?code|postcode|code_?postal|(^|_)cp($|_)|plz")
 
@@ -288,7 +309,8 @@ def python_kinds(s: pd.Series) -> dict[str, int]:
 # Decisions that rest on the set of distinct values (labels, levels) are uncertain while the
 # Good-Turing estimate of the unseen probability mass (values seen once / values seen) is above
 # 1%: some labels have probably not been seen yet. Uniqueness (identifiers) cannot be proven on
-# a sample at all: such decisions are *probable* and checked on every row by the full pass.
+# a sample at all: such decisions are *probable* and checked on every row by the full pass. So are
+# readings of what values mean (integers taken for category codes), which no number of rows can prove.
 
 Z95 = 1.959963984540054
 UNSEEN_MASS = 0.01
@@ -347,6 +369,7 @@ class Walk:
         self.cardinality: pd.Series | None = None  # values whose label set must be complete
         self.identifier = False
         self.verify: str | None = None  # "empty" / "constant": only all the rows can prove it
+        self.inferred: str | None = None  # a reading of what the values mean, which no count of rows can prove
 
     def ask(self, question: str) -> None:
         self.path.append(question)
@@ -371,6 +394,8 @@ class Walk:
     def certainty(self) -> tuple[str, str]:
         if self.ambiguity:
             return "uncertain", self.ambiguity
+        if self.inferred:
+            return "probable", self.inferred
         if not self.sampled:
             return "certain", "decided on every value"
         close = [t for t in self.tests if t.close_call]
@@ -458,6 +483,42 @@ def _n_id_values(w: Walk, v: _Num) -> dict[str, Any] | None:
     return None
 
 
+def _code_tokens(name: str) -> str:
+    return re.sub(r"[^0-9a-z]+", "_", name).strip("_")
+
+
+def _n_codes(w: Walk, v: _Num) -> dict[str, Any] | None:
+    """Integers that label a category (region 11, store 7, payment type 3, MCC 5411, postal code 75011):
+    their mean, spread or correlation mean nothing. Values alone cannot prove it, so the decision is
+    at best *probable*: by the name, or by the shape of codes (a few fixed-width integers of 3+ digits,
+    not years, not round amounts)."""
+    if not v.is_int or v.nunique < 2 or v.uniq_ratio >= w.cfg.id_unique_ratio:
+        return None
+    words = [t for t in _code_tokens(w.name).split("_") if t]
+    if not words or _QUANTITY_WORDS.intersection(words):
+        return None
+    uniq = np.unique(v.finite)
+    if v.lo == 0 and v.nunique >= 3 and bool(np.all(np.mod(uniq, 5) == 0)):
+        return None  # a graded scale from 0 in steps of 5 (0 / 5 / 10, 0 / 25 / ... / 100) is a score
+    named = words[0] in _CODE_WORDS or words[-1] in _CODE_WORDS or (len(words) > 1 and "code" in (words[0], words[-1]))
+    if named:
+        w.inferred = ("the name says these integers label categories; if they are quantities, set "
+                      "StoneConfig(column_types={...: 'numeric_discrete'})")
+        return w.leaf("categorical", 0.75, f"{v.how}: {v.nunique} integer codes, the name says a category",
+                      codes="name")
+    widths = np.floor(np.log10(np.abs(uniq[uniq != 0]))) + 1 if (uniq != 0).any() else np.array([1.0])
+    fixed = v.lo >= 100 and len(set(widths.tolist())) == 1
+    yearly = 1800 <= v.lo and v.hi <= 2100
+    rounded = bool(np.all(np.mod(uniq, 5) == 0))  # price tiers, grams, scores: rounded quantities
+    if (fixed and not yearly and not rounded and v.n >= 20 and v.nunique <= w.cfg.discrete_max_levels
+            and v.uniq_ratio < 0.5):
+        w.inferred = (f"{v.nunique} distinct {int(widths[0])}-digit integers far from 0 look like codes (postal, "
+                      "merchant, activity...); if they are quantities, set StoneConfig(column_types={...: "
+                      "'numeric_discrete'})")
+        return w.leaf("categorical", 0.6, f"{v.how}: {v.nunique} fixed-width integers, probably codes", codes="values")
+    return None
+
+
 def _n_scale(w: Walk, v: _Num) -> dict[str, Any] | None:
     cfg = w.cfg
     small = 2 <= v.nunique <= cfg.ordinal_max_int_levels and v.lo in (0.0, 1.0) and v.hi - v.lo + 1 == v.nunique
@@ -497,6 +558,7 @@ NUMERIC_RULES: tuple[Rule, ...] = (
     ("dates written as numbers (YYYYMMDD, Unix time...)?", _n_dates),
     ("an identifier by its name?", _n_id_named),
     ("unique, consecutive or sorted integers?", _n_id_values),
+    ("integers that label categories (codes)?", _n_codes),
     ("a small scale of consecutive integers?", _n_scale),
     ("integers?", _n_integers),
     ("a handful of distinct real values?", _n_few_reals),
@@ -863,6 +925,9 @@ def _suggest(info: dict[str, Any], s: pd.Series, name: str) -> list[dict[str, st
             "flag": "should-be-boolean",
             "code": f"df[{col}] = df[{col}].str.strip().str.lower().map({mapping!r})",
         })
+    if info.get("codes"):
+        out.append({"flag": "integer-codes", "note": info.get("certainty_reason", ""),
+                    "code": f"df[{col}] = df[{col}].astype('category')"})
     if stype == MULTI_LABEL:
         out.append({"flag": "multi-label", "code": f"labels = df[{col}].str.get_dummies(sep={info['sep']!r})"})
     if stype in ("categorical", "ordinal-candidate") and texty:
@@ -887,7 +952,16 @@ def infer_type(s: pd.Series, config: StoneConfig | None = None, sampled: bool = 
     ``sampled``: the series is a sample of a bigger column (certainty then accounts for it).
     """
     cfg = config or StoneConfig()
-    info = _root(s, cfg, sampled)
+    forced = (cfg.column_types or {}).get(str(s.name))
+    if forced is not None:
+        if forced not in FORCEABLE_TYPES:
+            raise ValueError(f"column_types[{str(s.name)!r}] = {forced!r}: choose one of {', '.join(FORCEABLE_TYPES)}")
+        w = Walk(s, cfg, sampled)
+        w.ask("set by the user (StoneConfig.column_types)?")
+        info = w.leaf(forced, 1.0, "type set by the user")
+        info["certainty"], info["certainty_reason"] = "certain", "set by the user"
+    else:
+        info = _root(s, cfg, sampled)
     info["suggestions"] = _suggest(info, s, str(s.name))
     return info
 

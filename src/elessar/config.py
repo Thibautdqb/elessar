@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 CONTINUOUS_CANDIDATES: tuple[str, ...] = (
     "norm",
@@ -60,6 +60,10 @@ class StoneConfig:
     """Below this many cells (rows x columns) the automatic mode stays in one process."""
 
     # types
+    column_types: dict[str, str] = field(default_factory=dict)
+    """Types set by hand, e.g. ``{"cylinders": "numeric_discrete", "region": "categorical"}``: they replace
+    the decision tree for those columns (numeric_continuous, numeric_discrete, categorical, ordinal-candidate,
+    id or text)."""
     id_unique_ratio: float = 0.95
     pattern_match_ratio: float = 0.9
     ordinal_max_levels: int = 12

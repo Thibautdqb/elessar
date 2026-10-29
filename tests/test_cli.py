@@ -55,3 +55,17 @@ def test_cli_never_asks_when_not_interactive(csv_file: Path, tmp_path: Path, mon
     monkeypatch.setattr("sys.platform", "linux")
     assert main([str(csv_file), "-q", "--no-plots", "-o", str(tmp_path / "o")]) == 0
     assert main([str(csv_file), "-q", "--no-plots", "-t", "ask"]) == 2  # asked explicitly, but nobody can answer
+
+
+def test_cli_type_option(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    rng = np.random.default_rng(2)
+    path = tmp_path / "shops.csv"
+    pd.DataFrame({"store": rng.integers(1, 30, 300), "basket": rng.lognormal(3, 1, 300)}).to_csv(path, index=False)
+    out = tmp_path / "out"
+    assert main([str(path), "--no-target", "--no-plots", "-o", str(out), "--json", "--open", "none",
+                 "--type", "store=numeric_discrete"]) == 0
+    report = json.loads((out / "report.json").read_text())
+    assert report["columns"]["store"]["semantic_type"] == "numeric_discrete"
+    assert main([str(path), "--no-target", "-q", "--type", "store=banana"]) == 2
+    assert main([str(path), "--no-target", "-q", "--type", "store"]) == 2
+    assert "choose one of" in capsys.readouterr().err

@@ -182,3 +182,56 @@ def test_account_numbers_are_identifiers_not_amounts() -> None:
                        "amount": rng.lognormal(5, 1, 2000)})
     t = see_types(df)["semantic_type"]
     assert t["account"] in ("id", "categorical") and t["amount"] == "numeric_continuous"
+
+
+# ----------------------------------------------------------------------------------- integers that are codes
+def _ints(name: str, values: list[int], n: int = 2000, p: list[float] | None = None) -> pd.Series:
+    return pd.Series(np.random.default_rng(7).choice(values, n, p=p), name=name)
+
+
+@pytest.mark.parametrize("name, values", [
+    ("region", [11, 24, 27, 28, 32, 44, 52, 53, 75, 76, 84, 93, 94]),
+    ("store", list(range(1, 46))),
+    ("Dept", [1, 2, 3, 5, 7, 8, 13, 16, 21, 33, 40, 52, 67, 72, 80, 91, 95, 99]),
+    ("payment_type", [1, 2, 3, 4]),
+    ("mcc", [5411, 5812, 5541, 5912, 4111]),
+    ("zip", [75001, 75011, 69003, 13008, 31000]),
+    ("sexe", [1, 2]),
+    ("cluster", [0, 1, 2, 3, 4]),
+    ("marital_status", [1, 2, 3, 4, 5]),
+    ("codeRegion", [11, 24, 27]),
+    ("merchant", [5411, 5812, 5541, 5912, 4111, 5311, 5999, 7011]),  # no name hint: fixed-width codes
+])
+def test_integer_codes_are_categories(name: str, values: list[int]) -> None:
+    info = infer_type(_ints(name, values))
+    assert info["semantic_type"] == "categorical" and info["codes"] in ("name", "values")
+    assert info["certainty"] == "probable"  # what an integer means cannot be proven from its values
+    assert info["path"][-1] == "integers that label categories (codes)?"
+    assert any(s["flag"] == "integer-codes" for s in info["suggestions"])
+
+
+@pytest.mark.parametrize("name, values", [
+    ("SibSp", [0, 1, 2, 3, 4, 5, 8]),
+    ("cylinders", [3, 4, 5, 6, 8]),
+    ("year", list(range(1990, 2021))),
+    ("olympics", [1896, 1900, 1904, 1908, 1912, 1920, 1924]),  # years, not codes
+    ("price", [199, 249, 299, 349]),
+    ("tiers", [100, 250, 500, 750, 1000]),  # rounded amounts
+    ("store_count", list(range(1, 46))),  # the name says it counts
+    ("category_one_defects", [0, 1, 2, 3, 5, 8]),
+    ("pf_identity_sex", [0, 5, 10]),  # a graded score, the code word in the middle of the name
+    ("code", list(range(40, 120))),  # a test called Code: "code" alone says nothing
+])
+def test_quantities_stay_numeric(name: str, values: list[int]) -> None:
+    assert infer_type(_ints(name, values))["semantic_type"] != "categorical"
+
+
+def test_column_types_override_the_tree() -> None:
+    from elessar import StoneConfig
+
+    s = _ints("store", list(range(1, 46)))
+    info = infer_type(s, StoneConfig(column_types={"store": "numeric_discrete"}))
+    assert info["semantic_type"] == "numeric_discrete" and info["certainty"] == "certain"
+    assert info["path"] == ["set by the user (StoneConfig.column_types)?"]
+    with pytest.raises(ValueError, match="choose one of"):
+        infer_type(s, StoneConfig(column_types={"store": "banana"}))

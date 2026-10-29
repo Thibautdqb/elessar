@@ -33,7 +33,8 @@ your terminal and in one HTML page:
 
 - the **semantic type** of every column (not just the dtype): id, boolean in disguise, numbers stored as text,
   dates stored as text in any format, emails, URLs, phones, postal codes, IPs, JSON, free text, ordinal scales
-  (low/medium/high, months, weekdays, 1-5 ratings), counts, mixed types… with the certainty of each decision
+  (low/medium/high, months, weekdays, 1-5 ratings), counts, integers that are really category codes (region 11, store 7, MCC 5411), mixed types… with the
+  certainty of each decision
 - **dates of birth** told apart from event dates, and turned into ages
 - **full descriptive statistics** adapted to each type, with confidence intervals
 - the **best-fitting statistical distribution** (MLE, ranked by AIC) and four normality tests
@@ -254,19 +255,22 @@ the numerical libraries), with the same results.
 | `see_plot(df, out_dir, target=None)` | `list[Path]` | Writes only the informative plots. |
 
 Every function accepts a `StoneConfig` to change thresholds (alpha, missing %, correlation and VIF thresholds,
-rare-category %, sample sizes, `max_rows`, `probe_max_rows`, candidate distributions, …).
+rare-category %, sample sizes, `max_rows`, `probe_max_rows`, candidate distributions, …) or to set a column's type
+by hand: `StoneConfig(column_types={"region": "categorical", "cylinders": "numeric_discrete"})` (numeric_continuous,
+numeric_discrete, categorical, ordinal-candidate, id or text) replaces the decision tree for those columns.
 
 ### Command line
 
 ```
-elessar SOURCE [-t TARGET | --no-target] [-o FOLDER] [--no-plots] [--single-file]
+elessar SOURCE [-t TARGET | --no-target] [-o FOLDER] [--type COL=TYPE ...] [--no-plots] [--single-file]
                [--sheet S] [--table T] [--sep SEP] [--encoding E] [--columns a,b] [--nrows N]
                [--max-rows N] [--engine {auto,dask,pandas}] [-j JOBS] [--sample N] [--alpha A]
                [--width W] [--json] [--markdown] [--csv] [-q] [--open {auto,html,md,none}]
 ```
 
 `SOURCE` is a file, URL, glob pattern or folder in any format above. `-t ask` opens the target picker (it opens
-anyway when you run interactively without `-t`). Without `-o`, the report goes to its dated folder in
+anyway when you run interactively without `-t`). `--type COL=TYPE` (repeatable) sets a column's type by hand.
+`-V` / `--version` prints the version. Without `-o`, the report goes to its dated folder in
 `elessar_report/` and the command prints where.
 
 ### `Vision`
@@ -324,6 +328,7 @@ flowchart TD
 | dates written as numbers (YYYYMMDD, Unix time…)? | `datetime_string` | | JSON objects or arrays? | `json_like` |
 | an identifier by its name? | `id` (or a grouping key if it repeats) | | e-mail addresses? URLs? IP addresses? | `email`, `url`, `ip_address` |
 | unique, consecutive or sorted integers? | `id` | | UUIDs? | `id` |
+| integers that label categories (codes)? | `categorical` (probable) | | | |
 | a small scale of consecutive integers? | `ordinal-candidate` or a count | | postal codes? | `postal_code` |
 | integers? | `numeric_discrete` (or continuous with many levels) | | dates written as digits (YYMMDD…)? | `datetime_string` |
 | a handful of distinct real values? | `numeric_discrete` | | numbers written as text (`"1 234,5"`, `"12%"`, `"90 min"`)? | `numeric_string` |
@@ -343,10 +348,29 @@ Every decision carries its **certainty**, shown in the report next to the path:
   no label is likely unseen (Good-Turing estimate of the unseen probability mass, values seen once / values
   seen, below 1 %);
 - *probable*: an identifier, empty or constant column decided on a sample: only every row can prove it, and the
-  full pass does;
+  full pass does; or integers read as category codes: no number of rows can prove what an integer means;
 - *uncertain*: a test whose interval crosses its threshold, a share of distinct values within 5 points of its
   threshold (not a proportion of independent draws, so no interval is claimed for it), few values, or an
   ambiguous day / month order. On a big file, uncertain columns are typed again on more rows (above).
+
+**Integers that are codes.** A region `11`, a store `7`, a payment type `3`, a merchant category `5411` or a
+postal code `75011` are labels written with digits: their mean, standard deviation, correlation or "outliers"
+mean nothing, and they belong with the categories (Cramér's V, chi-square, one-hot or target encoding). They are
+recognised:
+
+- **by name**: the first or last word of the column name is a category word (`region`, `store`, `dept`, `zip`,
+  `mcc`, `naf`, `country`, `sex`, `gender`, `status`, `type`, `category`, `segment`, `cluster`, `group`, `mode`,
+  `payment`, `channel`, `brand`, `origin`… or `code` with another word: `code_region`, `mcc_code`), unless a word
+  says the column counts or measures (`n`, `count`, `total`, `price`, `amount`, `age`, `year`, `score`, `rating`,
+  `level`, `defects`, `visits`…: `store_count` stays a number);
+- **by values alone**: at most 50 distinct fixed-width integers of 3 digits or more, not years (1800-2100) and not
+  rounded amounts (all multiples of 5), such as merchant or activity codes.
+
+A graded scale starting at 0 in steps of 5 (0 / 5 / 10) is a score, never a code. These decisions are marked
+*probable*, grouped in one alert, and can be reversed per column: `StoneConfig(column_types={"store":
+"numeric_discrete"})` or `elessar data.csv --type store=numeric_discrete`. Checked on 1,007 columns of 65 real
+tables: the only columns that change are `gender` coded 1 / 2 (three psychology datasets), and counts (`SibSp`,
+`cylinders`, defect counts), years, prices, pulse rates and test scores stay numbers.
 
 **Dates, whatever the format**: ISO 8601 with or without time and zone; day-first or month-first with any
 separator (the order that parses every value wins, and a column where both work is reported as ambiguous); month

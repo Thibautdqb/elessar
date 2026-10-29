@@ -11,6 +11,7 @@ from .config import StoneConfig
 from .core import see
 from .picker import pick_target
 from .sources import LoadError, load
+from .types import FORCEABLE_TYPES
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -27,6 +28,9 @@ def build_parser() -> argparse.ArgumentParser:
     target.add_argument("-t", "--target", help="target column to analyse features against ('ask' opens a picker)")
     target.add_argument("--no-target", action="store_true", help="do not ask for a target")
     p.add_argument("-o", "--out", help="output folder (default: elessar_report/<file>_<target-X or no-target>_<YYYY-MM-DD>/)")
+    p.add_argument("--type", action="append", default=[], metavar="COL=TYPE",
+                   help="set a column's type by hand (repeatable), e.g. --type region=categorical --type cylinders="
+                        "numeric_discrete")
     p.add_argument("--no-plots", action="store_true", help="skip the charts (and the HTML recap)")
     p.add_argument("--single-file", action="store_true", help="also write report_single.html with the charts inlined")
     read = p.add_argument_group("reading")
@@ -64,6 +68,15 @@ def main(argv: list[str] | None = None) -> int:
         if getattr(args, flag) is not None:
             setattr(cfg, attr, getattr(args, flag))
     cfg.single_file_report = args.single_file
+    for spec in args.type:
+        col, sep, stype = spec.partition("=")
+        if not sep or not col.strip() or not stype.strip():
+            print(f"elessar: --type expects COL=TYPE, got {spec!r}", file=sys.stderr)
+            return 2
+        if stype.strip() not in FORCEABLE_TYPES:
+            print(f"elessar: --type {spec!r}: choose one of {', '.join(FORCEABLE_TYPES)}", file=sys.stderr)
+            return 2
+        cfg.column_types[col.strip()] = stype.strip()
     sheet = int(args.sheet) if args.sheet is not None and args.sheet.isdigit() else args.sheet
     columns = [c.strip() for c in args.columns.split(",")] if args.columns else None
     try:

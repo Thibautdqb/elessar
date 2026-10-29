@@ -36,6 +36,8 @@ GROUPED_KINDS: dict[str, str] = {
     "rare_categories": "have rare categories (< {rare_category_pct:g}% of rows each)",
     "imbalanced": "are imbalanced (one value >= 90% of rows)",
     "multi_label": "hold a list of labels in each cell (one column per label: .str.get_dummies(sep))",
+    "integer_codes": "hold integers that label categories (region, store, payment type...): analysed as categories; "
+                     "set StoneConfig(column_types=...) for any that are quantities",
 }
 
 
@@ -465,6 +467,10 @@ def quality_alerts(q: dict[str, Any], config: StoneConfig | None = None) -> list
             elif sug["flag"] == "multi-label":
                 alerts.append(alert("info", col, f"each cell holds a list of labels -> one column per label: "
                                     f"{truncate(sug['code'], 110)}", "multi_label"))
+            elif sug["flag"] == "integer-codes":
+                alerts.append(alert("info", col, "integers used as category codes, analysed as a category (probable: "
+                                    f"{sug['note'].split(';')[0]}) -> {sug['code']}; if they are quantities: "
+                                    f"StoneConfig(column_types={{{col!r}: 'numeric_discrete'}})", "integer_codes"))
             elif sug["flag"] != "should-be-category":
                 alerts.append(alert("medium", col, f"{sug['flag']}: {truncate(sug['code'], 110)}"))
     opts = q["dtype_optimizations"]
