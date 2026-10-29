@@ -25,7 +25,7 @@ def build_parser() -> argparse.ArgumentParser:
     target = p.add_mutually_exclusive_group()
     target.add_argument("-t", "--target", help="target column to analyse features against ('ask' opens a picker)")
     target.add_argument("--no-target", action="store_true", help="do not ask for a target")
-    p.add_argument("-o", "--out", help="output folder (default: elessar_report/<file name>_<YYYY-MM-DD>/)")
+    p.add_argument("-o", "--out", help="output folder (default: elessar_report/<file>_<target-X or no-target>_<YYYY-MM-DD>/)")
     p.add_argument("--no-plots", action="store_true", help="skip the charts (and the HTML recap)")
     p.add_argument("--single-file", action="store_true", help="also write report_single.html with the charts inlined")
     read = p.add_argument_group("reading")

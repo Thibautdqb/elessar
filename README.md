@@ -93,10 +93,11 @@ When the analysis finishes, elessar writes **`report.html`** next to the charts 
 `StoneConfig(single_file_report=True)` / `--single-file` also writes `report_single.html` with every chart inlined:
 one file to send or attach.
 
-**Where it is written.** Each run gets its own folder, `elessar_report/<name>_<YYYY-MM-DD>/`, named after the file
-(`trans.asc` → `elessar_report/trans_2026-10-28/`) or after the variable holding the DataFrame
-(`elessar.see(sales)` → `elessar_report/sales_2026-10-28/`), so reports of different tables never overwrite each
-other; running the same table again on the same day refreshes that day's report. `out_dir=...` / `-o FOLDER`
+**Where it is written.** Each run gets its own folder, `elessar_report/<name>_<target>_<YYYY-MM-DD>/`, named after
+the file or the variable holding the DataFrame, and the target or its absence:
+`elessar trans.asc -t type` → `elessar_report/trans_target-type_2026-10-29/`, `elessar.see(sales)` →
+`elessar_report/sales_no-target_2026-10-29/`. Reports of different tables or targets never overwrite each other;
+running the same analysis again on the same day refreshes that day's report. `out_dir=...` / `-o FOLDER`
 writes to exactly that folder instead. `report.out_dir` tells where a run went.
 
 It opens automatically only when you run from a terminal, never in CI, tests or pipelines. Use

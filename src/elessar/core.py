@@ -269,15 +269,17 @@ def dataset_stem(name: str | None) -> str:
 
 
 def report_dir(name: str | None, out_dir: str | Path | None = None, root: str | Path = DEFAULT_ROOT,
-               day: dt.date | None = None) -> Path:
-    """Where a run writes its report: ``out_dir`` when given, else ``<root>/<name>_<YYYY-MM-DD>``.
+               day: dt.date | None = None, target: Any = None) -> Path:
+    """Where a run writes its report: ``out_dir`` when given, else
+    ``<root>/<name>_target-<target>_<YYYY-MM-DD>`` or ``<root>/<name>_no-target_<YYYY-MM-DD>``.
 
-    One folder per dataset and per day, so reports of different tables never overwrite each other;
-    running the same table again the same day refreshes that day's report.
+    One folder per dataset, target and day, so reports never overwrite each other; running the same
+    analysis again the same day refreshes that day's report.
     """
     if out_dir is not None:
         return Path(out_dir)
-    return Path(root) / f"{dataset_stem(name)}_{(day or dt.date.today()):%Y-%m-%d}"
+    analysis = f"target-{safe_name(target) or 'column'}" if target is not None else "no-target"
+    return Path(root) / f"{dataset_stem(name)}_{analysis}_{(day or dt.date.today()):%Y-%m-%d}"
 
 
 def _variable_name(obj: Any, frame: Any) -> str | None:
@@ -331,11 +333,11 @@ def see(
     timings["load"] = time.perf_counter() - started
     df, full = src.df, src.full
     name = name or src.name or variable  # the file name first; for a DataFrame, its variable name
-    out_dir = report_dir(name, out_dir)
     if isinstance(target, str) and target == "ask" and "ask" not in map(str, df.columns):
         target = pick_target(df)
     original = list(df.columns) if isinstance(df, pd.DataFrame) else []
     target = resolve_target(df, target)
+    out_dir = report_dir(name, out_dir, target=target)
     df = prepare(df)
     workers = n_workers(cfg, df.size, df.shape[1])
 

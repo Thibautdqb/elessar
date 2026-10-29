@@ -1118,7 +1118,7 @@ def see_plot(
     ``elessar_report/<name>_<YYYY-MM-DD>/``). Returns the PNG paths."""
     from .core import _variable_name, report_dir
 
-    out_dir = report_dir(_variable_name(df, inspect.currentframe()), out_dir)
+    out_dir = report_dir(_variable_name(df, inspect.currentframe()), out_dir, target=target)
     from .core import analyze
 
     cfg = config or StoneConfig()

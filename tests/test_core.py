@@ -98,10 +98,13 @@ def test_report_folders_per_dataset_and_day(tmp_path, monkeypatch) -> None:  # n
     assert dataset_stem("trans.asc") == "trans" and dataset_stem("sales.csv.gz") == "sales"
     assert dataset_stem(None) == "dataframe" and dataset_stem("a b/c?.csv") == "c"
     day = dt.date(2026, 10, 28)
-    assert report_dir("trans.asc", day=day).as_posix() == "elessar_report/trans_2026-10-28"
-    assert report_dir("trans.asc", "here").as_posix() == "here"
+    assert report_dir("trans.asc", day=day).as_posix() == "elessar_report/trans_no-target_2026-10-28"
+    assert report_dir("trans.asc", day=day, target="type").as_posix() == "elessar_report/trans_target-type_2026-10-28"
+    assert report_dir("trans.asc", "here", target="type").as_posix() == "here"
     monkeypatch.chdir(tmp_path)
     sales = pd.DataFrame({"x": range(30), "y": list("ab") * 15})
     v = see(sales, verbose=False, open_report=False)
-    assert v.out_dir == Path("elessar_report") / f"sales_{dt.date.today():%Y-%m-%d}"
+    assert v.out_dir == Path("elessar_report") / f"sales_no-target_{dt.date.today():%Y-%m-%d}"
     assert (tmp_path / v.out_dir / "report.html").exists()
+    v = see(sales, target="y", verbose=False, open_report=False)
+    assert v.out_dir == Path("elessar_report") / f"sales_target-y_{dt.date.today():%Y-%m-%d}"
