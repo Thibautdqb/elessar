@@ -8,13 +8,13 @@
 2. **Extraction**: principal components of the correlation matrix, unrotated solution, scree
    plot; varimax rotation with Kaiser normalisation; loadings sorted by size.
 3. **Is it worth it?** Kaiser-Meyer-Olkin above .50 and Bartlett's test of sphericity below .05.
-4. **Communalities** (extraction): an item explained below .50 is examined, removed, and the
+4. **Communalities** (extraction): an item explained below .40 (Costello & Osborne, 2005) is examined, removed, and the
    analysis is run again - one item at a time, the weakest first.
 5. **How many factors?** Eigenvalue above 1 (Kaiser), cumulative variance of at least 60%, and the
    elbow of the scree plot. When two criteria agree that number is kept; otherwise the scree plot
    decides, reduced if needed so that no factor rests on a single item (coherence).
 6. **Rotated component matrix**: each item goes to the factor of its highest loading; an item whose
-   highest loading is below .50, or that loads at least .40 on a second factor within .20 of the
+   highest loading is below .40, or that loads at least .40 on a second factor within .20 of the
    first (a cross-loading), is examined, removed, and the analysis is run again. Factors are named
    after their items.
 7. **Cronbach's alpha, one per factor**, on that factor's items (negatively loading items reversed),
@@ -30,6 +30,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import re
+
 import numpy as np
 import pandas as pd
 
@@ -39,8 +41,8 @@ from .multivariate import bartlett_sphericity, kmo, varimax
 from .types import NUMERIC_TYPES, as_numeric, ordinal_order
 
 KMO_MIN = 0.50
-COMMUNALITY_MIN = 0.50
-LOADING_MIN = 0.50
+COMMUNALITY_MIN = 0.40
+LOADING_MIN = 0.40
 CROSS_LOADING = 0.40
 CROSS_GAP = 0.20
 VARIANCE_TARGET = 0.60
@@ -82,10 +84,15 @@ def _items(df: pd.DataFrame, types: dict[str, str], target: str | None, cfg: Sto
     """Step 1: the analysable items as numbers, declared missing codes removed."""
     from .quality import placeholder_values
 
-    cols, kinds, declared = {}, {}, {}
+    from .roles import tokens
+
+    cols, kinds, declared, demographic = {}, {}, {}, []
     for c in df.columns:
         stype = types.get(c)
         if c == target or stype in ("id", "boolean", "constant", "empty"):
+            continue
+        if DEMOGRAPHIC_NAME.fullmatch(tokens(c)):
+            demographic.append(c)
             continue
         if stype in NUMERIC_TYPES or (stype == "ordinal-candidate" and pd.api.types.is_numeric_dtype(df[c].dtype)):
             x = as_numeric(df[c], stype)
@@ -109,14 +116,39 @@ def _items(df: pd.DataFrame, types: dict[str, str], target: str | None, cfg: Sto
         if x.notna().mean() >= 0.5 and x.nunique() >= 3 and x.std() > 0:
             cols[c] = x
     frame = pd.DataFrame(cols, index=df.index)
-    return frame, {"kinds": {c: kinds[c] for c in frame.columns}, "declared_missing": declared}
+    return frame, {"kinds": {c: kinds[c] for c in frame.columns}, "declared_missing": declared,
+                   "demographic": demographic}
+
+
+DEMOGRAPHIC_NAME = re.compile(  # a whole column name: "age" is left out, "housing_median_age" is a measure
+    r"(id|age|ages|age_?[ymd]|age_?years|sex|sexe|gender|genre|educ\w*|diploma\w*|income|revenu\w*|salary|salaire|wage|year|annee|"
+    r"grade|school|class|married|marital|children|kids|enfants|family\w*|household\w*|race|ethnic\w*|religion|"
+    r"region|country|pays|urban|wave|group|condition|cohort|engnat|voted|drug)")
+
+
+def _likert(x: pd.Series) -> bool:
+    v = x.dropna()
+    return len(v) > 0 and v.nunique() <= 11 and bool(np.all(np.mod(v, 1) == 0))
+
+
+def _battery(items: pd.DataFrame) -> tuple[list[str], tuple[float, float]] | None:
+    """The questionnaire, when the table holds one: at least 3 integer items with at most 11 levels on the
+    most common response scale (an item may leave one end unused)."""
+    cand = [c for c in items if _likert(items[c])]
+    if len(cand) < 3:
+        return None
+    ranges = pd.Series([(float(items[c].min()), float(items[c].max())) for c in cand], index=cand)
+    lo, hi = ranges.value_counts().index[0]
+    members = [c for c, (a, b) in ranges.items() if lo <= a and b <= hi and b - a >= hi - lo - 1]
+    return (members, (lo, hi)) if len(members) >= 3 else None
 
 
 def _same_scale(items: pd.DataFrame) -> bool:
-    """Every item integer-valued on the same range (a Likert battery)."""
-    ranges = {(float(items[c].min()), float(items[c].max())) for c in items}
-    integer = all(np.all(np.mod(items[c].dropna(), 1) == 0) for c in items)
-    return integer and len(ranges) == 1
+    """Every item a Likert-type integer on one common response scale (an item may leave one end unused)."""
+    if not all(_likert(items[c]) for c in items):
+        return False
+    lo, hi = float(items.min().min()), float(items.max().max())
+    return all(float(items[c].max()) - float(items[c].min()) >= hi - lo - 1 for c in items)
 
 
 def _solution(x: pd.DataFrame, k: int | None) -> dict[str, Any]:
@@ -155,31 +187,32 @@ def _solution(x: pd.DataFrame, k: int | None) -> dict[str, Any]:
     }
 
 
-def _problem_item(sol: dict[str, Any]) -> tuple[str, str] | None:
-    """The one item to examine and remove before re-running (steps 4 and 6), or None."""
-    h = sol["communality"]
-    weak = h[h < COMMUNALITY_MIN]
-    if len(weak):
-        c = weak.idxmin()
-        return c, f"communality {h[c]:.2f} < {COMMUNALITY_MIN:.2f}: poorly explained by the factors"
-    load = sol["rotated"].abs()
-    worst, why, gap_min = None, "", np.inf
-    for c, row in load.iterrows():
-        top = row.sort_values(ascending=False).to_numpy()
+def _problems(sol: dict[str, Any]) -> list[tuple[str, str]]:
+    """Items to examine (steps 4 and 6), the one to remove first at the head: the worst communality,
+    else the item whose two highest loadings are closest."""
+    h = sol["communality"].round(2)  # decide on the value the report shows
+    out = [(c, f"communality {h[c]:.2f} < {COMMUNALITY_MIN:.2f}: poorly explained by the factors")
+           for c in h[h < COMMUNALITY_MIN].sort_values().index]
+    loading = []
+    for c, row in sol["rotated"].abs().iterrows():
+        if c in h[h < COMMUNALITY_MIN].index:
+            continue
+        top = row.sort_values(ascending=False).round(2).to_numpy()
         second = top[1] if len(top) > 1 else 0.0
-        if top[0] < LOADING_MIN and top[0] - second < gap_min:
-            worst, gap_min, why = c, top[0] - second, f"highest loading {top[0]:.2f} < {LOADING_MIN:.2f}"
-        elif second >= CROSS_LOADING and top[0] - second < CROSS_GAP and top[0] - second < gap_min:
-            worst, gap_min = c, top[0] - second
-            why = f"cross-loading: {top[0]:.2f} and {second:.2f} on two factors (gap < {CROSS_GAP:.2f})"
-    return (worst, why) if worst is not None else None
+        if top[0] < LOADING_MIN:
+            loading.append((top[0] - second, c, f"highest loading {top[0]:.2f} < {LOADING_MIN:.2f}"))
+        elif second >= CROSS_LOADING and top[0] - second < CROSS_GAP:
+            loading.append((top[0] - second, c, f"cross-loading: {top[0]:.2f} and {second:.2f} on two factors "
+                                                f"(gap < {CROSS_GAP:.2f})"))
+    return out + [(c, why) for _, c, why in sorted(loading, key=lambda t: t[0])]
 
 
-def _reliability(items: pd.DataFrame, loadings: pd.Series, same_scale: bool) -> dict[str, Any]:
+def _reliability(items: pd.DataFrame, loadings: pd.Series, same_scale: bool,
+                 scale: tuple[float, float]) -> dict[str, Any]:
     """Step 7 for one factor: alpha on its items (negative loadings reversed), alpha if item deleted."""
     x = items.copy()
     reversed_items = [c for c in x if loadings[c] < 0]
-    lo, hi = float(items.min().min()), float(items.max().max())
+    lo, hi = scale
     if same_scale:
         for c in reversed_items:
             x[c] = lo + hi - x[c]
@@ -202,7 +235,7 @@ def _mode(x: pd.Series) -> float:
 
 def factor_analysis(df: pd.DataFrame, types: dict[str, str], cfg: StoneConfig, target: str | None = None) -> dict[str, Any]:
     """Run the nine steps (see the module docstring); every step records its question and answer."""
-    out: dict[str, Any] = {"steps": [], "removed": []}
+    out: dict[str, Any] = {"steps": [], "removed": [], "coherence": []}
     steps = out["steps"]
 
     def step(n: int, question: str, answer: str, ok: bool | str | None = None) -> None:
@@ -214,9 +247,22 @@ def factor_analysis(df: pd.DataFrame, types: dict[str, str], cfg: StoneConfig, t
     p = items.shape[1]
     step(1, "Quantitative or Likert variables?", f"{p} usable: " + ", ".join(f"{c} ({k})" for c, k in prep["kinds"].items())
          if p else "none", p >= 3)
+    if prep["demographic"]:
+        step(1, "Quantitative or Likert variables?", "left out as describing the respondent, not measuring a construct: "
+             + ", ".join(map(str, prep["demographic"])), True)
     if p < 3:
         out.update(verdict="not applicable", reason="factor analysis needs at least 3 quantitative or Likert variables")
         return out
+    battery = _battery(items)
+    if battery is not None and p / 2 <= len(battery[0]) < p:  # a questionnaire is most of the table, not a few indices
+        members, (lo, hi) = battery
+        left = [c for c in items if c not in members]
+        step(1, "Which variables form the scale?", f"a questionnaire of {len(members)} items answered on {lo:g} to {hi:g}: "
+             f"analysed alone; left out (not items of that scale): {', '.join(map(str, left))}", True)
+        items = items[members]
+        out["kinds"] = {c: prep["kinds"][c] for c in members}
+        out["left_out"] = left
+        p = len(members)
     if prep["declared_missing"]:
         step(1, "Missing values correctly declared?",
              "codes declared missing before the analysis: " + "; ".join(f"{c}: {v}" for c, v in prep["declared_missing"].items()),
@@ -225,6 +271,25 @@ def factor_analysis(df: pd.DataFrame, types: dict[str, str], cfg: StoneConfig, t
         step(1, "Missing values correctly declared?", "yes: no missing-value code among the items", True)
     complete = items.dropna()
     n = len(complete)
+    redundant = []
+    while complete.shape[1] > 3 and n > complete.shape[1]:
+        # an item that is an exact combination of others (a total, a mean of sub-items) makes the correlation
+        # matrix singular: determinant 0, no KMO, no Bartlett; such items carry nothing of their own
+        corr = np.corrcoef(complete.to_numpy(dtype="float64"), rowvar=False)
+        vif = np.diag(np.linalg.inv(corr + 1e-9 * np.eye(len(corr))))  # pinv would hide exact dependencies
+        if not np.isfinite(vif).all() or vif.max() <= 100:
+            break
+        worst = complete.columns[int(np.argmax(vif))]
+        redundant.append(worst)
+        complete = complete.drop(columns=worst)
+    det = float(np.linalg.det(np.corrcoef(complete.to_numpy(dtype="float64"), rowvar=False))) if n > 2 else float("nan")
+    if redundant:
+        step(1, "Redundant variables?", "removed as (nearly) exact combinations of the others (VIF > 100): "
+             + ", ".join(map(str, redundant)), "removed")
+        p = complete.shape[1]
+    step(1, "Determinant of the correlation matrix", f"{det:.2e}" + (" (> 0.00001: no singularity)" if det > 1e-5 else
+         " (< 0.00001: strong multicollinearity, loadings less stable)"), bool(det > 1e-5))
+    out.update(redundant=redundant, determinant=det)
     same = _same_scale(complete) if n else False
     step(1, "Variables on the same scale?", "yes: one common integer range, items kept as they are" if same else
          "no: items standardised (z-scores) for the reliability analysis and the scores; extraction uses the "
@@ -250,19 +315,32 @@ def factor_analysis(df: pd.DataFrame, types: dict[str, str], cfg: StoneConfig, t
         out.update(verdict="not useful", reason=f"KMO {kmo_all:.2f} and Bartlett p {fmt_p(bart_p)}: the variables do "
                                                 "not share enough variance for factors")
         return out
-    sol = initial
-    while True:
-        problem = _problem_item(sol) if len(current) > 3 else None
-        if problem is None:
+    sol, forced = initial, None
+    while len(current) > 3:
+        sizes = sol["rotated"].abs().idxmax(axis=1).value_counts().reindex(sol["rotated"].columns, fill_value=0)
+        if sol["k"] > 1 and sizes.min() < 2:  # a factor carried by one item is not a construct
+            fewer = _solution(complete[current], sol["k"] - 1)
+            out["coherence"].append(f"{sol['k']} factors leave one resting on a single item "
+                                f"({sol['rotated'].abs().idxmax(axis=1).eq(sizes.idxmin()).idxmax()}): "
+                                    f"{fewer['k']} kept for coherence")
+            sol, forced = fewer, fewer["k"]
+            continue
+        problems = _problems(sol)
+        if not problems:
             break
-        out["removed"].append({"item": problem[0], "why": problem[1], "k": sol["k"]})
-        current.remove(problem[0])
-        sol = _solution(complete[current], None)
+        if len(problems) >= 2 and sol["k"] > 1:
+            # several items at fault at once usually means too many factors, not bad items
+            fewer = _solution(complete[current], sol["k"] - 1)
+            if len(_problems(fewer)) < len(problems):
+                out["coherence"].append(f"{sol['k']} factors leave {len(problems)} items to examine, {fewer['k']} leave "
+                                    f"{len(_problems(fewer))}: {fewer['k']} kept for coherence")
+                sol, forced = fewer, fewer["k"]
+                continue
+        item, why = problems[0]
+        out["removed"].append({"item": item, "why": why, "k": sol["k"]})
+        current.remove(item)
+        sol = _solution(complete[current], forced)
     x = complete[current]
-    scree_k = sol["k"]
-    while not sol["agreed"] and sol["k"] > 1 and sol["rotated"].abs().idxmax(axis=1).value_counts().reindex(
-            sol["rotated"].columns, fill_value=0).min() < 2:
-        sol = _solution(x, sol["k"] - 1)  # coherence: a factor carried by a single item is not a construct
     pertinent = True
     if out["removed"]:  # the retained items must still pass step 3
         chi2, bart_p = bartlett_sphericity(sol["corr"], n)
@@ -275,17 +353,19 @@ def factor_analysis(df: pd.DataFrame, types: dict[str, str], cfg: StoneConfig, t
         step(4 if r["why"].startswith("communality") else 6, f"Examine {r['item']}",
              f"{r['why']} -> removed, analysis run again", "removed")
     h = sol["communality"]
-    step(4, "Communalities (extraction) all >= .50?", f"yes: lowest {h.min():.2f} ({h.idxmin()})"
+    step(4, "Communalities (extraction) all >= .40?", f"yes: lowest {h.min():.2f} ({h.idxmin()})"
          if h.min() >= COMMUNALITY_MIN else f"no: lowest {h.min():.2f} ({h.idxmin()}), kept (3 items left)",
          bool(h.min() >= COMMUNALITY_MIN))
     rule = ("the three criteria" if len({sol["k_kaiser"], sol["k_variance"], sol["k_scree"]}) == 1
             else "two criteria agree" if sol["agreed"] else "no two criteria agree: the scree plot decides")
     step(5, "How many factors?", f"eigenvalue > 1: {sol['k_kaiser']}; cumulative variance >= 60%: {sol['k_variance']}; "
          f"scree elbow: {sol['k_scree']} -> {sol['k']} ({rule}; {100 * sol['cumulative'][sol['k'] - 1]:.0f}% of the "
-         "variance)" + (f"; reduced from {scree_k} for coherence: no factor may rest on a single item"
-                        if sol["k"] < scree_k else ""), sol["agreed"])
+         "variance)" + "".join(f"; {c}" for c in out["coherence"]), sol["agreed"] and not out["coherence"])
     rot = sol["rotated"]
     assign = rot.abs().idxmax(axis=1)
+    for f in rot.columns:  # orient each factor like most of its items, so that the minority is reversed
+        if rot.loc[assign == f, f].sum() < 0:
+            rot[f] *= -1
     order = sorted(rot.index, key=lambda c: (list(rot.columns).index(assign[c]), -abs(rot.loc[c, assign[c]])))
     rot = rot.loc[order]
     factors = {}
@@ -300,7 +380,7 @@ def factor_analysis(df: pd.DataFrame, types: dict[str, str], cfg: StoneConfig, t
                n_factors=sol["k"], items=current)
     reliability = {}
     for f, members in factors.items():
-        rel = _reliability(x[members], rot.loc[members, f], same)
+        rel = _reliability(x[members], rot.loc[members, f], same, (float(x.min().min()), float(x.max().max())))
         reliability[f] = rel
         if len(members) < 2:
             step(7, f"Cronbach's alpha of {f}", f"a single item ({members[0]}): no alpha, not a scale", None)

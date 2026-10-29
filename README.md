@@ -333,13 +333,13 @@ confirmed by an isolation forest; flagged as indicative when more than 15 % of r
 2. **Extraction**: principal components of the correlation matrix, unrotated solution, scree plot, varimax
    rotation (Kaiser normalisation), loadings sorted by size.
 3. **Pertinence**: KMO > .50 and Bartlett's test of sphericity < .05, otherwise *not useful*.
-4. **Communalities** (extraction): an item explained below .50 is removed and the analysis run again, one item
+4. **Communalities** (extraction): an item explained below .40 (Costello & Osborne, 2005) is removed and the analysis run again, one item
    at a time, the weakest first.
 5. **Number of factors**: eigenvalue > 1, cumulative variance ≥ 60 % and the elbow of the scree plot; the number
    two criteria agree on, else the scree plot, reduced if needed so that no factor rests on a single item
    (theoretical coherence).
 6. **Rotated component matrix**: each item goes to its highest loading; an item whose highest loading is below
-   .50, or that loads ≥ .40 on a second factor within .20 of the first (cross-loading), is removed and the analysis
+   .40, or that loads ≥ .40 on a second factor within .20 of the first (cross-loading), is removed and the analysis
    run again. Factors are named after their items.
 7. **Cronbach's alpha per factor** (negatively loading items reversed), with the alpha if each item is deleted:
    excellent ≥ .90, very good ≥ .80, good ≥ .70, acceptable ≥ .60, poor ≥ .50, else unacceptable. A deletion that

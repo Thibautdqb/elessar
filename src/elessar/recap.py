@@ -633,8 +633,8 @@ class _Recap:
             return
         self.add("h", 3, "Factor analysis", None)
         self.add("p", "Principal components of the correlation matrix, varimax rotation, then Cronbach's alpha per "
-                      "factor; items are examined and removed one at a time (communality < .50, highest loading "
-                      "< .50 or cross-loading), and the analysis is run again after each removal.")
+                      "factor; items are examined and removed one at a time (communality < .40, highest loading "
+                      "< .40 or cross-loading), and the analysis is run again after each removal.")
         chip = {True: ("cert-certain", "yes"), False: ("cert-uncertain", "no"), None: ("sev-info", "done"),
                 "removed": ("sev-medium", "removed")}
         self.add("table", ["step", "question", "answer", ""],

@@ -87,9 +87,9 @@ def test_factor_analysis_ranks_likert_labels_and_standardises_mixed_scales() -> 
     f = rng.normal(size=n)
     labels = np.array(["strongly disagree", "disagree", "neutral", "agree", "strongly agree"])
     df = pd.DataFrame({"q1": labels[np.clip(np.round(2 + f + 0.5 * rng.normal(size=n)), 0, 4).astype(int)],
-                       "income": 2000 + 800 * f + 300 * rng.normal(size=n),
+                       "spending": 2000 + 800 * f + 300 * rng.normal(size=n),
                        "score": 50 + 10 * f + 4 * rng.normal(size=n)})
-    types = {"q1": "ordinal-candidate", "income": "numeric_continuous", "score": "numeric_continuous"}
+    types = {"q1": "ordinal-candidate", "spending": "numeric_continuous", "score": "numeric_continuous"}
     fa = factor_analysis(df, types, CFG)
     assert fa["kinds"]["q1"].startswith("Likert labels") and not fa["same_scale"]
     assert fa["n_factors"] == 1 and next(iter(fa["reliability"].values()))["standardised"]
