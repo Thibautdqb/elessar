@@ -36,28 +36,33 @@ from .stats import split_labels, time_resolution
 from .types import CATEGORY_TYPES, DATETIME_TYPES, MULTI_LABEL, NUMERIC_TYPES, as_datetime, as_numeric, ordinal_order
 
 # ---------------------------------------------------------------------------------------------- design tokens
-SURFACE = "#fcfcfb"
-PANEL = "#f4f3ef"
-INK = "#1b1b19"
-INK_2 = "#52514e"
-MUTED = "#8f8e88"
-LIGHT = "#c9c7bf"
-GRID = "#e6e4de"
-SERIES = ("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948")
-BLUE, ORANGE = SERIES[0], SERIES[1]
-BLUE_FILL = "#9ec5f4"
-BLUE_PALE = "#dbe9fb"
-HIGHLIGHT = "#e34948"
-DIVERGING = LinearSegmentedColormap.from_list("elessar_div", ["#104281", "#3987e5", "#cde2fb", "#f3f2ee", "#fbd3bf",
-                                                             "#eb6834", "#a23d12"])
-SEQUENTIAL = LinearSegmentedColormap.from_list("elessar_seq", ["#f3f2ee", "#cde2fb", "#86b6ef", "#2a78d6", "#104281"])
-DENSITY = LinearSegmentedColormap.from_list("elessar_density", ["#dbe9fb", "#86b6ef", "#2a78d6", "#104281"])
-MISSING_CMAP = ListedColormap([PANEL, "#2a78d6"])
-TYPE_COLORS = {"numeric": "#dbe9fb", "category": "#fde3d6", "datetime": "#d3f1e5", "text": "#e6e1fa", "other": "#ebe9e3"}
+# dark "observatory" theme: night surface, cyan for data, neon pink for fits and highlights, mint for what
+# is kept; the categorical series is validated for colour-vision deficiencies on the dark surface
+SURFACE = "#0b111b"
+PANEL = "#131d2b"
+INK = "#eaf6fa"
+INK_2 = "#a7bac8"
+MUTED = "#7489a0"
+LIGHT = "#33465a"
+GRID = "#1a2635"
+SERIES = ("#12a2c2", "#c42a8b", "#1aa673", "#8466ea", "#bf801a", "#de4560")
+BLUE, ORANGE = "#33c6e3", "#ff4fc4"  # single-series marks: brighter than the categorical slots
+MINT, AMBER = "#3affb0", "#ffc46a"
+BLUE_FILL = "#1d6f84"
+BLUE_PALE = "#143340"
+HIGHLIGHT = "#ff5d7d"
+DIVERGING = LinearSegmentedColormap.from_list("elessar_div", ["#5fe8ff", "#1f9fbd", "#164050", "#151d2a", "#4d1d48",
+                                                             "#c2368f", "#ff5ccc"])
+SEQUENTIAL = LinearSegmentedColormap.from_list("elessar_seq", ["#151d2a", "#163a4a", "#1d6a80", "#2fa9c6", "#7fe9ff"])
+DENSITY = LinearSegmentedColormap.from_list("elessar_density", ["#163a4a", "#1d6a80", "#2fa9c6", "#9ef0ff"])
+MISSING_CMAP = ListedColormap([PANEL, ORANGE])
+TYPE_COLORS = {"numeric": "#123c4a", "category": "#3e1838", "datetime": "#123f30", "text": "#28224a", "other": "#1d2836"}
 
 FONTS = ["Inter", "Lato", "Helvetica Neue", "Helvetica", "Arial", "Liberation Sans", "DejaVu Sans"]
 STYLE: dict[str, Any] = {
     "font.family": "sans-serif",
+    "text.color": INK,
+    "legend.labelcolor": INK_2,
     "font.sans-serif": FONTS,
     "text.parse_math": False,  # column names and values may contain "$"
     "figure.facecolor": SURFACE,
@@ -189,7 +194,7 @@ def _value_axis_only(ax: Any, axis: str) -> None:
 
 def _text_color(fill: str) -> str:
     r, g, b = to_rgb(fill)
-    return "white" if 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.55 else INK
+    return INK if 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.55 else SURFACE
 
 
 def _type_family(stype: str) -> str:
@@ -210,7 +215,7 @@ def _boxplot(ax: Any, data: list[np.ndarray], labels: list[str] | None = None, w
         boxprops=dict(facecolor=BLUE_PALE, edgecolor=BLUE, linewidth=1.1),
         medianprops=dict(color=INK, linewidth=1.8),
         whiskerprops=dict(color=BLUE, linewidth=1.0), capprops=dict(color=BLUE, linewidth=1.0),
-        meanprops=dict(marker="D", markersize=4.5, markerfacecolor="white", markeredgecolor=INK, markeredgewidth=0.9),
+        meanprops=dict(marker="D", markersize=4.5, markerfacecolor=SURFACE, markeredgecolor=INK, markeredgewidth=0.9),
         flierprops=dict(marker="o", markersize=2.6, markerfacecolor=HIGHLIGHT, markeredgecolor="none", alpha=0.45),
     )
     if labels is not None:
@@ -549,7 +554,7 @@ def plot_missing(writer: _Writer, df: pd.DataFrame, cfg: StoneConfig) -> None:
                 f"{len(df):,} rows have at least one  ·  {int((pct > 0).sum())} of {df.shape[1]} columns affected")
     fig, body = _figure(max(8, 0.32 * len(cols) + 2.5), 6.6, "Missing values", subtitle,
                         "Each line of the matrix is a row (in file order" + (", sampled" if len(df) > len(m) else "")
-                        + "); blue = missing.")
+                        + "); pink = missing.")
     gs = body.add_gridspec(2, 1, height_ratios=[1, 3.2])
     ax_bar = body.add_subplot(gs[0])
     ax_mat = body.add_subplot(gs[1], sharex=ax_bar)
@@ -737,7 +742,7 @@ def _sparkline(ax: Any, s: pd.Series, stype: str, st: dict[str, Any], box: tuple
             if len(counts) >= 2:
                 xs = x0 + w * np.linspace(0, 1, len(counts))
                 ys = y0 + h - h * counts / counts.max()
-                ax.fill_between(xs, y0 + h, ys, color="#bfe9d8", lw=0)
+                ax.fill_between(xs, y0 + h, ys, color="#16503d", lw=0)
                 ax.plot(xs, ys, color=SERIES[2], lw=1)
                 return
     if heights is None or not heights.max():
@@ -822,7 +827,7 @@ def plot_pair(writer: _Writer, df: pd.DataFrame, a: str, b: str, label: str, cfg
     log_y = y_levels is None and _log_x(y, float(stats.skew(y)) if len(y) > 2 else None)
     dense = len(x) > 2_000 and x_levels is None and y_levels is None
     fig, body = _figure(8.4, 7.6, f"{b} vs {a}", label + f"  ·  n = {n_all:,}",
-                        "Darker hexagons = more rows." if dense else ("Points jittered within each level."
+                        "Brighter hexagons = more rows." if dense else ("Points jittered within each level."
                                                                       if x_levels is not None or y_levels is not None
                                                                       else ""))
     gs = body.add_gridspec(2, 2, width_ratios=[5, 1], height_ratios=[1, 5])
@@ -855,7 +860,7 @@ def plot_pair(writer: _Writer, df: pd.DataFrame, a: str, b: str, label: str, cfg
     if ax.get_legend_handles_labels()[0]:
         ax.legend(loc="lower right")
     ax.text(0.02, 0.98, f"Pearson r = {r:.3f}\nSpearman ρ = {rho:.3f}", transform=ax.transAxes, va="top", ha="left",
-            fontsize=8.5, color=INK, bbox=dict(boxstyle="round,pad=0.4", fc="white", ec=GRID, alpha=0.9))
+            fontsize=8.5, color=INK, bbox=dict(boxstyle="round,pad=0.4", fc=PANEL, ec=LIGHT, alpha=0.92))
     ax.set_xlabel(a + (" · log scale" if log_x else ""))
     ax.set_ylabel(b + (" · log scale" if log_y else ""))
     _format_axis(ax)

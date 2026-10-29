@@ -40,6 +40,15 @@ SECTIONS = {"findings": "Key findings", "overall": "Overall statistics", "target
             "outliers": "Outliers", "quality": "Data quality", "multivariate": "Multivariate statistics",
             "preparation": "Preparation plan", "columns": "Attribute statistics", "run": "Run"}
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "info": 2}
+_CHART_KINDS = {
+    "overview": "Dataset overview", "missing": "Missing values", "nullity_corr": "Missingness correlation",
+    "corr_pearson": "Pearson correlation", "corr_spearman": "Spearman correlation", "corr_kendall": "Kendall correlation",
+    "corr_cramers_v": "Cramér's V", "association": "All associations", "dist": "Distribution", "bar": "Frequencies",
+    "text": "Text lengths", "time": "Rows over time", "scatter": "Joint distribution", "target_ranking": "What drives the target",
+    "target": "Target by feature", "selection": "Feature selection", "lasso_path": "Lasso path", "outliers": "Outlier points",
+    "multivariate_outliers": "Multivariate outliers", "pca": "Principal components", "factors": "Factor analysis",
+    "timeseries": "Time series", "acf": "Autocorrelation", "decomposition": "Seasonal decomposition",
+}
 
 
 def _strength(value: float) -> str:
@@ -222,8 +231,9 @@ class _Recap:
         out = []
         for rec in self.v.plot_index:
             if rec["kind"] in kinds and (any_column or rec["column"] == column):
-                label = rec["kind"] if rec["column"] is None else " vs ".join(
-                    str(c) for c in (rec["column"], rec.get("other")) if c is not None)
+                what = _CHART_KINDS.get(rec["kind"], rec["kind"].replace("_", " ").capitalize())
+                label = what if rec["column"] is None else " vs ".join(
+                    str(c) for c in (rec["column"], rec.get("other")) if c is not None) + f" · {what.lower()}"
                 out.append((self.rel(rec["path"]), label))
         return out
 
@@ -238,6 +248,19 @@ class _Recap:
         if o.get("source"):
             meta += f" · {o['source']}"
         self.add("p", [("i", f"{meta} · generated {dt.datetime.now():%Y-%m-%d %H:%M} by elessar {__version__}")])
+        sev = {k: sum(a["severity"] == k for a in v.alerts) for k in ("high", "medium", "info")}
+        types = o.get("semantic_types") or {}
+        self.add("kpis", [
+            ("Rows", f"{o['n_rows']:,}", f"profiled on {o['n_rows_profiled']:,}" if o.get("sampled") else
+             fmt_bytes(o.get("memory_bytes")) + " in memory", ""),
+            ("Columns", f"{o['n_columns']}", f"{len(types)} semantic types", "pink"),
+            ("Missing cells", f"{o.get('pct_missing_cells', 0):.1f}%", f"{o.get('n_rows_with_missing', 0):,} rows with one",
+             "amber" if o.get("pct_missing_cells", 0) >= 5 else ""),
+            ("Alerts", f"{len(v.alerts)}", f"{sev['high']} high · {sev['medium']} medium · {sev['info']} info",
+             "pink" if sev["high"] else ""),
+            ("Target", str(v.target) if v.target is not None else "none", "the column the others explain"
+             if v.target is not None else "descriptive profile", ""),
+        ])
         if o.get("sampled"):
             self.add("callout", [bold("Sampled profile. "), ("", f"The table has {o['n_rows']:,} rows: statistics, tests "
                                  f"and charts use a uniform random sample of {o['n_rows_profiled']:,} rows "
@@ -784,7 +807,7 @@ class _Recap:
         if extra:
             body.append(("ul", extra))
         for path, label in self.charts(("dist", "bar", "time", "text"), name):
-            body.append(("img", path, f"{name}: {label}"))
+            body.append(("img", path, label))
         return body
 
     def run_section(self) -> None:
@@ -872,6 +895,10 @@ def render_markdown(blocks: list[Block]) -> str:
             lines.append("")
         elif kind == "callout":
             lines += ["> " + _md_inline(block[1]), ""]
+        elif kind == "kpis":
+            lines += ["| " + " | ".join(_md_escape(k[0], True) for k in block[1]) + " |",
+                      "|" + "|".join("---" for _ in block[1]) + "|",
+                      "| " + " | ".join(f"**{_md_escape(k[1], True)}** {_md_escape(k[2], True)}" for k in block[1]) + " |", ""]
         elif kind == "code":
             fence = "`" * max(3, max((len(m) for m in re.findall(r"`+", block[1])), default=0) + 1)
             lines += [fence + "python", block[1], fence, ""]
@@ -914,13 +941,35 @@ def _html_inline(inline: Inline) -> str:
 
 
 def render_html(blocks: list[Block], title: str, embed_from: Path | None = None) -> str:
-    """The recap page; with ``embed_from`` (the folder chart paths are relative to) the charts are
-    inlined, so the page is one file that can be sent or attached on its own."""
+    """The report page; with ``embed_from`` (the folder chart paths are relative to) the charts are
+    inlined, so the page is one file that can be sent or attached on its own.
+
+    The page frame (sidebar, top bar, hero, key figures) is drawn from the title, the first paragraph,
+    the table of contents and the key-figure blocks; everything else is rendered in order."""
     _EMBED["base"] = embed_from
     try:
-        return _PAGE.format(title=html.escape(title), body=_html_body(blocks))
+        h1 = next((b for b in blocks if b[0] == "h" and b[1] == 1), None)
+        toc = next((b[1] for b in blocks if b[0] == "toc"), [])
+        meta = next((b for b in blocks if b[0] == "p"), None)
+        kpis = next((b[1] for b in blocks if b[0] == "kpis"), [])
+        rest = [b for b in blocks if b is not h1 and b is not meta and b[0] not in ("toc", "kpis")]
+        nav = "".join(f'<a href="#{html.escape(key)}"><span class="nav-num">{i:02d}</span>{html.escape(label)}</a>'
+                      for i, (key, label) in enumerate(toc, 1))
+        cards = "".join(
+            f'<article class="kpi {html.escape(accent)}"><div class="kpi-label">{html.escape(label)}</div>'
+            f'<div class="kpi-value">{html.escape(value)}</div><div class="kpi-meta">{html.escape(sub)}</div></article>'
+            for label, value, sub, accent in kpis)
+        _NUMBERS.clear()
+        _NUMBERS.update({key: i for i, (key, _) in enumerate(toc, 1)})
+        return _PAGE.format(
+            title=html.escape(title), name=html.escape(h1[2] if h1 else title), version=html.escape(__version__),
+            nav=nav, meta=_html_inline(meta[1]) if meta else "", kpis=f'<div class="kpi-grid">{cards}</div>' if cards else "",
+            body=_html_body(rest))
     finally:
         _EMBED["base"] = None
+
+
+_NUMBERS: dict[str, int] = {}
 
 
 def _html_body(blocks: list[Block]) -> str:
@@ -928,13 +977,20 @@ def _html_body(blocks: list[Block]) -> str:
     for block in blocks:
         kind = block[0]
         if kind == "h":
-            anchor = f' id="{block[3]}"' if block[3] else ""
-            body.append(f"<h{block[1]}{anchor}>{html.escape(block[2])}</h{block[1]}>")
+            anchor = f' id="{html.escape(block[3])}"' if block[3] else ""
+            if block[1] == 2:
+                n = _NUMBERS.get(block[3])
+                number = f'<span class="number">{n:02d} / {html.escape(block[2].upper())}</span>' if n else ""
+                body.append(f'<div class="section-heading"{anchor}>{number}<h2>{html.escape(block[2])}'
+                            '<span class="neon">.</span></h2></div>')
+            else:
+                body.append(f"<h{block[1]}{anchor}>{html.escape(block[2])}</h{block[1]}>")
         elif kind == "p":
             body.append(f"<p>{_html_inline(block[1])}</p>")
         elif kind == "toc":
-            body.append('<nav class="toc">' + "".join(f'<a href="#{key}">{html.escape(label)}</a>'
-                                                     for key, label in block[1]) + "</nav>")
+            continue
+        elif kind == "kpis":
+            continue
         elif kind == "ul":
             body.append("<ul>" + "".join(f"<li>{_html_inline(i)}</li>" for i in block[1]) + "</ul>")
         elif kind == "table":
@@ -948,7 +1004,8 @@ def _html_body(blocks: list[Block]) -> str:
         elif kind == "callout":
             body.append(f'<div class="callout">{_html_inline(block[1])}</div>')
         elif kind == "code":
-            body.append(f"<pre><code>{html.escape(block[1])}</code></pre>")
+            body.append(f'<pre><button type="button" class="copy" aria-label="Copy the code">copy</button>'
+                        f"<code>{html.escape(block[1])}</code></pre>")
         elif kind == "kvgrid":
             cards = []
             for title, pairs in block[1]:
@@ -963,7 +1020,7 @@ def _html_body(blocks: list[Block]) -> str:
             body.append(f'<div class="{cls}">' + "".join(_figure(p, label) for p, label in block[1]) + "</div>")
         elif kind == "details":
             body.append(f'<details id="{block[3]}"><summary>{_html_inline(block[1])}</summary>'
-                        f"{_html_body(block[2])}</details>")
+                        f'<div class="details-body">{_html_body(block[2])}</div></details>')
     return "\n".join(body)
 
 
@@ -973,11 +1030,14 @@ _EMBED: dict[str, Path | None] = {"base": None}
 def _figure(path: str, label: str) -> str:
     base = _EMBED["base"]
     if base is not None:  # one self-contained file: the PNG inlined as a data URI
-        data = base64.b64encode((base / path).read_bytes()).decode("ascii")
-        return (f'<figure><img src="data:image/png;base64,{data}" alt="{html.escape(label)}" '
-                'loading="lazy"></figure>')
-    src = html.escape(quote(path, safe="/._-~"))
-    return f'<figure><a href="{src}"><img src="{src}" alt="{html.escape(label)}" loading="lazy"></a></figure>'
+        src = "data:image/png;base64," + base64.b64encode((base / path).read_bytes()).decode("ascii")
+    else:
+        src = html.escape(quote(path, safe="/._-~"))
+    name = html.escape(Path(path).name)
+    return (f'<figure class="chart-card"><figcaption><span>{html.escape(label)}</span>'
+            f'<span class="corner">FIGURE // {name}</span></figcaption>'
+            f'<button type="button" class="zoom" aria-label="Enlarge: {html.escape(label)}">'
+            f'<img src="{src}" alt="{html.escape(label)}" loading="lazy"></button></figure>')
 
 
 _PAGE = """<!doctype html>
@@ -985,68 +1045,250 @@ _PAGE = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#060a13">
 <title>{title}</title>
 <style>
-:root {{ --bg:#f4f3ef; --surface:#fcfcfb; --ink:#1b1b19; --ink2:#52514e; --muted:#8f8e88; --line:#e6e4de;
-  --blue:#2a78d6; --high:#c9302c; --medium:#b7791f; --info:#2a78d6; }}
-* {{ box-sizing:border-box; }}
-body {{ margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 Inter, Lato, "Helvetica Neue", Arial, sans-serif; }}
-main {{ max-width:1180px; margin:0 auto; padding:28px 20px 80px; }}
-h1 {{ font-size:30px; margin:8px 0 2px; letter-spacing:-0.01em; }}
-h2 {{ font-size:22px; margin:44px 0 12px; padding-top:8px; border-top:1px solid var(--line); }}
-h3 {{ font-size:16px; margin:26px 0 8px; }}
-p {{ color:var(--ink2); }}
-code {{ font:13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#ebe9e3; padding:1px 5px; border-radius:4px; }}
-a {{ color:var(--blue); text-decoration:none; }} a:hover {{ text-decoration:underline; }}
-nav.toc {{ position:sticky; top:0; z-index:5; display:flex; gap:18px; flex-wrap:wrap; padding:10px 14px; margin:14px 0 18px;
-  background:var(--surface); border:1px solid var(--line); border-radius:10px; font-weight:600; }}
-ul {{ padding-left:20px; }} li {{ margin:4px 0; }}
-.table-wrap {{ overflow-x:auto; margin:10px 0 18px; border:1px solid var(--line); border-radius:10px; background:var(--surface); }}
-table {{ border-collapse:collapse; width:100%; font-size:13.5px; }}
-th, td {{ text-align:left; padding:7px 12px; border-bottom:1px solid var(--line); vertical-align:top; }}
-th {{ font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); background:#f7f6f2; }}
-tr:last-child td {{ border-bottom:none; }}
-table.kv td:first-child {{ width:190px; color:var(--ink2); }}
-tr.sev-high td:first-child {{ color:var(--high); font-weight:700; }}
-tr.sev-medium td:first-child {{ color:var(--medium); font-weight:700; }}
-tr.sev-info td:first-child {{ color:var(--info); }}
-.chip {{ display:inline-block; font-size:11px; font-weight:700; letter-spacing:.04em; padding:1px 7px; border-radius:99px; }}
-.chip.sev-high {{ background:#fde2e1; color:var(--high); }} .chip.sev-medium {{ background:#fdf0d5; color:var(--medium); }}
-.chip.sev-info {{ background:#dbe9fb; color:var(--info); }}
-.chip.cert-certain {{ background:#d3f1e5; color:#0f7a52; }} .chip.cert-probable {{ background:#dbe9fb; color:var(--info); }}
-.chip.cert-uncertain {{ background:#fdf0d5; color:var(--medium); }}
-figure {{ margin:14px 0; }}
-.figures:not(.grid) figure img, details figure img {{ width:auto; max-width:100%; max-height:760px; margin:0 auto; }}
-figure img {{ width:100%; height:auto; display:block; border:1px solid var(--line); border-radius:10px; background:#fcfcfb; }}
-.figures.grid {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(480px, 1fr)); gap:14px; }}
-.figures.grid figure {{ margin:0; }}
-details {{ background:var(--surface); border:1px solid var(--line); border-radius:10px; margin:8px 0; padding:0 16px; }}
-details[open] {{ padding-bottom:12px; }}
-summary {{ cursor:pointer; padding:11px 0; font-weight:600; }}
-details > ul {{ font-size:13.5px; color:var(--ink2); }}
-pre {{ background:#1f2430; color:#e6e4de; border-radius:10px; padding:12px 16px; overflow-x:auto; margin:10px 0 16px; }}
-pre code {{ background:none; color:inherit; padding:0; font-size:12.5px; line-height:1.5; }}
-h4 {{ font-size:14px; margin:20px 0 6px; color:var(--ink2); }}
-.callout {{ background:#fdf6e3; border:1px solid #f1dfb0; border-radius:10px; padding:10px 14px; margin:10px 0 16px; color:var(--ink2); }}
-.kvgrid {{ display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:10px; margin:10px 0 14px; }}
-.card {{ background:#fff; border:1px solid var(--line); border-radius:10px; padding:8px 4px 4px; }}
-.card-title {{ font-size:11.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); padding:0 10px 4px; }}
-.card table {{ font-size:13px; }} .card td {{ padding:4px 10px; border-bottom:1px solid #f0efea; }}
-.card td:last-child {{ text-align:right; font-variant-numeric:tabular-nums; color:var(--ink); }}
-.card td:first-child {{ color:var(--ink2); }}
+:root {{
+  --bg:#060a13; --panel:#0e1624; --panel2:#0a111d; --line:rgba(120,170,190,.16); --ink:#eef8fb; --text:#c4d3dd;
+  --muted:#8194a6; --dim:#5c7084; --mint:#3affb0; --pink:#ff4fc4; --cyan:#45dfff; --amber:#ffc46a; --red:#ff6987;
+  --mono:ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --sans:Inter, Lato, "Avenir Next", "Segoe UI", system-ui, sans-serif;
+}}
+*, *::before, *::after {{ box-sizing:border-box; }}
+html {{ scroll-behavior:smooth; scroll-padding-top:20px; }}
+body {{ margin:0; background:var(--bg); color:var(--text); font:14px/1.6 var(--sans); -webkit-font-smoothing:antialiased; }}
+body::before {{ content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background:radial-gradient(ellipse 720px 480px at 92% -4%, rgba(255,79,196,.09), transparent 74%),
+             radial-gradient(ellipse 900px 700px at -10% 30%, rgba(58,255,176,.07), transparent 76%); }}
+a {{ color:var(--mint); text-decoration:none; }} a:hover {{ text-decoration:underline; }}
+:focus-visible {{ outline:2px solid var(--mint); outline-offset:3px; border-radius:3px; }}
+::selection {{ background:rgba(58,255,176,.3); color:#fff; }}
+
+/* frame */
+.layout {{ display:grid; grid-template-columns:236px minmax(0,1fr); min-height:100vh; }}
+.sidebar {{ position:sticky; top:0; height:100vh; overflow-y:auto; display:flex; flex-direction:column; padding:28px 14px 20px;
+  background:linear-gradient(165deg,#0b1522,#060b15 75%); border-right:1px solid var(--line); scrollbar-width:thin; }}
+.sidebar::before {{ content:""; position:absolute; top:0; left:0; right:0; height:2px;
+  background:linear-gradient(90deg,var(--mint),var(--pink) 70%,transparent); }}
+.brand {{ display:flex; align-items:center; gap:12px; padding:0 8px 24px; border-bottom:1px solid var(--line); }}
+.diamond {{ width:30px; height:30px; display:grid; place-items:center; flex:none; position:relative; }}
+.diamond::before {{ content:""; width:18px; height:18px; border:2px solid var(--mint); border-radius:3px; transform:rotate(45deg);
+  box-shadow:0 0 12px rgba(58,255,176,.4), inset 0 0 8px rgba(58,255,176,.2); }}
+.diamond::after {{ content:""; position:absolute; width:7px; height:7px; background:var(--mint); transform:rotate(45deg);
+  box-shadow:0 0 10px var(--mint); }}
+.brand strong {{ display:block; color:#fff; font-size:22px; font-weight:800; letter-spacing:-1.2px; line-height:1; }}
+.brand strong em {{ font-style:normal; color:#fff; text-shadow:0 0 4px #fff, 0 0 14px var(--mint), 0 0 28px var(--mint); }}
+.brand small {{ display:block; margin-top:6px; color:var(--muted); font:9px var(--mono); letter-spacing:.14em; }}
+.nav-label {{ margin:24px 10px 8px; color:var(--dim); font:10px var(--mono); letter-spacing:.15em; }}
+.side-nav {{ display:flex; flex-direction:column; gap:2px; }}
+.side-nav a {{ display:flex; gap:11px; align-items:center; padding:9px 11px; border-radius:8px; border:1px solid transparent;
+  color:#8f9fad; font-size:12.5px; font-weight:600; transition:background .15s, color .15s; }}
+.side-nav a:hover {{ background:rgba(58,255,176,.06); color:#eafff6; text-decoration:none; }}
+.side-nav a.active {{ color:#e3fff3; background:linear-gradient(90deg,rgba(58,255,176,.13),rgba(58,255,176,.02));
+  border-color:rgba(58,255,176,.18); box-shadow:inset 2px 0 var(--mint); }}
+.nav-num {{ font:10px var(--mono); color:var(--dim); width:18px; }}
+.side-nav a.active .nav-num {{ color:var(--mint); }}
+.side-foot {{ margin-top:auto; padding:22px 10px 0; color:var(--muted); font:10px/1.9 var(--mono); }}
+.dot {{ display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--mint); box-shadow:0 0 9px var(--mint);
+  animation:pulse 2.6s ease-in-out infinite; }}
+@keyframes pulse {{ 50% {{ opacity:.35; }} }}
+main {{ min-width:0; padding:0 34px 70px; }}
+.shell {{ max-width:1320px; margin:0 auto; }}
+.topbar {{ height:66px; display:flex; align-items:center; justify-content:space-between; gap:16px; border-bottom:1px solid var(--line); }}
+.crumb {{ font:11px var(--mono); color:#7a8c9e; letter-spacing:.05em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }}
+.crumb b {{ color:#fff; font-weight:500; }} .crumb i {{ font-style:normal; color:#466779; margin:0 8px; }}
+.status {{ display:flex; align-items:center; gap:9px; color:#abdbc8; font:10px var(--mono); white-space:nowrap; }}
+.menu {{ display:none; background:none; border:1px solid var(--line); color:var(--mint); border-radius:7px; padding:5px 10px; font-size:17px; cursor:pointer; }}
+.hero {{ position:relative; overflow:hidden; margin-top:22px; padding:30px 34px; border:1px solid rgba(81,238,198,.18); border-radius:16px;
+  background:radial-gradient(ellipse at 88% 80%,rgba(255,79,196,.15),transparent 45%),
+             radial-gradient(ellipse at 60% 20%,rgba(58,255,176,.07),transparent 50%),linear-gradient(110deg,#111b2b,#08111f 70%); }}
+.hero::before {{ content:""; position:absolute; inset:0; pointer-events:none;
+  background-image:linear-gradient(90deg,rgba(82,241,192,.035) 1px,transparent 1px),linear-gradient(rgba(82,241,192,.035) 1px,transparent 1px);
+  background-size:34px 34px; -webkit-mask-image:linear-gradient(90deg,transparent 20%,#000); mask-image:linear-gradient(90deg,transparent 20%,#000); }}
+.hero::after {{ content:""; position:absolute; width:180px; height:180px; right:6%; top:-70px; border-radius:50%;
+  border:1px solid rgba(58,255,176,.22); box-shadow:0 0 0 40px rgba(58,255,176,.018), 0 0 0 80px rgba(255,79,196,.016); }}
+.eyebrow {{ position:relative; color:var(--mint); font:10px var(--mono); letter-spacing:.17em; text-transform:uppercase; }}
+.eyebrow b {{ color:var(--pink); font-weight:400; margin-right:6px; }}
+.hero h1 {{ position:relative; margin:10px 0 6px; color:#fff; font-size:clamp(28px,3.8vw,48px); font-weight:800; letter-spacing:-.05em;
+  line-height:1.1; overflow-wrap:anywhere; }}
+.hero h1 em {{ font-style:normal; color:var(--mint); text-shadow:0 0 24px rgba(58,255,176,.35); }}
+.hero p {{ position:relative; margin:0; max-width:760px; color:#9fb4c3; font-size:12.5px; }}
+.hero p em {{ font-style:normal; }}
+.kpi-grid {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:16px 0 0; }}
+.kpi {{ position:relative; overflow:hidden; min-width:0; padding:17px 18px 15px; border:1px solid var(--line); border-radius:13px;
+  background:linear-gradient(150deg,rgba(22,33,49,.92),rgba(9,17,28,.92)); }}
+.kpi::before {{ content:""; position:absolute; inset:0 0 auto; height:1px; background:linear-gradient(90deg,var(--mint),transparent); opacity:.55; }}
+.kpi.pink::before {{ background:linear-gradient(90deg,var(--pink),transparent); }} .kpi.amber::before {{ background:linear-gradient(90deg,var(--amber),transparent); }}
+.kpi-label {{ color:var(--muted); font:10px var(--mono); letter-spacing:.12em; text-transform:uppercase; }}
+.kpi-value {{ margin:9px 0 2px; color:#fff; font-size:clamp(22px,2.4vw,32px); font-weight:780; letter-spacing:-.05em; line-height:1.2;
+  font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }}
+.kpi-meta {{ color:#879bac; font:10px/1.5 var(--mono); }}
+
+/* content */
+.section-heading {{ padding-top:46px; margin:0 0 14px; scroll-margin-top:10px; }}
+.section-heading .number {{ display:block; margin-bottom:8px; color:var(--pink); font:11px var(--mono); letter-spacing:.12em; }}
+.section-heading h2 {{ margin:0; color:#fff; font-size:clamp(22px,2.2vw,30px); font-weight:800; letter-spacing:-.04em; line-height:1.15; }}
+.neon {{ color:var(--mint); text-shadow:0 0 14px rgba(58,255,176,.6); }}
+h3 {{ margin:30px 0 10px; color:#e6f5f4; font-size:15px; font-weight:740; letter-spacing:-.01em; }}
+h4 {{ margin:22px 0 8px; color:var(--mint); font-size:13px; }}
+p {{ color:#a3b6c3; font-size:13px; line-height:1.8; }}
+p em {{ color:#8599aa; }}
+strong {{ color:#e8f6f6; }}
+ul {{ padding-left:20px; color:#a9bdc9; font-size:13px; line-height:1.8; }} li {{ margin:4px 0; }}
+code {{ font:11.5px/1.55 var(--mono); color:#98eecf; background:rgba(58,255,176,.06); border:1px solid rgba(58,255,176,.11);
+  border-radius:5px; padding:1px 5px; overflow-wrap:anywhere; }}
+pre {{ position:relative; margin:12px 0 20px; padding:16px 18px; overflow-x:auto; border:1px solid var(--line); border-left:2px solid var(--mint);
+  border-radius:10px; background:#070d17; }}
+pre code {{ display:block; padding:0; border:0; background:none; color:#c9f5e4; font-size:12px; white-space:pre; }}
+.copy {{ position:absolute; top:9px; right:10px; padding:3px 9px; border:1px solid rgba(58,255,176,.25); border-radius:5px;
+  background:#0b1726; color:#8df2cb; font:9px var(--mono); letter-spacing:.06em; text-transform:uppercase; cursor:pointer; }}
+.copy:hover {{ background:rgba(58,255,176,.1); }}
+.callout {{ margin:12px 0 18px; padding:13px 16px; border-left:2px solid var(--amber); border-radius:0 10px 10px 0;
+  background:rgba(255,196,106,.05); color:#c2cfd8; font-size:12.5px; line-height:1.75; }}
+.table-wrap {{ margin:12px 0 22px; overflow:auto; border:1px solid var(--line); border-radius:12px;
+  background:linear-gradient(160deg,rgba(17,26,41,.95),rgba(10,17,28,.96)); scrollbar-width:thin; scrollbar-color:#2a4650 transparent; }}
+table {{ width:100%; border-collapse:collapse; font-size:12px; line-height:1.55; }}
+th, td {{ padding:10px 14px; text-align:left; vertical-align:top; border-bottom:1px solid rgba(135,164,192,.1); }}
+th {{ background:#132031; color:#8ca2b5; font:9.5px/1.5 var(--mono); letter-spacing:.11em; text-transform:uppercase; font-weight:600; white-space:nowrap; }}
+td {{ color:#c0cdd8; }}
+tbody tr:hover {{ background:rgba(58,255,176,.035); }}
+tr:last-child td {{ border-bottom:0; }}
+table.kv td:first-child {{ width:200px; color:#93aab6; }}
 table.data td {{ font-variant-numeric:tabular-nums; }}
-table.plan td:first-child {{ white-space:nowrap; font-weight:600; }}
-table.plan td:last-child code, table.data td:last-child code {{ white-space:pre-wrap; display:inline-block; }}
+table.data td:first-child {{ color:#eefbf8; font-weight:600; }}
+table.plan td:first-child {{ white-space:nowrap; color:#eefbf8; font-weight:600; }}
 table.plan td:nth-child(3) {{ min-width:260px; }}
-@media (max-width: 640px) {{ main {{ padding:16px; }} .figures.grid {{ grid-template-columns:1fr; }} }}
+table.plan td:last-child code, table.data td:last-child code {{ display:inline-block; white-space:pre-wrap; }}
+tr.sev-high td:first-child {{ color:var(--red); font-weight:700; }}
+tr.sev-medium td:first-child {{ color:var(--amber); font-weight:700; }}
+tr.sev-info td:first-child {{ color:var(--cyan); }}
+.chip {{ display:inline-flex; align-items:center; padding:2px 8px; border-radius:5px; font:9.5px var(--mono); letter-spacing:.06em;
+  text-transform:uppercase; white-space:nowrap; border:1px solid transparent; }}
+.chip.sev-high {{ background:rgba(255,105,135,.12); color:#ffa3b6; border-color:rgba(255,105,135,.25); }}
+.chip.sev-medium {{ background:rgba(255,196,106,.1); color:#f4c580; border-color:rgba(255,196,106,.22); }}
+.chip.sev-info {{ background:rgba(69,223,255,.1); color:#86e5ff; border-color:rgba(69,223,255,.18); }}
+.chip.cert-certain {{ background:rgba(58,255,176,.1); color:#86ffd3; border-color:rgba(58,255,176,.18); }}
+.chip.cert-probable {{ background:rgba(69,223,255,.1); color:#9ce9ff; border-color:rgba(69,223,255,.18); }}
+.chip.cert-uncertain {{ background:rgba(255,196,106,.1); color:#ffd08c; border-color:rgba(255,196,106,.2); }}
+.kvgrid {{ display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px; margin:12px 0 18px; }}
+.card {{ overflow:hidden; border:1px solid var(--line); border-radius:10px; background:rgba(8,15,26,.75); }}
+.card-title {{ padding:12px 14px 8px; color:var(--mint); font:10px var(--mono); letter-spacing:.09em; text-transform:uppercase; }}
+.card table {{ font-size:11.5px; }} .card td {{ padding:6px 13px; border-bottom:1px solid rgba(132,166,187,.08); }}
+.card td:first-child {{ color:#91a5b4; }} .card td:last-child {{ text-align:right; color:#e0edec; font-variant-numeric:tabular-nums; }}
+details {{ margin:10px 0; overflow:hidden; border:1px solid var(--line); border-radius:11px; background:linear-gradient(145deg,#111a29,#0b121e); }}
+details[open] {{ border-color:rgba(58,255,176,.22); }}
+summary {{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:14px 18px; color:#dcece9; font-size:13px; font-weight:700;
+  cursor:pointer; list-style:none; }}
+summary::-webkit-details-marker {{ display:none; }}
+summary::after {{ content:"+"; margin-left:auto; color:var(--mint); font:20px/1 var(--mono); }}
+details[open] > summary::after {{ content:"\\2212"; }}
+summary:hover {{ background:rgba(58,255,176,.035); }}
+.details-body {{ padding:0 18px 12px; border-top:1px solid var(--line); }}
+.figures {{ display:grid; gap:14px; margin:14px 0 20px; }}
+.figures.grid {{ grid-template-columns:repeat(auto-fill,minmax(480px,1fr)); }}
+.chart-card {{ position:relative; margin:0; min-width:0; overflow:hidden; border:1px solid rgba(100,163,181,.2); border-radius:14px;
+  background:linear-gradient(150deg,#101a29,#0a111d); }}
+.chart-card::before {{ content:""; position:absolute; top:0; left:0; width:36%; height:2px; opacity:.65;
+  background:linear-gradient(90deg,var(--mint),var(--pink),transparent); }}
+.chart-card figcaption {{ display:flex; justify-content:space-between; gap:12px; padding:12px 16px 10px; border-bottom:1px solid rgba(115,161,185,.1);
+  color:#e6f6f5; font-size:12.5px; font-weight:700; }}
+.chart-card .corner {{ color:#5f8a90; font:9px var(--mono); letter-spacing:.07em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:45%; }}
+.zoom {{ display:block; width:100%; padding:0; border:0; background:#0b111b; cursor:zoom-in; }}
+.zoom img {{ display:block; width:100%; height:auto; }}
+.figures:not(.grid) .zoom img, details .zoom img {{ width:auto; max-width:100%; max-height:760px; margin:0 auto; }}
+.overlay {{ position:fixed; inset:0; z-index:100; display:none; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+  padding:20px; background:rgba(2,6,13,.94); backdrop-filter:blur(10px); }}
+.overlay.open {{ display:flex; }}
+.overlay-top {{ display:flex; justify-content:space-between; align-items:center; gap:16px; width:min(1600px,100%); color:#dffcf0; font-weight:700; }}
+.overlay button {{ padding:8px 13px; border:1px solid rgba(58,255,176,.3); border-radius:7px; background:#162438; color:var(--mint); font:11px var(--mono); cursor:pointer; }}
+.overlay img {{ max-width:100%; max-height:calc(100vh - 100px); object-fit:contain; border:1px solid #284258; border-radius:9px; }}
+.foot {{ margin-top:48px; padding:22px 0; border-top:1px solid var(--line); color:#7d8f9b; font:10px var(--mono); }}
+.foot b {{ color:var(--mint); font-weight:500; }}
+@media (max-width: 900px) {{
+  .layout {{ display:block; }}
+  .sidebar {{ position:fixed; inset:0 auto 0 0; z-index:50; width:260px; max-width:85vw; height:100dvh; transform:translateX(-105%);
+    transition:transform .25s; box-shadow:15px 0 60px #0009; }}
+  .sidebar.open {{ transform:none; }}
+  .menu {{ display:inline-block; }}
+  main {{ padding:0 16px 50px; }}
+  .hero {{ padding:22px 18px; }}
+  .figures.grid {{ grid-template-columns:1fr; }}
+}}
+@media (prefers-reduced-motion: reduce) {{ html {{ scroll-behavior:auto; }} *, *::before, *::after {{ animation:none !important; transition:none !important; }} }}
+@media print {{ .sidebar, .topbar, .copy {{ display:none; }} .layout {{ display:block; }} }}
 </style>
 </head>
-<body><main>
+<body>
+<div class="layout">
+<aside class="sidebar" id="sidebar" aria-label="Sections">
+  <div class="brand"><span class="diamond" aria-hidden="true"></span><div><strong>elessar<em>.</em></strong><small>DATA OBSERVATORY</small></div></div>
+  <div class="nav-label">REPORT // SECTIONS</div>
+  <nav class="side-nav" id="nav">{nav}</nav>
+  <div class="side-foot"><span class="dot"></span>&nbsp; PROFILE COMPLETE<br>elessar {version}</div>
+</aside>
+<main><div class="shell">
+<header class="topbar">
+  <div style="display:flex;align-items:center;gap:12px;min-width:0"><button class="menu" id="menu" aria-label="Sections" aria-expanded="false">&#9776;</button>
+  <div class="crumb">ELESSAR<i>/</i>REPORT<i>/</i><b>{name}</b></div></div>
+  <div class="status"><span class="dot"></span>v{version}</div>
+</header>
+<section class="hero" id="top">
+  <div class="eyebrow"><b>&#10022;</b>DATA PROFILE // ELESSAR</div>
+  <h1>{name}<em>.</em></h1>
+  <p>{meta}</p>
+</section>
+{kpis}
 {body}
-</main>
+<footer class="foot">Generated by <b>elessar {version}</b> &middot; every chart opens full size on click</footer>
+</div></main>
+</div>
+<div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-label="Chart">
+  <div class="overlay-top"><span id="overlay-title"></span><button type="button" id="overlay-close">close &times;</button></div>
+  <img id="overlay-img" alt="">
+</div>
 <script>
-function openTarget() {{ var el = document.getElementById(location.hash.slice(1)); if (el && el.tagName === "DETAILS") el.open = true; }}
-window.addEventListener("hashchange", openTarget); openTarget();
+(function () {{
+  function openTarget() {{
+    var el = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (el && el.tagName === "DETAILS") el.open = true;
+  }}
+  window.addEventListener("hashchange", openTarget); openTarget();
+  var overlay = document.getElementById("overlay"), img = document.getElementById("overlay-img");
+  function close() {{ overlay.classList.remove("open"); img.removeAttribute("src"); }}
+  document.querySelectorAll(".zoom").forEach(function (b) {{
+    b.addEventListener("click", function () {{
+      var i = b.querySelector("img"); img.src = i.src; img.alt = i.alt;
+      document.getElementById("overlay-title").textContent = i.alt; overlay.classList.add("open");
+    }});
+  }});
+  document.getElementById("overlay-close").addEventListener("click", close);
+  overlay.addEventListener("click", function (e) {{ if (e.target === overlay) close(); }});
+  document.addEventListener("keydown", function (e) {{ if (e.key === "Escape") close(); }});
+  document.querySelectorAll("pre .copy").forEach(function (b) {{
+    b.addEventListener("click", function () {{
+      var text = b.parentNode.querySelector("code").textContent;
+      try {{ navigator.clipboard.writeText(text).then(function () {{ b.textContent = "copied"; setTimeout(function () {{ b.textContent = "copy"; }}, 1400); }}); }}
+      catch (err) {{ b.textContent = "select"; }}
+    }});
+  }});
+  var sidebar = document.getElementById("sidebar"), menu = document.getElementById("menu");
+  menu.addEventListener("click", function () {{
+    var open = sidebar.classList.toggle("open"); menu.setAttribute("aria-expanded", open ? "true" : "false");
+  }});
+  var links = Array.prototype.slice.call(document.querySelectorAll("#nav a"));
+  links.forEach(function (a) {{ a.addEventListener("click", function () {{ sidebar.classList.remove("open"); }}); }});
+  if ("IntersectionObserver" in window) {{
+    var byId = {{}}; links.forEach(function (a) {{ byId[a.getAttribute("href").slice(1)] = a; }});
+    var io = new IntersectionObserver(function (entries) {{
+      entries.forEach(function (en) {{
+        if (en.isIntersecting && byId[en.target.id]) {{
+          links.forEach(function (a) {{ a.classList.remove("active"); }}); byId[en.target.id].classList.add("active");
+        }}
+      }});
+    }}, {{ rootMargin: "0px 0px -75% 0px" }});
+    Object.keys(byId).forEach(function (id) {{ var el = document.getElementById(id); if (el) io.observe(el); }});
+  }}
+}})();
 </script>
 </body>
 </html>

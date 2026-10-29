@@ -1,7 +1,7 @@
 """Charts of the advanced analyses: PCA, factor analysis, feature selection, outliers, time series.
 
-Same visual system as :mod:`elessar.plots` (header, body, footer note; muted grid; blue for data,
-red for flagged points, orange for fitted or smoothed lines).
+Same visual system as :mod:`elessar.plots` (header, body, footer note; muted grid on a dark surface;
+cyan for data, red for flagged points, neon pink for fitted or smoothed lines, mint for what is kept).
 """
 
 from __future__ import annotations
@@ -16,8 +16,8 @@ from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 from ._utils import fmt_num, fmt_p, truncate
 from .config import StoneConfig
-from .plots import (BLUE, BLUE_FILL, BLUE_PALE, DIVERGING, GRID, HIGHLIGHT, INK, INK_2, LIGHT, MUTED, ORANGE, SEQUENTIAL,
-                    SURFACE, _figure, _format_axis, _text_color, _value_axis_only)
+from .plots import (AMBER, BLUE, BLUE_FILL, BLUE_PALE, DIVERGING, GRID, HIGHLIGHT, INK, INK_2, LIGHT, MINT, MUTED, ORANGE,
+                    SEQUENTIAL, SURFACE, _figure, _format_axis, _text_color, _value_axis_only)
 
 
 def _matrix(ax: Any, values: np.ndarray, rows: list[str], cols: list[str], signed: bool, strong: float | None = None,
@@ -162,7 +162,7 @@ def plot_selection(writer: Any, sel: dict[str, Any], target: str, cfg: StoneConf
             if m in votes.columns and votes.loc[f, m]:
                 ax.add_patch(mpl.patches.Rectangle((j + 0.04, i + 0.06), 0.92, 0.88, fill=False, edgecolor=INK, lw=1.1))
     ax2 = body.add_subplot(gs[0, 1], sharey=ax)
-    colors = {"keep": "#1baf7a", "borderline": "#eda100", "drop": LIGHT}
+    colors = {"keep": MINT, "borderline": AMBER, "drop": LIGHT}
     for i, (_, r) in enumerate(table.iterrows()):
         ax2.barh(i + 0.5, r["votes"], color=colors[r["decision"]], height=0.66, edgecolor=SURFACE)
         ax2.text(r["votes"] + 0.1, i + 0.5, r["decision"], va="center", fontsize=8, color=INK_2)
@@ -208,7 +208,7 @@ def plot_outliers(writer: Any, outl: dict[str, Any], cfg: StoneConfig) -> None:
                         f"{len(cols)} columns with flagged values  ·  {n_points:,} consensus outliers (2+ methods)",
                         "Each column on a robust scale: (value − median) / (IQR / 1.349). Box = interquartile range, "
                         "whiskers = boxplot fences. Red: flagged by 2-3 methods (3 sigma, boxplot, modified z); "
-                        "orange: by one. The most extreme points are labelled with their row.")
+                        "amber: by one. The most extreme points are labelled with their row.")
     ax = body.add_subplot()
     rng = np.random.default_rng(cfg.random_state)
     lim = 1.0
@@ -226,10 +226,10 @@ def plot_outliers(writer: Any, outl: dict[str, Any], cfg: StoneConfig) -> None:
             inside = inside.sample(300, random_state=cfg.random_state)
         ax.scatter(inside, i + rng.uniform(-0.15, 0.15, len(inside)), s=3, color=LIGHT, edgecolors="none", zorder=2)
         pts = r["points"].head(600)  # sorted by |robust z|: the most extreme
-        for mask, color in ((pts["n_methods"] < 2, ORANGE), (pts["n_methods"] >= 2, HIGHLIGHT)):
+        for mask, color in ((pts["n_methods"] < 2, AMBER), (pts["n_methods"] >= 2, HIGHLIGHT)):
             sel = pts[mask]
             ax.scatter(sel["robust_z"], np.full(len(sel), i) + rng.uniform(-0.1, 0.1, len(sel)), s=16, color=color,
-                       edgecolors="white", linewidths=0.4, zorder=3)
+                       edgecolors=SURFACE, linewidths=0.4, zorder=3)
         if len(pts):
             pt = pts.iloc[0]
             ax.annotate(f"row {truncate(pt['row'], 12)}: {fmt_num(pt['value'])}", (pt["robust_z"], i), xytext=(0, 8),
@@ -296,7 +296,7 @@ def plot_series(writer: Any, ts: dict[str, Any], cfg: StoneConfig) -> None:
     fig, body = _figure(12, 2.0 * len(values) + 1.8, f"Time series  ·  {ts['kind']}",
                         f"{ts['time_column']}  ·  {ts['frequency']} steps  ·  {ts['start']:%Y-%m-%d} → {ts['end']:%Y-%m-%d}  ·  "
                         f"{ts['n_steps']:,} steps" + (f"  ·  mean over {ts['n_entities']} {ts['entity']}" if ts.get("entity") else ""),
-                        f"Orange: rolling mean over {window} steps. " + ("Rows per period for an event log. "
+                        f"Pink: rolling mean over {window} steps. " + ("Rows per period for an event log. "
                                                                          if ts["kind"] == "event log" else ""))
     axes = body.subplots(len(values), 1, sharex=True, squeeze=False)[:, 0]
     for ax, v in zip(axes, values):
@@ -348,7 +348,7 @@ def plot_decomposition(writer: Any, ts: dict[str, Any], cfg: StoneConfig) -> Non
                         "Classical additive decomposition: centred moving-average trend, average seasonal profile, "
                         "residual. Strengths: 1 − var(residual) / var(component + residual).")
     axes = body.subplots(4, 1, sharex=True)
-    for ax, key, color in zip(axes, ("observed", "trend", "seasonal", "resid"), (BLUE, ORANGE, "#1baf7a", MUTED)):
+    for ax, key, color in zip(axes, ("observed", "trend", "seasonal", "resid"), (BLUE, ORANGE, MINT, MUTED)):
         if key == "resid":
             ax.scatter(idx, parts[key], s=2, color=color)
             ax.axhline(0, color=INK_2, lw=0.6)

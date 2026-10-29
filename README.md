@@ -108,7 +108,11 @@ Run `python examples/demo.py` to see it on a deliberately messy synthetic datase
 ### The report page
 
 When the analysis finishes, elessar writes **`report.html`** next to the charts (and the same content as
-**`report.md`**, which renders on GitHub, in VS Code, Obsidian…), and opens it in your browser:
+**`report.md`**, which renders on GitHub, in VS Code, Obsidian…), and opens it in your browser. The page is a dark
+"data observatory": a sidebar with every section numbered (the one you are reading lights up), key figures at the
+top (rows, columns, missing cells, alerts, target), each chart in a card that opens full size on click, code
+blocks with a copy button, and collapsible sections per column; it works offline, in one file with
+`--single-file`, and on a phone. In order:
 
 - **key findings** first: the features most associated with the target, then every high and medium alert
 - **overall statistics**: the dataset overview, numeric and categorical columns at a glance, **how each column
@@ -763,10 +767,12 @@ MULTIVARIATE
 
 ## Plots
 
-Report-quality PNGs (144 dpi), one consistent design: a header with the column or question as title and the key
-numbers as subtitle, the chart, and a footer note explaining the method. Compact axis labels (`12.5k`, `3.4M`),
-direct value labels instead of redundant axes, a colorblind-validated palette, one axis per chart, and log axes
-chosen automatically for heavily skewed data. Only plots that bring information are drawn: nothing for empty,
+Report-quality PNGs (144 dpi), in the same dark design as the report page: a night surface, cyan for the data,
+neon pink for fitted curves and highlights, mint for what is kept, a cyan ↔ pink diverging scale for signed values.
+Each chart has a header with the column or question as title and the key numbers as subtitle, the chart, and a
+footer note explaining the method. Compact axis labels (`12.5k`, `3.4M`), direct value labels instead of redundant
+axes, a categorical palette checked for colour-vision deficiencies on the dark surface, one axis per chart, and log
+axes chosen automatically for heavily skewed data. Only plots that bring information are drawn: nothing for empty,
 constant or id columns, no missing-values matrix when nothing is missing, no heatmap with fewer than 3 columns.
 Files are named `<NN>_<column>_<kind>.png` in the report folder.
 
