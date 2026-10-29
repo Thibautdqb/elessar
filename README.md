@@ -228,7 +228,8 @@ table.
 advanced analyses, every chart) run as independent tasks on forked processes, one per core: the DataFrame is
 inherited, never copied or pickled, and BLAS threads are limited to one per process. Results are identical to a
 single-process run (a test checks it). Small tables stay in one process; `StoneConfig(n_jobs=1)` / `-j 1`
-disables it, `n_jobs=k` caps it. On Windows everything runs in one process.
+disables it, `n_jobs=k` caps it. On macOS and Windows everything runs in one process (Windows has no fork, and forking on macOS can crash
+the numerical libraries), with the same results.
 
 | Table (full run: every analysis, every chart, the report) | Time (14 cores) |
 |---|---|

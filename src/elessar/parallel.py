@@ -5,8 +5,9 @@ CPU-bound Python, so threads would not help. Workers are forked processes: the D
 everything computed so far are inherited copy-on-write when the pool starts, never pickled.
 Only the small task keys go to the workers and only their results come back.
 
-Fork exists on Linux and macOS. Elsewhere (Windows) or for small tables, steps run in this
-process, with identical results.
+Forked workers are used on Linux only: Windows has no fork, and on macOS forking a process that
+has loaded the system's numerical libraries can crash the children (Python itself no longer forks
+there by default). Elsewhere, or for small tables, steps run in this process, with identical results.
 """
 
 from __future__ import annotations
@@ -41,7 +42,7 @@ def shared() -> dict[str, Any]:
 
 
 def can_fork() -> bool:
-    return sys.platform != "win32" and "fork" in mp.get_all_start_methods() and not os.environ.get(_IN_WORKER)
+    return sys.platform.startswith("linux") and "fork" in mp.get_all_start_methods() and not os.environ.get(_IN_WORKER)
 
 
 def n_workers(cfg: StoneConfig, n_cells: int, n_tasks: int) -> int:
@@ -95,7 +96,7 @@ def run_tasks(fn: Callable[[Any], Any], items: Iterable[Any], workers: int, stat
     _SHARED.clear()
     _SHARED.update(state or {})
     try:
-        if workers <= 1 or len(items) < 2:
+        if workers <= 1 or len(items) < 2 or not can_fork():
             return [_run(fn, item) for item in items]
         results: list[Any] = [None] * len(items)
         done = [False] * len(items)
