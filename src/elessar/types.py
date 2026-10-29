@@ -895,7 +895,8 @@ def infer_type(s: pd.Series, config: StoneConfig | None = None, sampled: bool = 
 def see_types(df: pd.DataFrame | pd.Series, config: StoneConfig | None = None) -> pd.DataFrame:
     """Semantic type of every column: one row per column.
 
-    Columns: ``semantic_type``, ``pandas_dtype``, ``confidence``, ``reason``, ``flags``, ``suggestion``.
+    Columns: ``semantic_type``, ``pandas_dtype``, ``confidence``, ``certainty`` (certain / probable / uncertain),
+    ``path`` (the questions of the decision tree, in order), ``reason``, ``flags``, ``suggestion``.
     """
     df = prepare(df)
     rows = []
@@ -909,11 +910,14 @@ def see_types(df: pd.DataFrame | pd.Series, config: StoneConfig | None = None) -
             "semantic_type": info["semantic_type"],
             "pandas_dtype": info["pandas_dtype"],
             "confidence": info["confidence"],
+            "certainty": info.get("certainty", "certain"),
+            "path": " > ".join(map(str, info.get("path") or [])),
             "reason": info["reason"],
             "flags": ", ".join(x["flag"] for x in info["suggestions"]),
             "suggestion": "; ".join(x["code"] for x in info["suggestions"]),
         })
-    cols = ["column", "semantic_type", "pandas_dtype", "confidence", "reason", "flags", "suggestion"]
+    cols = ["column", "semantic_type", "pandas_dtype", "confidence", "certainty", "path", "reason", "flags",
+            "suggestion"]
     return pd.DataFrame(rows, columns=cols).set_index("column")
 
 

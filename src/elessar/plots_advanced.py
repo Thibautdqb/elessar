@@ -109,7 +109,9 @@ def plot_factors(writer: Any, fa: dict[str, Any], cfg: StoneConfig) -> None:
                         + "".join(f"  ·  {f} α {a:.2f}" for f, a in alphas.items())[:120],
                         "Left: share of the variance of each component (scree plot) - the dashed line is the Kaiser "
                         "criterion (eigenvalue 1) - and the cumulative share against the 60% target. Right: rotated loadings, items "
-                        "grouped by the factor they load on most; bold when |loading| ≥ 0.5.")
+                        "grouped by the factor they load on most; bold when |loading| ≥ 0.4."
+                        + (f" Removed before this solution: {', '.join(str(r['item']) for r in fa['removed'])}."
+                           if fa.get("removed") else ""))
     gs = body.add_gridspec(1, 2, width_ratios=[1.1, 1])
     ax = body.add_subplot(gs[0, 0])
     x = np.arange(1, shown + 1)
@@ -119,9 +121,9 @@ def plot_factors(writer: Any, fa: dict[str, Any], cfg: StoneConfig) -> None:
     ax.plot(x, 100 * np.asarray(sol["cumulative"])[:shown], color=ORANGE, lw=1.6, marker="o", ms=3,
             label="cumulative")
     ax.axhline(100 / p, color=INK_2, lw=1, ls=(0, (4, 3)))
-    ax.text(shown + 0.3, 100 / p, "eigenvalue 1", fontsize=7.5, color=MUTED, va="center")
+    ax.text(shown, 100 / p + 1.5, "eigenvalue 1", fontsize=7.5, color=MUTED, ha="right", va="bottom")
     ax.axhline(60, color=GRID, lw=1, ls=(0, (3, 2)), zorder=0)
-    ax.text(shown + 0.3, 60, "60%", fontsize=7.5, color=MUTED, va="center")
+    ax.text(shown, 61.5, "60%", fontsize=7.5, color=MUTED, ha="right", va="bottom")
     ax.axvline(k + 0.5, color=INK, lw=1, ls=(0, (4, 3)))
     ax.text(k + 0.6, 35, f"keep {k}", fontsize=8.5, color=INK, rotation=90, va="center")
     ax.set_xticks(x, [f"C{i}" for i in x])
@@ -130,7 +132,7 @@ def plot_factors(writer: Any, fa: dict[str, Any], cfg: StoneConfig) -> None:
     ax.legend(loc="center right", fontsize=8)
     ax.set_title("Scree plot")
     ax2 = body.add_subplot(gs[0, 1])
-    _matrix(ax2, np.clip(load.loc[rows].to_numpy(dtype="float64"), -1, 1), rows, list(load.columns), True, strong=0.5)
+    _matrix(ax2, np.clip(load.loc[rows].to_numpy(dtype="float64"), -1, 1), rows, list(load.columns), True, strong=0.4)
     ax2.set_title("Rotated component matrix", pad=24)
     writer.save(fig, None, "factors")
 

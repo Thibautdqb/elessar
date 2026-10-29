@@ -39,14 +39,17 @@ COLORS = {"prompt": "#3fb950", "cmd": "#e6edf3", "title": "#79c0ff", "high": "#f
           "info": "#79c0ff", "good": "#3fb950", "warn": "#ffa657"}
 
 
-def run_elessar(csv: str, target: str, workdir: Path) -> list[str]:
-    """Real run (charts and report included) in ``workdir``, so paths print as ``elessar_report/``."""
+def run_elessar(csv: str, target: str, workdir: Path) -> tuple[list[str], Path]:
+    """Real run (charts and report included) of ``elessar train.csv`` in ``workdir``: the report lands in its
+    own dated folder, ``elessar_report/train_target-<target>_<date>/``, as for anyone running the command."""
+    shutil.copy(csv, workdir / "train.csv")
     out = subprocess.run(
-        [sys.executable, "-m", "elessar", str(Path(csv).resolve()), "--target", target, "--width", str(WIDTH_CHARS),
-         "-o", "elessar_report", "--open", "none"],
+        [sys.executable, "-m", "elessar", "train.csv", "--target", target, "--width", str(WIDTH_CHARS),
+         "--open", "none"],
         check=True, capture_output=True, text=True, cwd=workdir,
     ).stdout
-    return out.rstrip("\n").splitlines()
+    report = next((workdir / "elessar_report").glob("*/report.html"))
+    return out.rstrip("\n").splitlines(), report
 
 
 def screenshot(page: Path) -> Image.Image:
@@ -87,7 +90,7 @@ def tspans(segments: list[tuple[str, str | None, bool]]) -> str:
     return "".join(out)
 
 
-def build(output: list[str], shot: Image.Image, csv_name: str, target: str) -> str:
+def build(output: list[str], shot: Image.Image, csv_name: str, target: str, report: str) -> str:
     reveals: list[tuple[str, float, str]] = []  # (css class, appear time, animated property)
     rows: list[tuple[float, str]] = []  # (appear time, svg text content)
 
@@ -115,7 +118,7 @@ def build(output: list[str], shot: Image.Image, csv_name: str, target: str) -> s
         t += 0.3 if re.match(r"^[A-Z]", line) else 0.06
         print_line(color_line(line), t)
     t += 0.5
-    print_line([("Recap: ", DIM, False), ("elessar_report/report.html", COLORS["title"], False)], t)
+    print_line([("Report: ", DIM, False), (report, COLORS["title"], False)], t)
     t_open = t + 0.9
     t_scroll = t_open + 1.8
     total = t_scroll + SCROLL_SECONDS + HOLD
@@ -192,7 +195,7 @@ text{{font-family:{font};font-size:{FONT_SIZE}px;fill:{FG};white-space:pre;opaci
 <rect y="36" width="{WIDTH}" height="{BROWSER_BAR - 36}" fill="#ffffff"/>
 <text class="ui" x="22" y="60" style="font-size:14px;fill:#5f6368">‹  ›  ↻</text>
 <rect x="96" y="44" width="{WIDTH - 120}" height="24" rx="12" fill="#f1f3f4"/>
-<text class="ui" x="114" y="60" style="font-size:12.5px;fill:#3c4043">file:///home/you/elessar_report/report.html</text>
+<text class="ui" x="114" y="60" style="font-size:12.5px;fill:#3c4043">file:///home/you/{html.escape(report)}</text>
 <line x1="0" y1="{BROWSER_BAR - 0.5}" x2="{WIDTH}" y2="{BROWSER_BAR - 0.5}" stroke="#dadce0"/>
 <g clip-path="url(#viewport)"><g class="page">
 <image x="1" y="{BROWSER_BAR}" width="{page_w}" height="{page_h}" href="data:image/jpeg;base64,{data}"/>
@@ -208,9 +211,10 @@ def main() -> None:
     csv, target, out = sys.argv[1:]
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
-        lines = run_elessar(csv, target, work)
-        shot = screenshot(work / "elessar_report" / "report.html")
-    svg = build(excerpt(lines), shot, "train.csv", target)
+        lines, report = run_elessar(csv, target, work)
+        shot = screenshot(report)
+        shown = str(report.relative_to(work))
+    svg = build(excerpt(lines), shot, "train.csv", target, shown)
     Path(out).write_text(svg, encoding="utf-8")
     print(f"wrote {out} ({len(svg) / 1024:.0f} KB)")
 

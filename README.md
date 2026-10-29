@@ -4,7 +4,11 @@
 
 **Automated exploratory data analysis and data-quality profiling for pandas DataFrames.**
 
-One function call (`elessar.see(df)`, or `elessar.see("sales.parquet")`) or one command (`elessar data.csv`) gives you the semantic type of every column, full descriptive statistics, the best-fitting distribution, associations between all columns with significance tests, target and leakage analysis, data-quality alerts with the code to fix them, and report-ready charts.
+One function call (`elessar.see(df)`, or `elessar.see("sales.parquet")`) or one command (`elessar data.csv`) gives
+you the semantic type of every column, full descriptive statistics, the best-fitting distribution, associations
+between all columns with significance tests, target and leakage analysis, feature selection, PCA and factor
+analysis, outliers, time series, data-quality alerts and a preparation plan with the code to apply it, and
+report-ready charts.
 
 *In Tolkien's legend, the Elessar is the green Elfstone through which whatever is seen is made whole again.*
 
@@ -12,28 +16,51 @@ One function call (`elessar.see(df)`, or `elessar.see("sales.parquet")`) or one 
   <img src="docs/terminal.svg" alt="elessar installed and run on the Titanic dataset in a terminal, then its HTML report opening in a browser and scrolling (key findings, overall statistics, target analysis, feature selection, distributions, outliers)" width="900">
 </p>
 
-Pass a `DataFrame`, a file or almost anything tabular to `see()`, or a file to the `elessar` command, and get in your terminal and in an HTML report:
+Every decision elessar takes (a column's type, whether a table is a time series, whether a date is a date of
+birth, whether PCA or a factor analysis is worth it, what to do with an outlier) is an **explicit decision tree**
+of named yes / no questions with stated thresholds, and the report shows the path each decision took. They are
+all drawn in [How elessar decides](#how-elessar-decides).
 
-- the **semantic type** of every column (not just the dtype): id, boolean in disguise, numbers stored as text, dates stored as text, emails, URLs, phones, postal codes, IPs, JSON, free text, ordinal scales (low/medium/high, months, weekdays, 1-5 ratings), counts, mixed types…
+**Contents**: [What you get](#what-you-get) · [Install](#install) · [Quickstart](#quickstart) ·
+[Any input, any size](#any-input-any-size) · [API](#api) · [How elessar decides](#how-elessar-decides) ·
+[What it computes](#what-it-computes) · [Sample terminal output](#sample-terminal-output) · [Plots](#plots) ·
+[Development](#development)
+
+## What you get
+
+Pass a `DataFrame`, a file or almost anything tabular to `see()`, or a file to the `elessar` command, and get in
+your terminal and in one HTML page:
+
+- the **semantic type** of every column (not just the dtype): id, boolean in disguise, numbers stored as text,
+  dates stored as text in any format, emails, URLs, phones, postal codes, IPs, JSON, free text, ordinal scales
+  (low/medium/high, months, weekdays, 1-5 ratings), counts, mixed types… with the certainty of each decision
+- **dates of birth** told apart from event dates, and turned into ages
 - **full descriptive statistics** adapted to each type, with confidence intervals
 - the **best-fitting statistical distribution** (MLE, ranked by AIC) and four normality tests
-- **associations of every kind with statistical significance**: Pearson, Spearman, Kendall, Cramér's V, correlation ratio, mutual information, AUC, with p-values, Benjamini-Hochberg correction and confidence intervals
+- **associations of every kind with statistical significance**: Pearson, Spearman, Kendall, Cramér's V,
+  correlation ratio, mutual information, AUC, with p-values, Benjamini-Hochberg correction and confidence intervals
 - **target analysis**: feature ranking, **leakage detection**, informative missingness
-- **feature selection** by embedded methods (decision tree, random forest, lasso, ridge) and a filter, cross-validated, with a vote per feature
-- **multivariate statistics**: whether **PCA** is worth it (Bartlett, KMO, parallel analysis), a step-by-step **factor analysis** (KMO, communalities, varimax, Cronbach's alpha, scale scores), redundant groups of columns, rows that are outliers on several columns at once
-- **outliers** found three ways (3 sigma, boxplot, modified z) and listed point by point, with whether to remove or reassign them
-- **time series** recognised on their own (single series, panel, event log): trend, stationarity, seasonality, decomposition, windows, validation folds on the real dates, augmentation recipes
-- a **preparation plan**: every cleaning step (invalid values, wrong formats, misspellings, duplicates, consistency, missing data, outliers) and transformation (bucketing, decomposition, aggregation, combination, rescaling, normalisation, transformation, encoding, dimensionality reduction), each with its reason and its code
-- **data quality** checks and **actionable alerts** (with the code to fix them): placeholders, duplicates, multicollinearity, values missing not at random, sorted rows…
+- **feature selection** by embedded methods (decision tree, random forest, lasso, ridge) and a filter,
+  cross-validated, with a vote per feature
+- **multivariate statistics**: whether **PCA** is worth it (Bartlett, KMO, parallel analysis), a **factor
+  analysis** run step by step as it is taught (KMO and Bartlett, communalities, number of factors, varimax,
+  Cronbach's alpha, scale scores), redundant groups of columns, rows that are outliers on several columns at once
+- **outliers** found three ways (3 sigma, boxplot, modified z) and listed point by point, with whether to keep,
+  remove or reassign them
+- **time series** recognised on their own (single series, panel, event log): trend, stationarity, seasonality,
+  decomposition, windows, validation folds on the real dates, augmentation recipes
+- a **preparation plan**: every cleaning step (invalid values, wrong formats, misspellings, duplicates,
+  consistency, missing data, outliers) and transformation (bucketing, decomposition, aggregation, combination,
+  rescaling, normalisation, transformation, encoding, dimensionality reduction), each with its reason and its code
+- **data quality** checks and **actionable alerts** (with the code to fix them): placeholders, duplicates,
+  multicollinearity, values missing not at random, sorted rows…
 - a set of **plots that actually carry information**, saved as PNG files, and **one HTML page** with everything
-- **any input, any size**: CSV, Parquet, Excel, JSON, SQLite, SAS, Stata… or polars, pyarrow, dask, NumPy objects;
-  files bigger than memory are **streamed in parallel**, with exact counts over every row
+- **any input, any size**: CSV, Parquet, Excel, JSON, SQLite, SAS, Stata… or polars, pyarrow, dask, NumPy
+  objects; files bigger than memory are **typed progressively and streamed in parallel**, with exact counts over
+  every row
 
-It is built for scripts and the terminal: plain-text output that fits your terminal width, files on disk, no display needed (except to click the target, if you ask for it). One `pip install` brings everything: pandas, NumPy, SciPy, Matplotlib, scikit-learn, dask, pyarrow (Parquet) and openpyxl / python-calamine (Excel).
-
-> **Big files and dask.** [dask](https://www.dask.org) is installed with elessar and used automatically for files
-> too big to load whole: dask splits the file into blocks that are read and summarised on every core. Nothing to
-> configure. `engine="pandas"` / `--engine pandas` streams in a single process instead.
+It is built for scripts and the terminal: plain-text output that fits your terminal width, files on disk, no
+display needed (except to click the target, if you ask for it).
 
 ## Install
 
@@ -41,7 +68,12 @@ It is built for scripts and the terminal: plain-text output that fits your termi
 pip install git+https://github.com/thibautdqb/elessar
 ```
 
-Everything comes with it (Parquet, Excel, dask, scikit-learn). Requires Python ≥ 3.10.
+One install brings everything: pandas, NumPy, SciPy, Matplotlib, scikit-learn, **dask**, pyarrow (Parquet) and
+openpyxl / python-calamine (Excel). Requires Python ≥ 3.10.
+
+> **Big files and dask.** [dask](https://www.dask.org) is installed with elessar and used automatically for files
+> too big to load whole: it splits the file into blocks that are read and summarised on every core. Nothing to
+> configure. `engine="pandas"` / `--engine pandas` streams in a single process instead.
 
 ## Quickstart
 
@@ -51,66 +83,70 @@ import elessar
 
 df = pd.read_csv("titanic.csv")
 
-report = elessar.see(df, target="Survived")  # prints the report, writes the charts and the recap,
-                                             # then opens the recap in your browser
+report = elessar.see(df, target="Survived")  # prints the report, writes the charts and the report page,
+                                             # then opens the page in your browser
 report.alerts                                # [{severity, column, message}, ...]
 report.summary                               # one row per column, one column per metric
 report.correlations["target"]                # features ranked, with tests, p-values, AUC, MI, leakage flag
-report.recap                                 # {"md": .../report.md, "html": .../report.html}
+report.multivariate["factor"]["steps"]       # the factor analysis, step by step
+report.out_dir                               # elessar_report/df_target-Survived_2026-10-29/
 
 elessar.see("data/*.parquet", target="ask")  # any file, glob or folder; pick the target in a window
 elessar.see(polars_df), elessar.see(arrow_table), elessar.see(dask_df), elessar.see(numpy_array)
 src = elessar.load("export.xlsx", sheet="2024")  # just the loader: src.df, src.full (exact figures), src.origin
 ```
 
+Or straight from the shell (`python -m elessar` works too):
+
+```bash
+elessar titanic.csv --target Survived      # with a target
+elessar titanic.csv --no-target            # without one
+```
+
+Run `python examples/demo.py` to see it on a deliberately messy synthetic dataset.
+
 ### The report page
 
 When the analysis finishes, elessar writes **`report.html`** next to the charts (and the same content as
-**`report.md`**, which renders on GitHub, in VS Code, Obsidian…), and opens it in your browser. Everything is in it:
+**`report.md`**, which renders on GitHub, in VS Code, Obsidian…), and opens it in your browser:
 
-- **Key findings** first: the features most associated with the target, then every high and medium alert
-- **overall statistics**: the dataset overview, numeric and categorical columns at a glance (and, for a sampled
-  big table, the **exact figures over every row**)
+- **key findings** first: the features most associated with the target, then every high and medium alert
+- **overall statistics**: the dataset overview, numeric and categorical columns at a glance, **how each column
+  was typed** (its path down the decision tree and the certainty of the decision) and, for a sampled big table,
+  the **exact figures over every row**
 - **target analysis**: ranking with tests, AUC and mutual information, informative missingness, target charts
 - **feature selection**: every method's importance per feature, the vote, the cross-validated score of each
   model, the lasso path
 - **time series** (when the table is one): structure, trend, stationarity, seasonality, decomposition and
-  autocorrelation charts, the treatment and the validation folds
+  autocorrelation charts, the per-entity table of a panel, the treatment and the validation folds
 - **distributions**: for every numeric column the normality tests, the best fit with its parameters, Akaike
   weight, ΔAIC to the runner-up and the size of the misfit (KS D), next to histogram + fit + Q-Q charts
 - **outliers**: the three methods per column, a chart of every flagged point, the most extreme points by row,
   the rows that are outliers on several columns (`outliers.csv` lists every flagged point)
-- **data quality**
-- **multivariate statistics**: PCA, and the factor analysis step by step (KMO, communalities, Cronbach's alpha, new factors), groups of
-  redundant columns, then the associations (heatmaps with significance, strongest pairs, linear
-  dependencies, VIF)
+- **data quality**, including the checks on dates of birth
+- **multivariate statistics**: PCA; the **factor analysis** as a checklist (each step, its question, its answer),
+  the unrotated and rotated component matrices with communalities, Cronbach's alpha per factor with the alpha if
+  each item is deleted, the new factors and their descriptives, and the code; groups of redundant columns; then
+  the associations (heatmaps with significance, strongest pairs, linear dependencies, VIF)
 - the **preparation plan**: cleaning then transformation steps, each with why and the code
 - **attribute statistics**: one collapsible section per column with every statistic laid out in cards
   (center, spread, quantiles, shape, outliers, row order, labels, time, text), its normality tests, its top
   fits, its top values, its alerts with the fix, and its charts
 - **run** details: source, how it was read, processes used, time per step, versions
 
-`StoneConfig(single_file_report=True)` / `--single-file` also writes `report_single.html` with every chart inlined:
-one file to send or attach.
+`StoneConfig(single_file_report=True)` / `--single-file` also writes `report_single.html` with every chart
+inlined: one file to send or attach.
 
 **Where it is written.** Each run gets its own folder, `elessar_report/<name>_<target>_<YYYY-MM-DD>/`, named after
 the file or the variable holding the DataFrame, and the target or its absence:
 `elessar trans.asc -t type` → `elessar_report/trans_target-type_2026-10-29/`, `elessar.see(sales)` →
 `elessar_report/sales_no-target_2026-10-29/`. Reports of different tables or targets never overwrite each other;
 running the same analysis again on the same day refreshes that day's report. `out_dir=...` / `-o FOLDER`
-writes to exactly that folder instead. `report.out_dir` tells where a run went.
+writes to exactly that folder instead.
 
 It opens automatically only when you run from a terminal, never in CI, tests or pipelines. Use
 `open_report="md"` / `--open md` to open the Markdown file instead, or `open_report=False` / `--open none` to
 never open it. `report.to_markdown(path)` and `report.to_html(path)` write it anywhere.
-
-Or straight from the shell:
-
-```bash
-elessar titanic.csv --target Survived
-```
-
-Run `python examples/demo.py` to see it on a deliberately messy synthetic dataset.
 
 ### Choosing the target
 
@@ -121,7 +157,7 @@ as `target`, `label`, `churn`, `price`, few classes, last column; identifiers an
 row or press Enter. Without a display it asks in the terminal. From the command line the picker opens by itself
 when you run `elessar data.csv` interactively without `--target` (`--no-target` skips it).
 
-### Any input, any size
+## Any input, any size
 
 `see()` and `elessar` accept a pandas `DataFrame` / `Series`, a dict, a list of records, a NumPy array, a polars
 DataFrame or LazyFrame, a pyarrow Table, a dask DataFrame, any object with the DataFrame interchange protocol,
@@ -139,45 +175,56 @@ and paths: a file, a URL, a glob pattern (`logs/2024-*.csv`) or a folder.
 Compressed files (`.gz .bz2 .zip .xz .zst`) are read directly; a file without a known extension is recognised by
 its content.
 
-**Big tables.** A table with more than `max_rows` rows (default 1,000,000), or larger than half of the free
-memory, is never loaded whole. It goes through three steps.
+### Big tables
 
-1. **Progressive typing.** The types are decided before the full read, on as few rows as the evidence allows:
-   - a first look at the head plus blocks from the middle and the end (the head alone is often misleading);
-   - every column goes down the typing decision tree (below), which says whether its decision is *certain*,
-     *probable* or *uncertain*;
-   - only the uncertain columns are typed again on twice as many rows, round after round, until every decision
-     is settled, stops changing, or `probe_max_rows` (200,000) is reached.
+A table with more than `max_rows` rows (default 1,000,000), or larger than half of the free memory, is never
+loaded whole. It goes through three steps:
 
-   Rows are reached directly (byte offsets in a text file, row groups in Parquet) and never read twice. The
+```mermaid
+flowchart LR
+    A["First look:<br/>head + blocks at 25 / 50 / 75 / 99.5 %"] --> B["Typing decision tree<br/>on every column"]
+    B --> C{"Every decision<br/>certain?"}
+    C -- no --> D{"Time axis found<br/>in the first look?"}
+    D -- yes --> E["Draw 8 contiguous blocks<br/>(series stay whole)"]
+    D -- no --> F["Draw 64 short blocks<br/>(close to random rows)"]
+    E --> G["Type the uncertain columns again<br/>on twice as many rows"]
+    F --> G
+    G --> H{"Settled, stable for 2 rounds,<br/>or 200,000 rows read?"}
+    H -- no --> D
+    H -- yes --> I
+    C -- yes --> I["One full pass, guided by the types,<br/>in chunks, on every core"]
+    I --> J["Profile: row-level statistics on a uniform sample,<br/>exact counts and series over every row"]
+```
+
+1. **Progressive typing.** The types are decided before the full read, on as few rows as the evidence allows.
+   Rows are reached directly (byte offsets in a text file, row groups in Parquet) and never read twice; the
    lines drawn from a text file are parsed together, so types come out as in a full read. **When the first look
    finds a time axis, the extra rows are contiguous blocks, so series are never cut into scattered rows.**
 2. **One full pass guided by those types**, in chunks, on every core; every chunk is reduced to a small summary:
-
-- **exact over every row**: row count, missing values per column, min / max / mean / standard deviation (Chan's
-  parallel algorithm) on the values the types say they are (numbers written as text parsed, dates read with
-  their format), zeros, negatives, infinities, frequencies of low-cardinality columns, **duplicate rows**
-  (64-bit row hashes), also ignoring the identifier columns;
-- **type checks over every row**: values that do not fit their column's type, with their row numbers, and the
-  uniqueness of every identifier, which no sample can prove. A decision that does not survive is corrected
-  (an "identifier" that repeats becomes a grouping key) and reported;
-- for a time-indexed table, the **series aggregated per period over every row** (counts, means), and for a
-  panel the active entities per period and **whole entities drawn at random** (Bernoulli sampling on a hash of
-  the entity key), so temporal statistics never rest on a thinned sample;
-- **distinct counts**: exact below 4,096 values, estimated above (k-minimum-values sketch, ~1.6 % error);
-- a **uniform random sample** of `max_rows` rows without replacement (the rows with the smallest random keys),
-  in the original order and indexed by original row number, on which the row-level profile runs.
-
+   - **exact over every row**: row count, missing values per column, min / max / mean / standard deviation
+     (Chan's parallel algorithm) on the values the types say they are (numbers written as text parsed, dates
+     read with their format), zeros, negatives, infinities, frequencies of low-cardinality columns, **duplicate
+     rows** (64-bit row hashes), also ignoring the identifier columns;
+   - **type checks over every row**: values that do not fit their column's type, with their row numbers, and
+     the uniqueness of every identifier, which no sample can prove. A decision that does not survive is
+     corrected (an "identifier" that repeats becomes a grouping key) and reported;
+   - for a time-indexed table, the **series aggregated per period over every row** (counts, sums, means), and
+     for a panel the active entities per period and **whole entities drawn at random** (Bernoulli sampling on a
+     hash of the entity key), so temporal statistics never rest on a thinned sample;
+   - **distinct counts**: exact below 4,096 values, estimated above (k-minimum-values sketch, ~1.6 % error);
+   - a **uniform random sample** of `max_rows` rows without replacement (the rows with the smallest random
+     keys), in the original order and indexed by original row number, on which the row-level profile runs.
 3. **The profile**, on the sample for row-level statistics and on the exact series for time.
 
-Chunks are independent, so they are reduced on every core: CSV files are split into byte ranges by **dask**
-(used automatically when it is installed), Parquet files by row group, in-memory frames by slice. Without dask,
-CSV files are streamed in one process. The report says the profile is sampled and shows the exact table.
+Chunks are independent, so they are reduced on every core: CSV files are split into byte ranges by **dask**,
+Parquet files by row group, in-memory frames by slice. The report says the profile is sampled and shows the exact
+table.
 
-**Parallelism.** The heavy steps (per-column statistics and distribution fits, every association test, every chart)
-run as independent tasks on forked processes, one per core: the DataFrame is inherited, never copied or
-pickled. Results are identical to a single-process run (a test checks it). Small tables stay in one process;
-`StoneConfig(n_jobs=1)` / `-j 1` disables it, `n_jobs=k` caps it. On Windows everything runs in one process.
+**Parallelism.** The heavy steps (per-column statistics and distribution fits, every association test, the
+advanced analyses, every chart) run as independent tasks on forked processes, one per core: the DataFrame is
+inherited, never copied or pickled, and BLAS threads are limited to one per process. Results are identical to a
+single-process run (a test checks it). Small tables stay in one process; `StoneConfig(n_jobs=1)` / `-j 1`
+disables it, `n_jobs=k` caps it. On Windows everything runs in one process.
 
 | Table | Time (14 cores) |
 |---|---|
@@ -185,24 +232,24 @@ pickled. Results are identical to a single-process run (a test checks it). Small
 | 500,000 rows × 20, synthetic | 11 s (39 s in one process) |
 | 8,000,000 rows × 8, 480 MB CSV | 12.8 s, 0.95 GB of RAM (exact pass 4.5 s) |
 
-
-## The see functions
+## API
 
 | Function | Returns | What it does |
 |---|---|---|
-| `see(data, target=None, config=None, plots=True, out_dir=None, verbose=True, open_report=None, name=None, **load_options)` | `Vision` | Runs everything below, prints the terminal report, writes the charts and the report page, opens it. `data` is anything `load` reads; `target="ask"` opens the picker. |
+| `see(data, target=None, config=None, plots=True, out_dir=None, verbose=True, open_report=None, name=None, **load_options)` | `Vision` | Runs everything, prints the terminal report, writes the charts and the report page, opens it. `data` is anything `load` reads; `target="ask"` opens the picker. |
 | `load(source, config=None, *, sheet, table, sep, encoding, columns, nrows, engine)` | `Source` | Reads anything into `.df` (every row, or the sample of a big table), with `.full` (exact figures) and `.origin`. |
 | `suggest_targets(df)`, `pick_target(df)` | `list`, label | Ranked target candidates; the window / terminal picker. |
 | `parse_dates(series)` | `Series` | Dates in any of the formats below, as datetimes. |
 | `see_column(series, config=None)` | `dict` | Everything about one column: type, stats, distribution, alerts. |
-| `see_types(df)` | `DataFrame` | Semantic type, pandas dtype, confidence, reason, and conversion suggestions (should-be-numeric / datetime / boolean / category, with the code). |
+| `see_types(df)` | `DataFrame` | Semantic type, pandas dtype, confidence, certainty, decision path, reason, and conversion suggestions (should-be-numeric / datetime / boolean / category, with the code). |
 | `see_stats(df)` | `DataFrame` | Descriptive statistics, one row per column. |
 | `see_dist(df)` | `DataFrame` | Normality verdict and top-3 fitted distributions for every numeric column. |
 | `see_corr(df, target=None)` | `dict[str, DataFrame]` | Every association matrix with its p-values, the ranked pairs, VIF, missingness tests, target analysis (keys below). |
 | `see_quality(df)` | `dict` | Every data-quality check, plus `alerts`. |
 | `see_plot(df, out_dir, target=None)` | `list[Path]` | Writes only the informative plots. |
 
-Every function accepts a `StoneConfig` to change thresholds (alpha, missing %, correlation and VIF thresholds, rare-category %, sample sizes, candidate distributions, …).
+Every function accepts a `StoneConfig` to change thresholds (alpha, missing %, correlation and VIF thresholds,
+rare-category %, sample sizes, `max_rows`, `probe_max_rows`, candidate distributions, …).
 
 ### Command line
 
@@ -214,15 +261,16 @@ elessar SOURCE [-t TARGET | --no-target] [-o FOLDER] [--no-plots] [--single-file
 ```
 
 `SOURCE` is a file, URL, glob pattern or folder in any format above. `-t ask` opens the target picker (it opens
-anyway when you run interactively without `-t`). `python -m elessar` works too.
+anyway when you run interactively without `-t`). Without `-o`, the report goes to its dated folder in
+`elessar_report/` and the command prints where.
 
 ### `Vision`
 
 | Attribute / method | Content |
 |---|---|
-| `.overview` | shape, memory, dtype counts, duplicates, overall missing % |
+| `.overview` | shape, memory, dtype counts, duplicates, overall missing %; for a big table, how the types were decided (`typing`) |
 | `.summary` | `DataFrame`, one row per column, one column per key metric |
-| `.columns` | column → full detail dict |
+| `.columns` | column → full detail dict (including `path` and `certainty` of its type) |
 | `.correlations` | name → `DataFrame` |
 | `.quality` | all quality checks |
 | `.alerts` | list of `{severity, column, message}`, sorted high → medium → info |
@@ -232,46 +280,99 @@ anyway when you run interactively without `-t`). `python -m elessar` works too.
 | `.full` | for a sampled big table: exact figures over every row, one row per column; else `None` |
 | `.timings` | seconds per step: load, columns, associations, quality, advanced, charts, report |
 | `.selection` | feature selection: `table` (importance per method, votes, decision), `keep`, `borderline`, `drop`, `scores` |
-| `.multivariate` | `pca`, `factor` (verdict, reason, `steps`, `loadings`, `unrotated`, `communality`, `removed`, `reliability`, `scores`, `descriptives`, code), `groups` of redundant columns, multivariate `outliers` |
+| `.multivariate` | `pca`; `factor` (`verdict`, `reason`, `steps`, `loadings`, `unrotated`, `communality`, `removed`, `redundant`, `coherence`, `reliability`, `scores`, `descriptives`, `code`); `groups` of redundant columns; multivariate `outliers` |
 | `.outliers` | per numeric column the three methods and the action; `points`: every flagged point; `summary` |
 | `.timeseries` | structure, per-series trend / stationarity / seasonality, `treatment`, `folds`; `None` if not a time series |
 | `.preparation` | `steps` (kind, action, column, why, code), plus what the detectors found (misspellings, groups, bins...) |
 | `.print()`, `.render(width)` | the terminal report |
 | `.to_dict()`, `.to_json(path)`, `.to_csv(path)`, `.to_markdown(path)`, `.to_html(path)` | exports (CSV = the summary table) |
 
-## What it computes
+## How elessar decides
 
-**Typing, an explicit decision tree**: each column is routed by its storage (empty, constant, bool, datetime,
-category, numbers, text...), then goes down an ordered list of yes / no questions (numbers: *only 0 and 1? dates
-written as numbers? an identifier? a small scale? integers? a handful of reals?*; text: *booleans? JSON? e-mails?
-URLs? IPs? UUIDs? postal codes? compact dates? numbers? dates? phones? lists? identifiers? free text? an ordered
-scale? labels?*) until one answers yes. The report shows every column's path and the certainty of its decision:
+Each tree below is the code's own order of questions; the first *yes* decides. Thresholds are constants in the
+code and fields of `StoneConfig`.
 
-- *certain*: every value was seen, or, on a sample, each threshold test ("at least 90% of the values are
-  dates") holds at 95% confidence (the Wilson interval of the observed share does not cross the threshold) and
+### 1. The type of a column
+
+A column is first routed by how it is stored, then goes down the numeric or the text branch:
+
+```mermaid
+flowchart TD
+    S(["column"]) --> E{"any non-missing value?"}
+    E -- no --> T1["empty"]
+    E -- yes --> K{"a single distinct value?"}
+    K -- yes --> T2["constant"]
+    K -- no --> D{"how is it stored?"}
+    D -- "bool dtype" --> T3["boolean"]
+    D -- "datetime dtype" --> T4["datetime"]
+    D -- "ordered category" --> T5["ordinal-candidate"]
+    D -- "category / object holding<br/>numbers or strings" --> R["typed by its values<br/>(branches below)"]
+    D -- "dicts / lists in cells" --> T6["json_like"]
+    D -- "several Python types" --> T7["mixed"]
+    D -- "numbers, timedelta" --> N["numeric branch"]
+    D -- "strings" --> X["text branch"]
+```
+
+| Numeric branch: first *yes* wins | Type | | Text branch: first *yes* wins | Type |
+|---|---|---|---|---|
+| only 0 and 1? | `boolean` | | two boolean-like labels (yes/no, oui/non, y/n…)? | `boolean` |
+| dates written as numbers (YYYYMMDD, Unix time…)? | `datetime_string` | | JSON objects or arrays? | `json_like` |
+| an identifier by its name? | `id` (or a grouping key if it repeats) | | e-mail addresses? URLs? IP addresses? | `email`, `url`, `ip_address` |
+| unique, consecutive or sorted integers? | `id` | | UUIDs? | `id` |
+| a small scale of consecutive integers? | `ordinal-candidate` or a count | | postal codes? | `postal_code` |
+| integers? | `numeric_discrete` (or continuous with many levels) | | dates written as digits (YYMMDD…)? | `datetime_string` |
+| a handful of distinct real values? | `numeric_discrete` | | numbers written as text (`"1 234,5"`, `"12%"`, `"90 min"`)? | `numeric_string` |
+| real numbers | `numeric_continuous` | | dates, in any format? | `datetime_string` |
+| | | | phone numbers (and not dates)? | `phone` |
+| | | | lists of labels (`"Comedies, Dramas"`)? | `multi_label` |
+| | | | unique short labels? | `id` |
+| | | | free text? | `text` |
+| | | | labels on a known ordered scale? | `ordinal-candidate` |
+| | | | labels? | `categorical` |
+| | | | otherwise | `text` (high cardinality) |
+
+Every decision carries its **certainty**, shown in the report next to the path:
+
+- *certain*: every value was seen, or, on a sample, each threshold test ("at least 90 % of the values are
+  dates") holds at 95 % confidence (the Wilson interval of the observed share does not cross the threshold) and
   no label is likely unseen (Good-Turing estimate of the unseen probability mass, values seen once / values
-  seen, below 1%);
+  seen, below 1 %);
 - *probable*: an identifier, empty or constant column decided on a sample: only every row can prove it, and the
   full pass does;
 - *uncertain*: a test whose interval crosses its threshold, a share of distinct values within 5 points of its
   threshold (not a proportion of independent draws, so no interval is claimed for it), few values, or an
-  ambiguous day / month order.
+  ambiguous day / month order. On a big file, uncertain columns are typed again on more rows (above).
 
-**Semantic types**: `empty`, `constant`, `boolean` (including 0/1, yes/no, true/false, y/n, oui/non), `id` (unique or near-unique, consecutive ints, UUIDs), `numeric_continuous`, `numeric_discrete` (counts, few levels), `categorical` (labels and high-cardinality codes), `ordinal-candidate` (low/medium/high, sizes, Likert, months, weekdays, quarters, 1-5 integer scales, ordered categoricals), `datetime`, `datetime_string`, `numeric_string` (`"1 234,5"`, `"12%"`, `"$3.2"`), `text`, `multi_label` (lists of labels in a cell: `"Comedies, Dramas"`), `email`, `url`, `phone`, `postal_code`, `ip_address`, `json_like`, `mixed`. Numbers written with units (`"90 min"`, `"60 kg"`) are parsed, and mixed units in one column (`min` and `Seasons`, `kg` and `lbs`) are flagged.
+**Dates, whatever the format**: ISO 8601 with or without time and zone; day-first or month-first with any
+separator (the order that parses every value wins, and a column where both work is reported as ambiguous); month
+names in English, French, German, Spanish, Italian, Portuguese, Dutch and Czech; compact digits as text or numbers
+(`YYYYMMDD`, `YYMMDD`, `DDMMYYYY`, `YYYYMM`, `YYYYMMDDHHMM(SS)`, Czech / Slovak birth numbers with month + 50);
+quarters (`2020Q1`) and ISO weeks (`2020-W05`); Unix timestamps in s / ms / µs / ns; Excel serial days when the
+column name says it is a date. Two-digit years never land in the future. Zero dates (`0000-00-00`, `00/00/0000`)
+are placeholders for a missing date, never values. The suggested conversion uses the exact format found, and
+`elessar.parse_dates(series)` does it in one call.
 
-**Dates of birth**: a date of birth is a date, but not a time axis (it says *who* a row is about, not *when*
-something happened), and what models need is the **age**. Among the date columns, a date of birth is recognised:
+### 2. Is a date a date of birth?
 
-- **by name**, on whole name tokens (`birth_date`, `DateOfBirth`, `dob`, `date_naissance`, `Geburtsdatum`,
-  `fecha_nacimiento`, `birth_number`...; `adobe` or `stubborn` never match), when the ages it implies are
-  plausible: *certain*. A column named like a birth date whose values are not plausible is reported, not used;
-- **by values alone**, only when all of these hold: the table is about people (a sex, gender, first name,
-  age... column), dates recorded to the day, no time of day, not sorted in row order, at most 1% in the future,
-  98% of ages between 0 and 110, a median age between 18 and 85 and a 5-95% spread of at least 20 years:
-  *probable*, said as such. A date column whose name records an event (`hire`, `created`, `order`, `death`,
-  `release`, `first`, `since`, `term`...) is never taken for a birth date.
+A date of birth is a date, but not a time axis: it says *who* a row is about, not *when* something happened, and
+what models need is the **age**.
 
-Each date of birth then gets a derived **age** column, profiled and tested against the target like any other,
+```mermaid
+flowchart TD
+    A(["date column"]) --> B{"named like a birth date?<br/>(whole tokens: birth_date, dob,<br/>date_naissance, Geburtsdatum…)"}
+    B -- yes --> C{"ages plausible?<br/>(median -1 to 110,<br/>at most 5 % in the future)"}
+    C -- yes --> Y1["date of birth: certain"]
+    C -- no --> R["rejected, and reported"]
+    B -- no --> D{"named like an event?<br/>(hire, created, order, death,<br/>release, first, since, term…)"}
+    D -- yes --> N["not a date of birth"]
+    D -- no --> P{"table about people?<br/>(sex, gender, first name, age…)"}
+    P -- no --> N
+    P -- yes --> V{"to the day, no time of day, not sorted,<br/>at most 1 % future, ages 0-110,<br/>median 18-85, 5-95 % spread ≥ 20 years?"}
+    V -- yes --> Y2["date of birth: probable"]
+    V -- no --> N
+```
+
+Each date of birth gets a derived **age** column, profiled and tested against the target like any other,
 computed row by row at another event of the row when the table has one (age at admission, at the start of a term,
 at an award year), else on the day of the analysis (which the report says). It is never used as a time axis, the
 preparation plan models the age instead of the calendar parts, and it is checked: births after the reference,
@@ -279,17 +380,197 @@ ages above 120 at an event, an excess of 1 January or of first days of the month
 the calendar share: day or month unknown), agreement with an `age` column (a constant gap dates the extract), the
 share of minors, and a reminder that a date of birth is personal data and a strong quasi-identifier.
 
-**Dates, whatever the format**: ISO 8601 with or without time and zone; day-first or month-first with any separator (the order that parses every value wins, and a column where both work is reported as ambiguous); month names in English, French, German, Spanish, Italian, Portuguese, Dutch and Czech; compact digits as text or numbers (`YYYYMMDD`, `YYMMDD`, `DDMMYYYY`, `YYYYMM`, `YYYYMMDDHHMM(SS)`, Czech / Slovak birth numbers with month + 50); quarters (`2020Q1`) and ISO weeks (`2020-W05`); Unix timestamps in s / ms / µs / ns; Excel serial days when the column name says it is a date. Two-digit years never land in the future. Zero dates (`0000-00-00`, `00/00/0000`) are placeholders for a
-missing date, never values. The suggested conversion uses the exact format found, and `elessar.parse_dates(series)` does it in one call.
+### 3. Is the table a time series, and of which kind?
+
+Candidate time axes: a datetime column, dates as text, a datetime index, a `year` column, or `year` + `month`
+columns (never a date of birth).
+
+```mermaid
+flowchart TD
+    A(["candidate time axis"]) --> B{"at least 12 distinct timestamps?"}
+    B -- no --> Z["not a time series"]
+    B -- yes --> C{"timestamps unique (≥ 95 %)<br/>and steps regular (≥ 60 %)?"}
+    C -- yes --> S["single series"]
+    C -- no --> D{"regular steps, and an entity column<br/>(2 to n/5 entities) making time × entity unique,<br/>each entity covering ≥ 20 % of the steps?"}
+    D -- yes --> P["panel"]
+    D -- no --> L{"at least 100 rows?"}
+    L -- yes --> E["event log<br/>(aggregated per period, incomplete<br/>first and last periods left out)"]
+    L -- no --> Z
+```
+
+Then, per series:
+
+- **trend**: Mann-Kendall test with the **Hamed-Rao correction for autocorrelation** (the uncorrected p-value of
+  an autocorrelated series is far too small; the report shows both), Sen's slope;
+- **seasonality**: a period natural to the frequency (7 / 30 / 365 days, 24 / 168 hours, 12 months, 4
+  quarters…) is screened on the autocorrelation of the detrended series (a peak, a dip before it, two full
+  cycles) and kept when its **seasonal strength** from a classical decomposition reaches 0.25. The decision rests
+  on this effect size: a significance test would itself be invalidated by the autocorrelation;
+- **stationarity**: ADF (H0 unit root) and KPSS (H0 stationary), with and without a linear trend, read together
+  on the seasonally adjusted series: *stationary*, *trend-stationary* (detrend, do not difference), *unit root*
+  (difference) or *inconclusive* (break, changing variance, long memory);
+- for a **panel**, the same tests on each entity's own series (whole entities drawn at random), with the share of
+  entities with a significant trend after a Benjamini-Hochberg correction: a mean across entities would mix their
+  dynamics with the change in which entities are present.
+
+Treatment: ordering, gaps, aggregation, panel-safe lags, differencing or detrending as the tests say, Fourier
+terms, window and lag sizes, **expanding-window validation folds computed on the real dates**, augmentation for
+the training folds (jittering, scaling, window slicing, magnitude warping). The native resolution is kept up to
+200,000 periods.
+
+### 4. Is PCA worth it?
+
+On the standardised numeric columns (target, identifiers, booleans and constants left out, missing values
+replaced by the median):
+
+```mermaid
+flowchart TD
+    A(["numeric columns"]) --> B{"at least 3 columns<br/>and max(20, 3p) rows?"}
+    B -- no --> X["not applicable"]
+    B -- yes --> C{"Bartlett's test of sphericity<br/>significant?"}
+    C -- no --> U["not useful: columns close to uncorrelated"]
+    C -- yes --> D{"KMO ≥ 0.50?"}
+    D -- no --> U2["not useful: sampling adequacy too low"]
+    D -- yes --> E{"components kept by parallel analysis<br/>below 3/4 of the columns?"}
+    E -- no --> W["weak: little to gain"]
+    E -- yes --> R["recommended, with the code"]
+```
+
+The report also gives Kaiser's rule and the components needed for 80 / 90 / 95 % of the variance.
+
+### 5. Factor analysis, step by step
+
+The factor analysis follows the method as it is taught and reported in SPSS-style studies. Each step is a line of
+the report's checklist, with its question, its answer and a *yes / no / removed* mark.
+
+```mermaid
+flowchart TD
+    P["1 · Preparation<br/>quantitative or Likert items · demographics left out<br/>questionnaire analysed alone · declared missing codes removed<br/>listwise deletion · exact combinations removed (VIF above 100)"] --> N{"n ≥ 100 and<br/>about 10 rows per item?"}
+    N -- "no (still runs)" --> Q["result marked indicative"]
+    N -- yes --> X
+    Q --> X["2 · Extraction: principal components of the correlation matrix,<br/>unrotated solution, scree plot"]
+    X --> K{"3 · KMO above .50 and<br/>Bartlett p below .05?"}
+    K -- no --> NU["not useful: stop"]
+    K -- yes --> F["5 · Number of factors: eigenvalue above 1 · cumulative variance ≥ 60 % ·<br/>elbow of the scree plot; two criteria agreeing win, else the scree plot"]
+    F --> C{"coherent?<br/>no factor resting on a single item,<br/>not several items misbehaving at once"}
+    C -- no --> F2["one factor fewer"] --> C
+    C -- yes --> H{"4 · every communality ≥ .40?<br/>6 · every item loading ≥ .40 on its factor,<br/>no cross-loading (≥ .40 on two factors within .20)?"}
+    H -- no --> RM["remove the worst item, run again"] --> F
+    H -- yes --> V["6 · Varimax rotation, items assigned to their highest loading,<br/>factors oriented like most of their items, named after them"]
+    V --> A{"7 · Cronbach's alpha of each factor ≥ .60?<br/>(alpha if each item is deleted shown)"}
+    A -- no --> NS["no score for that factor"]
+    A -- yes --> S["8 · Factor = mean of its items (reversed items flipped)<br/>9 · mean, median, mode, standard deviation"]
+```
+
+1. **Preparation.** Items are quantitative or Likert variables: ordered labels such as *disagree < neutral <
+   agree* become their ranks; identifiers, booleans, dates, free labels and the target are left out, and so are
+   columns that describe the respondent rather than measure a construct (`age`, `sex`, `education`, `income`,
+   `year`…, recognised by their whole name: `housing_median_age` stays). When most of the variables are integer
+   items on one response scale (a questionnaire answered 1 to 6), that questionnaire is analysed alone. Declared
+   missing codes (`-999`…) become missing values, rows are deleted listwise, and an item that is an exact
+   combination of others (a total, a mean of sub-items: VIF above 100) is removed, since it makes the correlation
+   matrix singular. The determinant is reported against Field's 0.00001. Same scale for every item, or items
+   standardised for the reliability and the scores. At least 100 complete rows and about 10 per item, otherwise
+   the result is *indicative*.
+2. **Extraction**: principal components of the correlation matrix, unrotated solution, scree plot, varimax
+   rotation with Kaiser normalisation, loadings sorted by size.
+3. **Pertinence**: KMO above .50 and Bartlett's test below .05, on all the items and again on the items kept.
+4. **Communalities** (extraction): an item explained below .40 (Costello & Osborne, 2005) is removed and the
+   analysis run again, one item at a time, the weakest first.
+5. **Number of factors**: eigenvalue above 1, cumulative variance of at least 60 % and the elbow of the scree
+   plot (the eigenvalue farthest from the line joining the first and the last); the number two criteria agree
+   on, else the scree plot. Then **coherence**: a factor resting on a single item is not a construct, and
+   several items at fault at once usually mean too many factors rather than bad items, so one factor fewer is
+   tried and kept when it leaves fewer items at fault.
+6. **Rotated component matrix**: each item goes to the factor of its highest loading; an item whose highest
+   loading is below .40, or that loads at least .40 on a second factor within .20 of the first (cross-loading),
+   is removed and the analysis run again. Each factor is oriented like most of its items, so the minority shows
+   as reversed, and is named after its items.
+7. **Cronbach's alpha per factor**, reversed items flipped, with the alpha if each item is deleted:
+   excellent ≥ .90, very good ≥ .80, good ≥ .70, acceptable ≥ .60, poor ≥ .50, else unacceptable. A deletion that
+   would raise alpha by .05 or more is *proposed*, never applied: it must also make sense for the construct.
+8. **New factors**, only for the scales with an acceptable alpha: the mean of their items, with the code for the
+   mean of the answered items and for the version requiring every item (`MEAN.k`).
+9. **Descriptives** of the new factors: mean, median, mode, standard deviation.
+
+The verdict is *recommended* when the factors pass every step and at least one reliable scale is created,
+*indicative* when the sample is small, *not useful* when KMO or Bartlett fail or no scale is reliable.
+
+Checked on reference data sets whose structure is known: the 25 Big Five items of `psych::bfi` give the five
+factors with the published keying (E1, E2, C4, C5, O2, O5 and A1 reversed) and alphas of .61 to .82, age and
+education left out; Holzinger and Swineford's tests give the verbal, speed, spatial and memory factors; the mood
+adjectives of `psych::msq` give the two arousal dimensions (energy and tension); one-factor scales
+(Davis's drive for thinness, the breast-cancer biopsy scores, SAT / ACT, the beauty ratings of `evals`) give one
+factor; aggregated trait scores (TIPI) and unrelated measures are found *not useful*.
+
+### 6. What to do with an outlier
+
+Per numeric column, three methods: 3 sigma (|x − mean| > 3 sd), the boxplot fences (Tukey, 1.5 IQR) and the
+modified z-score (Hampel, |0.6745 (x − median) / MAD| > 3.5). Every flagged point is listed with its row, value,
+z and robust z.
+
+```mermaid
+flowchart TD
+    A(["numeric column"]) --> B{"any point flagged<br/>by 2 methods or more?"}
+    B -- no --> K["keep"]
+    B -- yes --> C{"a few values (at most max(3, 0.2 % of rows))<br/>more than 10 robust sd away?"}
+    C -- yes --> R["remove: likely entry or unit errors"]
+    C -- no --> W["reassign: cap at the boxplot fences<br/>(winsorize) or use robust models"]
+```
+
+**Multivariate outliers**: robust Mahalanobis distance (minimum covariance determinant on Yeo-Johnson-normalised
+continuous columns, near-duplicates and linear combinations removed) beyond the chi-square 99.9 % quantile,
+confirmed by an isolation forest; flagged as indicative when more than 15 % of rows exceed it.
+
+### 7. Which features to keep
+
+With a target, the features (numeric, and categorical one-hot encoded but scored as one) go through five methods,
+after the features suspected of leakage are set aside:
+
+| Method | Selected when |
+|---|---|
+| **decision tree** (depth chosen by cross-validation) | impurity importance at least half an equal share |
+| **random forest** | permutation importance on held-out rows (all one-hot columns of a feature shuffled together) above twice its standard deviation |
+| **lasso** (L1; L1 logistic regression for classes; penalty by cross-validation) | coefficient not zero |
+| **ridge** (L2) | standardised coefficient at least 10 % of the largest |
+| **filter** (univariate test) | significant after BH correction |
+
+Selected by 3 methods or more = **keep**, 2 = **borderline**, else **drop**. Scores are R², ROC AUC (binary) or
+balanced accuracy, by 5-fold cross-validation, in time order for a time series.
+
+## What it computes
+
+**Semantic types**: `empty`, `constant`, `boolean` (including 0/1, yes/no, true/false, y/n, oui/non), `id`
+(unique or near-unique, consecutive ints, UUIDs), `numeric_continuous`, `numeric_discrete` (counts, few levels),
+`categorical` (labels and high-cardinality codes), `ordinal-candidate` (low/medium/high, sizes, Likert, months,
+weekdays, quarters, 1-5 integer scales, ordered categoricals), `datetime`, `datetime_string`, `numeric_string`
+(`"1 234,5"`, `"12%"`, `"$3.2"`), `text`, `multi_label`, `email`, `url`, `phone`, `postal_code`, `ip_address`,
+`json_like`, `mixed`. Numbers written with units (`"90 min"`, `"60 kg"`) are parsed, and mixed units in one column
+(`min` and `Seasons`, `kg` and `lbs`) are flagged.
 
 **Statistics**
 - *all columns*: count, missing, unique, memory, modes, top-N values
-- *numeric*: caps / floors (censoring: values piled up at the max or min), zero inflation, mean (95 % CI), median (95 % CI from order statistics), std, var, sem, CV, min/max/range/sum, quantiles 1–99 %, IQR, MAD, 10 % trimmed mean, geometric and harmonic means, skewness, excess kurtosis, zeros, negatives, infinities, outliers (1.5×IQR, |z| > 3, modified z > 3.5), decimals, heaping (excess of round values, mixed-precision aware), monotonicity, lag-1 autocorrelation in row order with its p-value, bimodality coefficient, number of KDE modes
-- *categorical / boolean*: cardinality, entropy, normalized entropy, Gini impurity, imbalance ratio, chi-square test of equal frequencies, share of True with its Wilson CI, rare categories, labels that differ only by case / spaces / accents, string lengths
-- *datetime*: range, span, inferred frequency, largest gaps, duplicated timestamps, future dates, trend in rows per period (Kendall tau + p), distribution by year / month / weekday / hour (only when not trivial)
-- *text*: length and word counts, empty / whitespace-only strings, share of digits / uppercase / punctuation, most common tokens
+- *numeric*: caps / floors (censoring: values piled up at the max or min), zero inflation, mean (95 % CI), median
+  (95 % CI from order statistics), std, var, sem, CV, min/max/range/sum, quantiles 1–99 %, IQR, MAD, 10 % trimmed
+  mean, geometric and harmonic means, skewness, excess kurtosis, zeros, negatives, infinities, outliers (1.5×IQR,
+  |z| > 3, modified z > 3.5), decimals, heaping (excess of round values, mixed-precision aware), monotonicity,
+  lag-1 autocorrelation in row order with its p-value, bimodality coefficient, number of KDE modes
+- *categorical / boolean*: cardinality, entropy, normalized entropy, Gini impurity, imbalance ratio, chi-square
+  test of equal frequencies, share of True with its Wilson CI, rare categories, labels that differ only by case /
+  spaces / accents, string lengths
+- *datetime*: range, span, inferred frequency, largest gaps, duplicated timestamps, future dates, trend in rows per
+  period (Kendall tau + p), distribution by year / month / weekday / hour (only when not trivial)
+- *text*: length and word counts, empty / whitespace-only strings, share of digits / uppercase / punctuation, most
+  common tokens
 
-**Distributions**: Shapiro-Wilk, D'Agostino K², Jarque-Bera and Anderson-Darling with a majority verdict; MLE fits of `norm, lognorm, expon, gamma, weibull_min, beta, uniform, logistic, t, laplace, pareto, chi2, cauchy` (continuous) or `poisson, nbinom, geom, binom` (discrete), with support handling (shifted / rescaled fits), ranked by AIC, with ΔAIC, Akaike weights, BIC and the KS statistic / p-value (KS p-values are optimistic when the parameters are estimated from the same data: that is reported too). Integer data get a proper goodness of fit (gap on the integer support, chi-square test) instead of KS, which ties inflate. A value holding 30 % or more of a continuous column (rain: 57 % exact zeros) is reported as a point mass and the candidates are fitted to the rest; fits that collapse onto repeated values are rejected. Each candidate has a timeout.
+**Distributions**: Shapiro-Wilk, D'Agostino K², Jarque-Bera and Anderson-Darling with a majority verdict; MLE fits
+of `norm, lognorm, expon, gamma, weibull_min, beta, uniform, logistic, t, laplace, pareto, chi2, cauchy`
+(continuous) or `poisson, nbinom, geom, binom` (discrete), with support handling (shifted / rescaled fits), ranked
+by AIC, with ΔAIC, Akaike weights, BIC and the KS statistic / p-value (KS p-values are optimistic when the
+parameters are estimated from the same data: that is reported too). Integer data get a proper goodness of fit
+(gap on the integer support, chi-square test) instead of KS, which ties inflate. A value holding 30 % or more of a
+continuous column (rain: 57 % exact zeros) is reported as a point mass and the candidates are fitted to the rest;
+fits that collapse onto repeated values are rejected. Each candidate has a timeout.
 
 **Associations and significance** (`see_corr` keys)
 
@@ -306,109 +587,64 @@ missing date, never values. The suggested conversion uses the exact format found
 | `target` | each feature vs the target: association, test (Spearman / Kruskal-Wallis / Mann-Whitney / chi-square), p, BH-adjusted p, AUC (binary target), mutual information, leakage flag |
 | `missing_target` | is the target different when a feature is missing? (informative missingness) |
 
-**Feature selection** (with a target): the features (numeric, and categorical one-hot encoded but scored as one) go
-through a **decision tree** (impurity importance, depth chosen by cross-validation), a **random forest** (permutation
-importance on held-out rows, all the one-hot columns of a feature shuffled together, kept when the drop in score
-exceeds twice its standard deviation), a **lasso** (L1; L1 logistic regression for classes; penalty by
-cross-validation, kept when the coefficient is not zero), a **ridge** (L2; kept when the standardised coefficient
-is at least 10 % of the largest) and the univariate **filter** (significant after BH correction). Kept by 3 methods
-or more = keep, 2 = borderline, else drop. Features suspected of leakage are set aside first. Scores are R²,
-ROC AUC (binary) or balanced accuracy, by 5-fold cross-validation, in time order for a time series.
-
-**Multivariate statistics**: on the standardised numeric columns, Bartlett's test of sphericity (is there anything
-to reduce?), the Kaiser-Meyer-Olkin adequacy, and the number of components by parallel analysis (Horn), Kaiser's
-rule and 80 / 90 / 95 % of variance. **PCA** is *recommended* when Bartlett is significant, KMO ≥ 0.5 and it
-keeps fewer than three quarters of the columns. Groups of columns with mean |Spearman| ≥ 0.7 are proposed
-for combination. **Multivariate outliers**: robust Mahalanobis distance (minimum covariance determinant on
-Yeo-Johnson-normalised continuous columns, linear combinations removed) beyond the chi-square 99.9 % quantile,
-confirmed by an isolation forest; flagged as indicative when more than 15 % of rows exceed it.
-
-**Factor analysis**, step by step as it is taught and reported, each step shown in the report with its answer:
-
-1. **Preparation**: quantitative or Likert items only (ordered labels such as *disagree < neutral < agree* become
-   their ranks; identifiers, booleans, dates, free labels and the target are left out); declared missing codes
-   (`-999`...) removed; same scale for every item (a Likert battery) or not, in which case items are standardised
-   for the reliability and the scores; listwise deletion; at least 100 complete rows and about 10 per variable
-   (below that the result is *indicative*).
-2. **Extraction**: principal components of the correlation matrix, unrotated solution, scree plot, varimax
-   rotation (Kaiser normalisation), loadings sorted by size.
-3. **Pertinence**: KMO > .50 and Bartlett's test of sphericity < .05, otherwise *not useful*.
-4. **Communalities** (extraction): an item explained below .40 (Costello & Osborne, 2005) is removed and the analysis run again, one item
-   at a time, the weakest first.
-5. **Number of factors**: eigenvalue > 1, cumulative variance ≥ 60 % and the elbow of the scree plot; the number
-   two criteria agree on, else the scree plot, reduced if needed so that no factor rests on a single item
-   (theoretical coherence).
-6. **Rotated component matrix**: each item goes to its highest loading; an item whose highest loading is below
-   .40, or that loads ≥ .40 on a second factor within .20 of the first (cross-loading), is removed and the analysis
-   run again. Factors are named after their items.
-7. **Cronbach's alpha per factor** (negatively loading items reversed), with the alpha if each item is deleted:
-   excellent ≥ .90, very good ≥ .80, good ≥ .70, acceptable ≥ .60, poor ≥ .50, else unacceptable. A deletion that
-   would raise alpha by .05 or more is *proposed*, never applied: it must also make sense for the construct.
-8. **New factors**, only for the scales with an acceptable alpha: the mean of their items (code given for the mean
-   of the answered items and for the version requiring every item, `MEAN.k`).
-9. **Descriptives** of the new factors: mean, median, mode, standard deviation.
-
-**Outliers**: per numeric column, 3 sigma (|x − mean| > 3 sd), the boxplot fences (Tukey, 1.5 IQR) and the modified
-z-score (Hampel, |0.6745 (x − median) / MAD| > 3.5); 2 methods = consensus. Every flagged point is listed with its
-row, value, z and robust z. Action: *remove* when a few values are more than 10 robust sd away (entry or unit
-errors), *reassign* (cap at the fences) when the tail is real but influential.
-
-**Time series**: a datetime column, dates as text, a datetime index, a `year` column, or `year` + `month` columns.
-Structure: single series (unique, regular timestamps), panel (unique per time × entity, each entity covering
-at least a fifth of the time steps), event log (irregular or repeated timestamps: aggregated per period, the
-incomplete first and last periods left out because their counts are biased low). Per series:
-
-- **trend**: Mann-Kendall test with the **Hamed-Rao correction for autocorrelation** (the uncorrected p-value of
-  an autocorrelated series is far too small; the report shows both), Sen's slope;
-- **seasonality**: a period natural to the frequency (7 / 30 / 365 days, 24 / 168 hours, 12 months, 4
-  quarters…) is screened on the autocorrelation of the detrended series (a peak, a dip before it, two full
-  cycles) and kept when its **seasonal strength** from a classical decomposition reaches 0.25. The decision rests
-  on this effect size: a significance test would itself be invalidated by the autocorrelation;
-- **stationarity**: ADF (H0 unit root) and KPSS (H0 stationary), with and without a linear trend, read together
-  on the seasonally adjusted series: stationary, trend-stationary (detrend, do not difference), unit root
-  (difference) or inconclusive (break, changing variance, long memory);
-- for a **panel**, the same tests on each entity's own series (whole entities drawn at random), with the share of
-  entities with a significant trend after a Benjamini-Hochberg correction: a mean across entities would mix their
-  dynamics with the change in which entities are present.
-
-Treatment: ordering, gaps, aggregation, panel-safe lags, differencing or detrending as the tests say, Fourier
-terms, window and lag sizes, **expanding-window validation folds computed on the real dates**, augmentation for
-the training folds (jittering, scaling, window slicing, magnitude warping). The autocorrelation chart draws
-Bartlett's band.
+Groups of columns with mean |Spearman| ≥ 0.7 are proposed for combination.
 
 **Preparation plan**: *cleaning*: invalid values (placeholders, impossible values, infinities), wrong formats
 (numbers or dates as text, mixed types, stray spaces, a file without a header row), misspellings (case, accents,
-spaces, and 1-2 typos found with a **BK-tree** on the edit distance), duplicates, consistency (mixed units, values on
-two scales ~100× or 1000× apart), missing data (strategy by type and by missingness mechanism), outliers to remove
-or reassign. *Transformation*: bucketing (numeric cut points from a decision tree on the target; labels merged by a
-**binary tree that only splits where the target differs significantly**, Bonferroni-corrected), decomposition
-(dates into calendar parts, lists into 0/1 columns, cells holding several data items such as `"Paris, France"` or
-`"1920x1080"` split), aggregation (time series, panels), combination (redundant groups, exact linear relations),
-rescaling, normalisation, transformation of skewed columns (Box-Cox / log / Yeo-Johnson, with the skewness before
-and after), encoding (by cardinality and type), dimensionality reduction.
+spaces, and 1-2 typos found with a **BK-tree** on the edit distance), duplicates (also ignoring identifier
+columns), consistency (mixed units, values on two scales ~100× or 1000× apart), missing data (strategy by type and
+by missingness mechanism), outliers to remove or reassign. *Transformation*: bucketing (numeric cut points from a
+decision tree on the target; labels merged by a **binary tree that only splits where the target differs
+significantly**, Bonferroni-corrected), decomposition (dates into calendar parts, dates of birth into ages, lists
+into 0/1 columns, cells holding several data items such as `"Paris, France"` or `"1920x1080"` split), aggregation
+(time series, panels), combination (redundant groups, exact linear relations, factor scores), rescaling,
+normalisation, transformation of skewed columns (Box-Cox / log / Yeo-Johnson, with the skewness before and after),
+encoding (by cardinality and type), dimensionality reduction (PCA or factor scores).
 
-**Quality**: duplicate rows and columns, constant and quasi-constant columns, high missing, missing-value patterns (columns that go missing together, rows with many missing, most frequent patterns), mixed types, leading/trailing whitespace, placeholders used as missing (`""`, `"NA"`, `"null"`, `"?"`, `-999`, `99999`…), suspicious values (negative ages or prices, future birth dates, default dates like 1970-01-01), id-like columns, redundant columns, multicollinearity, sorted rows, imbalanced target, dtype optimizations with the estimated memory saving.
+**Quality**: duplicate rows and columns, constant and quasi-constant columns, high missing, missing-value patterns
+(columns that go missing together, rows with many missing, most frequent patterns), mixed types,
+leading/trailing whitespace, placeholders used as missing (`""`, `"NA"`, `"null"`, `"?"`, `-999`, `99999`,
+`0000-00-00`…), suspicious values (negative ages or prices, default dates like 1970-01-01), dates of birth (births
+after the reference, impossible ages, 1 January excess), id-like columns, redundant columns, multicollinearity,
+sorted rows, imbalanced target, dtype optimizations with the estimated memory saving.
 
-**Sampling inside the profile**: on top of `max_rows` (above), expensive steps (correlations, Kendall, KDE, pairwise tests) use at most `sample_size` rows (default 100 000); distribution fits and normality tests use at most `fit_sample_size` values (default 20 000). Sampling is deterministic (`random_state`).
+**Sampling inside the profile**: on top of `max_rows` (above), expensive steps (correlations, Kendall, KDE,
+pairwise tests, multivariate analyses) use at most `sample_size` rows (default 100 000); distribution fits and
+normality tests use at most `fit_sample_size` values (default 20 000). Sampling is deterministic (`random_state`).
 
-**Robustness**: elessar runs on any DataFrame, whatever the column names (empty, `None`, `NaN`, numbers, tuples / MultiIndex, duplicates, slashes, newlines, emoji, pandas method names like `count`…) and whatever the content: empty frames, a single row, all-NaN columns, `inf` and 1e±300 values, huge cardinality, lists / dicts / bytes in cells, mixed types, sparse, nullable, categorical, period, interval, complex, Decimal, tz-aware datetimes, timedeltas, duplicated or MultiIndex row index. The target can be given by its original label (tuple, number, timestamp…). A randomized test suite generates hostile frames on every CI run. A failing step on one column is recorded as an error entry and an alert; it never stops the report.
+**Robustness**: elessar runs on any DataFrame, whatever the column names (empty, `None`, `NaN`, numbers, tuples /
+MultiIndex, duplicates, slashes, newlines, emoji, pandas method names like `count`…) and whatever the content:
+empty frames, a single row, all-NaN columns, `inf` and 1e±300 values, huge cardinality, lists / dicts / bytes in
+cells, mixed types, sparse, nullable, categorical, period, interval, complex, Decimal, tz-aware datetimes,
+timedeltas, duplicated or MultiIndex row index. The target can be given by its original label (tuple, number,
+timestamp…). A randomized test suite generates hostile frames on every CI run. A failing step on one column is
+recorded as an error entry and an alert; it never stops the report.
 
-**Real data**: tested on 43 public datasets (Titanic, adult census, California housing, diamonds, Pokémon, Vega movies, NYC taxis, penguins, wine quality, Netflix, Olympic athletes, Spotify, a 62-column MultiIndex brain-network table…) and on an 8-million-row file. Things it finds there unprompted: Pokémon `Total = 1·HP + 1·Attack + 1·Defense + 1·Sp. Atk + 1·Sp. Def + 1·Speed`; housing values capped at 500,001 and ages at 52; adult capital gain top-coded at 99,999 and 92 % zeros; Titanic survival 30 % vs 67 % depending on whether Cabin is missing; taxi tips always 0 when the payment type is missing; movie titles stored as numbers (*300*, *1776*); files sorted by price or year.
+**Real data**: tested on 55 public datasets (Titanic, adult census, California housing, diamonds, Pokémon, Vega
+movies, NYC taxis, penguins, wine quality, Netflix, Olympic athletes, Spotify, Nobel laureates, members of
+Congress, a 62-column MultiIndex brain-network table…), on 17 reference datasets for the factor analysis, on the
+Berka bank data (1 million transactions) and on an 8-million-row file. Things it finds there unprompted: Pokémon
+`Total = 1·HP + 1·Attack + 1·Defense + 1·Sp. Atk + 1·Sp. Def + 1·Speed`; housing values capped at 500,001 and ages
+at 52; adult capital gain top-coded at 99,999 and 92 % zeros; Titanic survival 30 % vs 67 % depending on whether
+Cabin is missing; taxi tips always 0 when the payment type is missing; movie titles stored as numbers (*300*,
+*1776*); Nobel laureates' and congressmen's birth dates, with their ages at the award or at the start of the term;
+the five personality factors of the Big Five questionnaire; files sorted by price or year.
 
 ## Sample terminal output
 
 The Kaggle Titanic training set (`elessar train.csv --target Survived`), excerpt:
 
 ```
-════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
  elessar report  ·  891 rows x 12 columns
-════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 OVERVIEW
 ────────
+  source          csv file · 58.9 KB · delimiter comma · read in 0.0s
   rows            891
   columns         12
-  memory          285.6 KB  (suggested dtypes save ~124.8 KB)
+  memory          118.9 KB  (suggested dtypes save ~53.7 KB)
   pandas dtypes   int64=5, str=5, float64=2
   semantic types  categorical=4, numeric_continuous=2, numeric_discrete=2, id=1, boolean=1, ordinal-candidate=1,
                   text=1
@@ -416,28 +652,28 @@ OVERVIEW
   missing cells   8.1%  (708 rows with at least one)
   target          Survived
 
-ALERTS (15: 1 high, 3 medium, 11 info)
+ALERTS (14: 1 high, 3 medium, 10 info)
 ──────────────────────────────────────
   HIGH    Cabin        77.1% missing -> drop, or impute and add a missing-indicator
-  MEDIUM  Age          missingness is informative about 'Survived': Survived=1: 29% when missing vs 41% when
-                       present (p_adj=5.9e-03) -> add a missing-indicator feature
-  MEDIUM  Cabin        missingness is informative about 'Survived': Survived=1: 30% when missing vs 67% when
-                       present (p_adj=6.2e-21) -> add a missing-indicator feature
+  MEDIUM  Age          missingness is informative about 'Survived': Survived=1: 29% when missing vs 41% when present
+                       (p_adj=0.0059) -> add a missing-indicator feature
+  MEDIUM  Cabin        missingness is informative about 'Survived': Survived=1: 30% when missing vs 67% when present
+                       (p_adj=6e-21) -> add a missing-indicator feature
   MEDIUM  Name         2 values with leading/trailing whitespace -> .str.strip()
-  info    -            dtype optimizations save ~124.8 KB: PassengerId -> uint16, Survived -> uint8, Pclass ->
-                       uint8, Sex -> category, Age -> float32, SibSp -> uint8, Parch -> uint8, Fare -> float32
-                       (+1 more) (see quality['dtype_optimizations'] for code)
-  info    Age          missingness depends on 'Embarked' (+2 other columns): 64% missing when Embarked=Q vs 14%
-                       when Embarked=S (p_adj=2.5e-23) -> not missing completely at random
+  info    -            dtype optimizations save ~53.7 KB: PassengerId -> uint16, Survived -> uint8, Pclass -> uint8,
+                       Sex -> category, Age -> float32, SibSp -> uint8, Parch -> uint8, Fare -> float32 (+1 more)
+                       (see quality['dtype_optimizations'] for code)
+  info    -            missing values are not random in 2 columns: Cabin (on Pclass), Age (on Embarked) -> see
+                       correlations['missingness']; impute conditionally
+  info    -            PCA recommended: 2 components (parallel analysis) keep 66% of the variance of 5 columns (KMO
+                       0.54 miserable, Bartlett p 2e-153)
+  info    -            104 rows are outliers on several columns at once (robust Mahalanobis + isolation forest) ->
+                       inspect them (see Outliers)
+  info    -            3 columns are heavily skewed (|skewness| > 2): SibSp, Parch, Fare -> details per column
   info    Cabin        high cardinality (147 categories) -> group rare levels or use target/frequency encoding
-  info    Cabin        missingness depends on 'Pclass' (+4 other columns): median Pclass = 3 when missing vs 1
-                       (p_adj=3.5e-91) -> not missing completely at random
   info    Fare         13.0% outliers by the 1.5xIQR rule (outside [-26.72, 65.63])
-  info    Fare         heavily skewed (skewness 4.79)
-  info    Parch        heavily skewed (skewness 2.75)
   info    PassengerId  identifier-like column -> exclude from modelling and statistics
   info    SibSp        5.2% outliers by the 1.5xIQR rule (outside [-1.5, 2.5])
-  info    SibSp        heavily skewed (skewness 3.70)
   info    Ticket       high cardinality (681 categories) -> group rare levels or use target/frequency encoding
 
 COLUMN SUMMARY
@@ -456,17 +692,18 @@ COLUMN SUMMARY
   Fare         numeric_continuous     0.0%     248                32.2     49.69     0  512.3   4.79
   Cabin        categorical           77.1%     147                  G6      2.0%
   Embarked     categorical            0.2%       3                   S     72.4%
+...
 
 COLUMN DETAILS
 ──────────────
 ...
 ▸ Age  ·  numeric_continuous  ·  float64  ·  float64 dtype: 88 distinct real values
     missing 177 (19.9%) · unique 88 (12.3%) · memory 7.0 KB · mode 24.0 ×30
-    mean 29.7 ± 14.53 · 95% CI [28.63, 30.77] · median 28 [27, 29] · trimmed 29.27 · IQR 17.88 · MAD 9
-    CV 0.4891 · geo mean 24.43
+    mean 29.7 ± 14.53 · 95% CI [28.63, 30.77] · median 28 [27, 29] · trimmed 29.27 · IQR 17.88 · MAD 9 · CV 0.4891
+    geo mean 24.43
     min 0.42 · p1 1 · p5 4 · p25 20.12 · p75 38 · p95 56 · p99 65.87 · max 80 · sum 21,205.2
-    skew 0.389 · kurtosis 0.178 · outliers IQR 1.5% · |z|>3 0.3% · mod-z 0.1% · zeros 0 · negatives 0
-    decimals 1 · heaping ×1.0 · KDE modes 1 · bimodality coef 0.36 · lag-1 autocorr 0.05 (p 0.19)
+    skew 0.389 · kurtosis 0.178 · outliers IQR 1.5% · |z|>3 0.3% · mod-z 0.1% · zeros 0 · negatives 0 · decimals 1
+    heaping ×1.0 · KDE modes 1 · bimodality coef 0.36 · lag-1 autocorr 0.05 (p 0.19)
     normality: not normal · Shapiro p 7e-08 · D'Agostino p 1e-04 · Jarque-Bera p 8e-05 · Anderson p 0.01
     shape: roughly symmetric, best fit normal(loc=29.7, scale=14.5)
     #1 norm(loc=29.7, scale=14.5) AIC 5,850.5 KS p 0.005
@@ -505,38 +742,68 @@ TARGET ANALYSIS
   is the target different when a feature is missing?
     yes  Cabin (77.1% missing): Survived=1: 30% when missing vs 67% when present · p_adj 6e-21
     yes  Age (19.9% missing): Survived=1: 29% when missing vs 41% when present · p_adj 0.0059
+
+FEATURE SELECTION
+─────────────────
+  task            binary classification, 891 rows, 5-fold CV roc_auc: decision tree 0.861, random forest 0.843,
+                  lasso 0.851, ridge 0.852
+  keep            Sex, Pclass, Embarked, Fare, Age, SibSp
+  borderline      Parch
+  drop            -
+
+MULTIVARIATE
+────────────
+  PCA             recommended: 2 components (parallel analysis) keep 66% of the variance of 5 columns (KMO 0.54
+                  miserable, Bartlett p 2e-153)
+  factors         not useful: KMO 0.49 and Bartlett p 2e-122: the variables do not share enough variance for factors
+  outlier rows    104 flagged by robust Mahalanobis and isolation forest
+  outlier points  Age 2 (reassign), SibSp 30 (reassign), Fare 116 (reassign)
+...
 ```
 
 ## Plots
 
-Report-quality PNGs (144 dpi), one consistent design: a header with the column or question as
-title and the key numbers as subtitle, the chart, and a footer note explaining the method.
-Compact axis labels (`12.5k`, `3.4M`), direct value labels instead of redundant axes, a
-colorblind-validated palette, and log axes chosen automatically for heavily skewed data.
-Only plots that bring information are drawn: nothing for empty, constant or id columns, no
-missing-values matrix when nothing is missing, no heatmap with fewer than 3 columns. Files are
-named `out_dir/<NN>_<column>_<kind>.png`.
+Report-quality PNGs (144 dpi), one consistent design: a header with the column or question as title and the key
+numbers as subtitle, the chart, and a footer note explaining the method. Compact axis labels (`12.5k`, `3.4M`),
+direct value labels instead of redundant axes, a colorblind-validated palette, one axis per chart, and log axes
+chosen automatically for heavily skewed data. Only plots that bring information are drawn: nothing for empty,
+constant or id columns, no missing-values matrix when nothing is missing, no heatmap with fewer than 3 columns.
+Files are named `<NN>_<column>_<kind>.png` in the report folder.
 
 - **dataset overview**: one row per column with its type, missing share, distinct count, a summary and a sparkline
-- **numeric**: histogram in rows with the best fit drawn as expected counts, boxplot with mean and outliers, Q-Q plot against the best fit with a 95 % envelope (points outside it highlighted)
-- **categorical / boolean**: top-N bars with shares and counts, sorted by frequency (or in scale order for ordinals), "other" and "missing" shown apart
+- **numeric**: histogram in rows with the best fit drawn as expected counts, boxplot with mean and outliers, Q-Q
+  plot against the best fit with a 95 % envelope (points outside it highlighted)
+- **categorical / boolean**: top-N bars with shares and counts, sorted by frequency (or in scale order for
+  ordinals), "other" and "missing" shown apart
 - **datetime**: rows per period at an automatic resolution, rolling mean, peak annotated
 - **text**: lengths in characters and words
-- **dataset**: missing-values matrix, missingness correlation, Pearson / Spearman / Cramér's V / all-type association heatmaps (non-significant cells faded)
-- **pairs**: joint plots with marginal distributions, hexbin density for large data, least-squares line and a median trend (honest for non-linear relations), levels jittered for discrete variables
-- **target**: "what drives the target" ranking (non-significant greyed out), and per-feature plots: joint plot, boxplots sorted by median with individual points, or stacked shares with % labels
-- **feature selection**: importance of every feature by every method with the selections boxed and the votes; the lasso path
-- **PCA**: scree plot (variance per component, cumulative, parallel-analysis threshold, components kept) beside the loadings; **factor analysis**: scree plot with the Kaiser and 60 % lines beside the rotated component matrix
-- **outliers**: every numeric column on one robust scale with its boxplot fences, the points flagged by 1 or 2-3 methods, the most extreme labelled by row; **multivariate outliers**: robust distance of every row against its cutoff
-- **time series**: each series with its rolling mean and its trend / season / stationarity verdict, the autocorrelation with its significance band and seasonal lag, and the seasonal decomposition (observed, trend, seasonal, residual)
+- **dataset**: missing-values matrix, missingness correlation, Pearson / Spearman / Cramér's V / all-type
+  association heatmaps (non-significant cells faded)
+- **pairs**: joint plots with marginal distributions, hexbin density for large data, least-squares line and a
+  median trend (honest for non-linear relations), levels jittered for discrete variables
+- **target**: "what drives the target" ranking (non-significant greyed out), and per-feature plots: joint plot,
+  boxplots sorted by median with individual points, or stacked shares with % labels
+- **feature selection**: importance of every feature by every method with the selections boxed and the votes;
+  the lasso path
+- **PCA**: scree plot (variance per component, cumulative, parallel-analysis threshold, components kept) beside
+  the loadings
+- **factor analysis**: scree plot with the Kaiser (eigenvalue 1) and 60 % lines and the number of factors kept,
+  beside the rotated component matrix, items grouped by factor; alphas in the subtitle, removed items in the note
+- **outliers**: every numeric column on one robust scale with its boxplot fences, the points flagged by 1 or 2-3
+  methods, the most extreme labelled by row; **multivariate outliers**: robust distance of every row against its
+  cutoff
+- **time series**: each series with its rolling mean and its trend / season / stationarity verdict, the
+  autocorrelation with Bartlett's significance band and the seasonal lag, and the seasonal decomposition
+  (observed, trend, seasonal, residual)
 
 | | |
 |---|---|
 | ![Dataset overview](docs/overview.png) | ![Numeric distribution](docs/numeric_distribution.png) |
 | ![Association heatmap](docs/association_heatmap.png) | ![What drives the target](docs/target_ranking.png) |
 | ![Joint plot with hexbin density](docs/joint_plot.png) | ![Target by a categorical feature](docs/target_stacked.png) |
-| ![Feature selection by five methods](docs/feature_selection.png) | ![PCA scree plot and loadings](docs/pca.png) |
-| ![Outlier points of every numeric column](docs/outliers.png) | ![Seasonal decomposition of a time series](docs/decomposition.png) |
+| ![Feature selection by five methods](docs/feature_selection.png) | ![Outlier points of every numeric column](docs/outliers.png) |
+| ![PCA scree plot and loadings](docs/pca.png) | ![Factor analysis of the Big Five questionnaire](docs/factor_analysis.png) |
+| ![Seasonal decomposition of a time series](docs/decomposition.png) | |
 
 ## Development
 

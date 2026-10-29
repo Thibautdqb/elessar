@@ -289,3 +289,46 @@ def test_report_has_every_new_section(tmp_path: Path) -> None:
     assert {"selection", "pca", "outliers", "timeseries", "acf"} <= kinds
     actions = {s["action"] for s in v.preparation["steps"]}
     assert {"Misspelling", "Decomposition", "Dimensionality reduction"} <= actions
+
+
+def test_factor_analysis_questionnaire_demographics_and_redundancy() -> None:
+    df = _survey(n=500, seed=7).drop(columns=["noise", "mixed"])
+    rng = np.random.default_rng(7)
+    df["age"] = rng.integers(18, 80, len(df))  # describes the respondent: left out
+    df["education"] = rng.integers(1, 5, len(df))
+    df["sat_total"] = df[[f"sat{i}" for i in range(4)]].sum(axis=1)  # not on the questionnaire's 1-5 scale
+    fa = factor_analysis(df, {c: "numeric_discrete" for c in df}, CFG)
+    assert set(fa["kinds"]).isdisjoint({"age", "education", "sat_total"}) and fa["left_out"] == ["sat_total"]
+    assert fa["same_scale"] and fa["n_factors"] == 2
+    # measures on different scales: an exact combination of others makes the matrix singular and is removed
+    f1, f2 = rng.normal(size=(2, 400))
+    x = pd.DataFrame({f"a{i}": f1 + 0.4 * rng.normal(size=400) for i in range(3)}
+                     | {f"b{i}": 10 * f2 + 4 * rng.normal(size=400) for i in range(3)})
+    x["a_total"] = x[["a0", "a1", "a2"]].sum(axis=1)
+    fa = factor_analysis(x, {c: "numeric_continuous" for c in x}, CFG)
+    assert len(fa["redundant"]) == 1 and fa["determinant"] > 1e-5 and fa["n_factors"] == 2
+
+
+def test_factor_analysis_prefers_fewer_factors_when_many_items_misbehave() -> None:
+    rng = np.random.default_rng(11)
+    n = 600
+    energy, tension = rng.normal(size=n), rng.normal(size=n)
+    items = {}
+    for name, f, sign in (("active", energy, 1), ("alert", energy, 1), ("sleepy", energy, -1), ("tired", energy, -1),
+                          ("calm", tension, -1), ("relaxed", tension, -1), ("nervous", tension, 1), ("jittery", tension, 1)):
+        items[name] = np.clip(np.round(1.5 + sign * f + 0.7 * rng.normal(size=n)), 0, 3)
+    df = pd.DataFrame(items)
+    fa = factor_analysis(df, {c: "numeric_discrete" for c in df}, CFG)
+    assert fa["n_factors"] == 2 and not fa["removed"]
+    groups = sorted(sorted(m) for m in fa["factors"].values())
+    assert groups == [["active", "alert", "sleepy", "tired"], ["calm", "jittery", "nervous", "relaxed"]]
+    for rel in fa["reliability"].values():  # the minority of each bipolar factor is reversed
+        assert len(rel["reversed"]) == 2
+
+
+def test_see_types_shows_the_decision_path() -> None:
+    from elessar import see_types
+
+    out = see_types(pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "x"]}))
+    assert {"certainty", "path"} <= set(out.columns)
+    assert out.loc["a", "path"].startswith("any non-missing value?") and out.loc["a", "certainty"] == "certain"
