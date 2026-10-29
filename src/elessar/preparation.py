@@ -19,6 +19,7 @@ from __future__ import annotations
 import ast
 import re
 import unicodedata
+import warnings
 from typing import Any
 
 import numpy as np
@@ -466,22 +467,25 @@ def plan(
         x = as_numeric(df[c], types[c]).replace([np.inf, -np.inf], np.nan).dropna()
         if x.nunique() < 10:
             continue
-        if (x > 0).all():
-            try:
-                tx, lam = stats.boxcox(x.to_numpy(dtype="float64"))
-                name, code = f"Box-Cox (lambda {lam:.2f})", f"from scipy.stats import boxcox\ndf[{c!r}], _ = boxcox(df[{c!r}])"
-                if abs(lam) < 0.15:
-                    name, code = "log", f"df[{c!r}] = np.log(df[{c!r}])"
-            except ValueError:
-                continue
-        else:
-            res = _safe(stats.yeojohnson, x.to_numpy(dtype="float64"))
-            if res is None:
-                continue
+        with quiet(), warnings.catch_warnings(), np.errstate(all="ignore"):
+            warnings.simplefilter("ignore")
+            if (x > 0).all():
+                res = _safe(stats.boxcox, x.to_numpy(dtype="float64"))
+                kind = "Box-Cox"
+            else:
+                res = _safe(stats.yeojohnson, x.to_numpy(dtype="float64"))
+                kind = "Yeo-Johnson"
+            if res is None or not np.isfinite(res[1]) or abs(res[1]) > 5:
+                continue  # an extreme power is numerically unstable and means nothing to a reader
             tx, lam = res
+            after = float(stats.skew(tx))
+        if kind == "Box-Cox":
+            name, code = f"Box-Cox (lambda {lam:.2f})", f"from scipy.stats import boxcox\ndf[{c!r}], _ = boxcox(df[{c!r}])"
+            if abs(lam) < 0.15:
+                name, code = "log", f"df[{c!r}] = np.log(df[{c!r}])"
+        else:
             name, code = f"Yeo-Johnson (lambda {lam:.2f})", (f"from sklearn.preprocessing import PowerTransformer\n"
                                                            f"df[[{c!r}]] = PowerTransformer().fit_transform(df[[{c!r}]])")
-        after = float(stats.skew(tx))
         if np.isfinite(after) and abs(after) < abs(skew) * 0.6:
             steps.append(_step("transformation", "Transformation", c, f"skewness {skew:.2f} → {after:.2f} after {name}", code))
     sym = [c for c in numeric_cols if abs((details[c].get("stats") or {}).get("skewness") or 0) < 1]

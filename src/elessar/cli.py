@@ -6,8 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
+from . import __version__, recap
 from .config import StoneConfig
-from . import recap
 from .core import see
 from .picker import pick_target
 from .sources import LoadError, load
@@ -16,12 +16,13 @@ from .sources import LoadError, load
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="elessar",
-        description="Know absolutely everything about a table: types, stats, distributions, "
-        "associations with significance, data quality, plots.",
+        description="Automated exploratory data analysis and data-quality profiling: semantic types, statistics, "
+        "distributions, associations with significance, target analysis, data quality, charts and an HTML report.",
     )
     p.add_argument("source", help="file, URL, glob pattern ('logs/*.csv') or folder: CSV / TSV / TXT, JSON / JSONL, "
                                   "Parquet, Feather, ORC, Excel / ODS, pickle, HDF5, SAS, Stata, SPSS, SQLite, XML "
                                   "(compressed or not)")
+    p.add_argument("-V", "--version", action="version", version=f"elessar {__version__}")
     target = p.add_mutually_exclusive_group()
     target.add_argument("-t", "--target", help="target column to analyse features against ('ask' opens a picker)")
     target.add_argument("--no-target", action="store_true", help="do not ask for a target")

@@ -821,7 +821,7 @@ class _Recap:
             procs += f", {o['chart_workers']} for the charts"
         rows.append([[bold("Processes")], procs + f" ({os.cpu_count() or 1} cores available)"])
         if t:
-            steps = ", ".join(f"{k} {t[k]:.1f}s" for k in ("load", "columns", "associations", "quality", "charts", "report")
+            steps = ", ".join(f"{k} {t[k]:.1f}s" for k in ("load", "columns", "associations", "quality", "advanced", "charts", "report")
                               if k in t)
             rows.append([[bold("Time")], f"{t.get('total', sum(t.values())):.1f}s ({steps})"])
         rows.append([[bold("Significance")], f"alpha {v.alpha:g}, Benjamini-Hochberg false discovery rate per family of tests"])
@@ -1077,7 +1077,7 @@ a {{ color:var(--mint); text-decoration:none; }} a:hover {{ text-decoration:unde
 .diamond::after {{ content:""; position:absolute; width:7px; height:7px; background:var(--mint); transform:rotate(45deg);
   box-shadow:0 0 10px var(--mint); }}
 .brand strong {{ display:block; color:#fff; font-size:22px; font-weight:800; letter-spacing:-1.2px; line-height:1; }}
-.brand strong em {{ font-style:normal; color:#fff; text-shadow:0 0 4px #fff, 0 0 14px var(--mint), 0 0 28px var(--mint); }}
+.brand strong em {{ position:relative; top:3px; display:inline-block; margin-left:3px; font-style:normal; color:var(--mint); text-shadow:0 0 6px var(--mint), 0 0 16px var(--mint), 0 0 30px rgba(58,255,176,.6); }}
 .brand small {{ display:block; margin-top:6px; color:var(--muted); font:9px var(--mono); letter-spacing:.14em; }}
 .nav-label {{ margin:24px 10px 8px; color:var(--dim); font:10px var(--mono); letter-spacing:.15em; }}
 .side-nav {{ display:flex; flex-direction:column; gap:2px; }}
@@ -1221,16 +1221,14 @@ summary:hover {{ background:rgba(58,255,176,.035); }}
 <body>
 <div class="layout">
 <aside class="sidebar" id="sidebar" aria-label="Sections">
-  <div class="brand"><span class="diamond" aria-hidden="true"></span><div><strong>elessar<em>.</em></strong><small>DATA OBSERVATORY</small></div></div>
+  <div class="brand"><span class="diamond" aria-hidden="true"></span><div><strong>elessar<em>.</em></strong></div></div>
   <div class="nav-label">REPORT // SECTIONS</div>
   <nav class="side-nav" id="nav">{nav}</nav>
-  <div class="side-foot"><span class="dot"></span>&nbsp; PROFILE COMPLETE<br>elessar {version}</div>
 </aside>
 <main><div class="shell">
 <header class="topbar">
   <div style="display:flex;align-items:center;gap:12px;min-width:0"><button class="menu" id="menu" aria-label="Sections" aria-expanded="false">&#9776;</button>
   <div class="crumb">ELESSAR<i>/</i>REPORT<i>/</i><b>{name}</b></div></div>
-  <div class="status"><span class="dot"></span>v{version}</div>
 </header>
 <section class="hero" id="top">
   <div class="eyebrow"><b>&#10022;</b>DATA PROFILE // ELESSAR</div>

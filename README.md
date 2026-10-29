@@ -230,11 +230,11 @@ inherited, never copied or pickled, and BLAS threads are limited to one per proc
 single-process run (a test checks it). Small tables stay in one process; `StoneConfig(n_jobs=1)` / `-j 1`
 disables it, `n_jobs=k` caps it. On Windows everything runs in one process.
 
-| Table | Time (14 cores) |
+| Table (full run: every analysis, every chart, the report) | Time (14 cores) |
 |---|---|
-| Titanic, 891 rows × 12 | 2.3 s |
-| 500,000 rows × 20, synthetic | 11 s (39 s in one process) |
-| 8,000,000 rows × 8, 480 MB CSV | 12.8 s, 0.95 GB of RAM (exact pass 4.5 s) |
+| Titanic, 891 rows × 12 | 4.5 s |
+| 500,000 rows × 20, synthetic Parquet | 22 s (42 s in one process) |
+| 8,000,000 rows × 8, 480 MB CSV | 25 s, 1.0 GB of RAM (read and exact pass over every row: 7 s) |
 
 ## API
 

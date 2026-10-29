@@ -43,12 +43,14 @@ def _gaussianize(num: pd.DataFrame) -> np.ndarray:
     """Yeo-Johnson then standardise each column: Mahalanobis cutoffs assume roughly normal margins,
     and skewed columns would otherwise flag their whole long tail."""
     filled = num.fillna(num.median())
+    rng = np.random.default_rng(0)
     cols = []
     with quiet():
         for c in filled.columns:
             v = filled[c].to_numpy(dtype="float64", copy=True)
-            try:
-                v, _ = stats.yeojohnson(v)
+            try:  # lambda estimated on at most 20,000 values (stable long before), applied to all
+                fit = v if len(v) <= 20_000 else v[rng.choice(len(v), 20_000, replace=False)]
+                v = stats.yeojohnson(v, lmbda=stats.yeojohnson_normmax(fit))
             except (ValueError, FloatingPointError):
                 pass
             sd = v.std()
@@ -234,9 +236,10 @@ def multivariate_outliers(num: pd.DataFrame, cfg: StoneConfig) -> dict[str, Any]
             method = "classical covariance (robust fit failed)"
             inv = np.linalg.pinv(np.cov(x, rowvar=False))
             d2 = np.einsum("ij,jk,ik->i", x, inv, x)
-        forest = IsolationForest(n_estimators=200, contamination="auto", random_state=cfg.random_state)
-        forest_flag = forest.fit_predict(x) == -1
-        forest_score = -forest.score_samples(x)
+        forest = IsolationForest(n_estimators=200, contamination="auto", random_state=cfg.random_state).fit(x)
+        raw = forest.score_samples(x)  # scored once; flagged as fit_predict does: below the forest's offset
+        forest_flag = raw < forest.offset_
+        forest_score = -raw
     cutoff = float(stats.chi2.ppf(0.999, p))
     flag = d2 > cutoff
     both = flag & forest_flag
