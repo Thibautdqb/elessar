@@ -48,3 +48,33 @@ def test_parallel_and_serial_reports_are_identical(tmp_path: Path) -> None:
     assert [p.name for p in a.plots] == [p.name for p in b.plots]
     assert [x["message"] for x in a.alerts] == [x["message"] for x in b.alerts]
     assert b.overview["workers"] == 4
+
+
+def test_spawned_pool_keeps_order_and_reports_failures() -> None:
+    import operator
+
+    from elessar.parallel import run_spawned
+
+    out = run_spawned(operator.truediv, [(6, 3), (1, 0), (9, 3)], 2)
+    assert out[0] == 2 and out[2] == 3 and isinstance(out[1], TaskError) and "ZeroDivisionError" in out[1].error
+
+
+def test_big_file_chunks_on_spawned_processes_match_one_process(tmp_path: Path,
+                                                                monkeypatch: pytest.MonkeyPatch) -> None:
+    """What macOS and Windows do (no safe fork): chunks of a big file on spawned processes, same figures."""
+    import elessar.parallel as par
+    from elessar import load
+
+    rng = np.random.default_rng(5)
+    n = 30_000
+    df = pd.DataFrame({"id": np.arange(n), "amount": rng.lognormal(3, 1, n).round(2),
+                       "shop": rng.choice(list("abcdef"), n), "qty": rng.poisson(3, n)})
+    path = tmp_path / "big.parquet"
+    df.to_parquet(path, row_group_size=3_000)
+    monkeypatch.setattr(par, "can_fork", lambda: False)
+    spawned = load(path, StoneConfig(max_rows=5_000, n_jobs=3))
+    serial = load(path, StoneConfig(max_rows=5_000, n_jobs=1))
+    assert "3 processes" in spawned.full.engine and "processes" not in serial.full.engine
+    assert spawned.full.n_rows == serial.full.n_rows == n
+    pd.testing.assert_frame_equal(spawned.full.columns, serial.full.columns)
+    pd.testing.assert_frame_equal(spawned.full.sample, serial.full.sample)

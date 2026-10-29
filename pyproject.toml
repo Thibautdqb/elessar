@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "elessar"
-version = "0.3.0"
+dynamic = ["version"]
 description = "Automated exploratory data analysis and data-quality profiling for pandas DataFrames"
 readme = "README.md"
 license = "MIT"
@@ -24,10 +24,21 @@ dependencies = [
 ]
 keywords = ["pandas", "eda", "data-profiling", "statistics", "data-quality", "dask", "parquet", "feature-selection", "pca", "time-series", "outliers"]
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: Matplotlib",
     "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Typing :: Typed",
 ]
 
 [project.optional-dependencies]
@@ -38,9 +49,18 @@ elessar = "elessar.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/thibautdqb/elessar"
+Repository = "https://github.com/thibautdqb/elessar"
+Issues = "https://github.com/thibautdqb/elessar/issues"
+Changelog = "https://github.com/thibautdqb/elessar/blob/main/CHANGELOG.md"
+
+[tool.hatch.version]
+path = "src/elessar/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/elessar"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/elessar", "tests", "examples", "README.md", "CHANGELOG.md", "LICENSE", "pyproject.toml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

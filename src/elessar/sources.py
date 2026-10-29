@@ -31,7 +31,7 @@ import pandas as pd
 
 from ._utils import fmt_bytes, quiet
 from .config import StoneConfig
-from .parallel import TaskError, n_workers, run_tasks, shared
+from .parallel import TaskError, n_spawn_workers, n_workers, run_spawned, run_tasks, shared
 from .progressive import CsvProbe, FrameProbe, HeadProbe, ParquetProbe, Probe, TypePlan, progressive_types
 from .readers import (COMPRESSIONS, STREAMABLE, LoadError, _chunk_iter, _csv_kwargs, _expand, _head_bytes,  # noqa: F401
                       _is_url, _read_csv, _read_whole, _sqlite_table, _suffixes, detect_format, has_header, sniff_csv)
@@ -213,6 +213,12 @@ def _reduce_task(i: int) -> Part:
     return reduce_chunk(st["tasks"][i](), i, st["k"], st["seed"], max_key=st["max_key"], plan=st["plan"])
 
 
+def _reduce_one(task: Callable[[], pd.DataFrame], i: int, k: int, seed: int, max_key: float | None,
+                plan: ScanPlan | None) -> Part:
+    """The same reduction for a spawned process: everything it needs travels with the task."""
+    return reduce_chunk(task(), i, k, seed, max_key=max_key, plan=plan)
+
+
 def scan_parallel(tasks: list[Callable[[], pd.DataFrame]], k: int, cfg: StoneConfig, engine: str = "dask",
                   est_rows: int | None = None, plan: ScanPlan | None = None) -> FullScan:
     """Reduce independent chunk loaders on every core, then merge the summaries.
@@ -222,10 +228,15 @@ def scan_parallel(tasks: list[Callable[[], pd.DataFrame]], k: int, cfg: StoneCon
     pass runs again keeping every candidate, so the sample stays exactly uniform.
     """
     workers = n_workers(cfg, 1 << 62, len(tasks))
+    spawned = n_spawn_workers(cfg, len(tasks)) if workers == 1 else 1
     max_key = min(1.0, 1.5 * k / est_rows + 6 * np.sqrt(k) / est_rows) if est_rows else None
     while True:
-        state = {"tasks": tasks, "k": k, "seed": cfg.random_state, "max_key": max_key, "plan": plan}
-        parts = run_tasks(_reduce_task, range(len(tasks)), workers, state)
+        if spawned > 1:  # no safe fork (macOS, Windows): self-contained chunks on fresh processes
+            parts = run_spawned(_reduce_one, [(t, i, k, cfg.random_state, max_key, plan) for i, t in enumerate(tasks)],
+                                spawned)
+        else:
+            state = {"tasks": tasks, "k": k, "seed": cfg.random_state, "max_key": max_key, "plan": plan}
+            parts = run_tasks(_reduce_task, range(len(tasks)), workers, state)
         failed = [p for p in parts if isinstance(p, TaskError)]
         if failed:
             raise LoadError(f"reading a chunk failed: {failed[0].error}")
@@ -234,7 +245,8 @@ def scan_parallel(tasks: list[Callable[[], pd.DataFrame]], k: int, cfg: StoneCon
             total = merge(total, part, k, hash_cap(cfg), plan.entity_budget if plan else 0)
         n_sample = 0 if total.sample is None else len(total.sample)
         if max_key is None or max_key >= 1.0 or n_sample >= min(k, total.n_rows):
-            return finalize(total, len(tasks), engine if workers == 1 else f"{engine}, {workers} processes", plan)
+            used = max(workers, spawned)
+            return finalize(total, len(tasks), engine if used == 1 else f"{engine}, {used} processes", plan)
         max_key = None
 
 

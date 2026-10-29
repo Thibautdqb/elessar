@@ -1,0 +1,6 @@
+flowchart TD
+    A(["numeric column"]) --> B{"any point flagged<br/>by 2 methods or more?"}
+    B -- no --> K["keep"]
+    B -- yes --> C{"a few values (at most max(3, 0.2 % of rows))<br/>more than 10 robust sd away?"}
+    C -- yes --> R["remove: likely entry or unit errors"]
+    C -- no --> W["reassign: cap at the boxplot fences<br/>(winsorize) or use robust models"]

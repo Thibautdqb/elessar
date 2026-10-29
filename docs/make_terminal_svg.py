@@ -22,6 +22,8 @@ from pathlib import Path
 
 from PIL import Image
 
+from elessar import __version__
+
 WIDTH, HEIGHT = 900, 560
 WIDTH_CHARS = 100
 FONT_SIZE = 13
@@ -110,8 +112,8 @@ def build(output: list[str], shot: Image.Image, csv_name: str, target: str, repo
         reveals.append((f"l{len(rows)}", at, "opacity"))
         rows.append((at, tspans(segments)))
 
-    t = type_command("pip install git+https://github.com/thibautdqb/elessar", 0.6) + 0.5
-    print_line([("Successfully installed elessar-0.3.0", DIM, False)], t)
+    t = type_command("pip install elessar", 0.6) + 0.5
+    print_line([(f"Successfully installed elessar-{__version__}", DIM, False)], t)
     t += 0.7
     t = type_command(f"elessar {csv_name} --target {target}", t) + 0.6
     for line in output:

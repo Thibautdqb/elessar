@@ -1,0 +1,14 @@
+flowchart TD
+    S(["column"]) --> E{"any non-missing value?"}
+    E -- no --> T1["empty"]
+    E -- yes --> K{"a single distinct value?"}
+    K -- yes --> T2["constant"]
+    K -- no --> D{"how is it stored?"}
+    D -- "bool dtype" --> T3["boolean"]
+    D -- "datetime dtype" --> T4["datetime"]
+    D -- "ordered category" --> T5["ordinal-candidate"]
+    D -- "category / object holding<br/>numbers or strings" --> R["typed by its values<br/>(branches below)"]
+    D -- "dicts / lists in cells" --> T6["json_like"]
+    D -- "several Python types" --> T7["mixed"]
+    D -- "numbers, timedelta" --> N["numeric branch"]
+    D -- "strings" --> X["text branch"]

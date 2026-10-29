@@ -1,0 +1,12 @@
+flowchart TD
+    A(["date column"]) --> B{"named like a birth date?<br/>(whole tokens: birth_date, dob,<br/>date_naissance, Geburtsdatum…)"}
+    B -- yes --> C{"ages plausible?<br/>(median -1 to 110,<br/>at most 5 % in the future)"}
+    C -- yes --> Y1["date of birth: certain"]
+    C -- no --> R["rejected, and reported"]
+    B -- no --> D{"named like an event?<br/>(hire, created, order, death,<br/>release, first, since, term…)"}
+    D -- yes --> N["not a date of birth"]
+    D -- no --> P{"table about people?<br/>(sex, gender, first name, age…)"}
+    P -- no --> N
+    P -- yes --> V{"to the day, no time of day, not sorted,<br/>at most 1 % future, ages 0-110,<br/>median 18-85, 5-95 % spread ≥ 20 years?"}
+    V -- yes --> Y2["date of birth: probable"]
+    V -- no --> N

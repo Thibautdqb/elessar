@@ -1,0 +1,16 @@
+flowchart TD
+    P["1 · Preparation<br/>quantitative or Likert items · demographics left out<br/>questionnaire analysed alone · declared missing codes removed<br/>listwise deletion · exact combinations removed (VIF above 100)"] --> N{"n ≥ 100 and<br/>about 10 rows per item?"}
+    N -- "no (still runs)" --> Q["result marked indicative"]
+    N -- yes --> X
+    Q --> X["2 · Extraction: principal components of the correlation matrix,<br/>unrotated solution, scree plot"]
+    X --> K{"3 · KMO above .50 and<br/>Bartlett p below .05?"}
+    K -- no --> NU["not useful: stop"]
+    K -- yes --> F["5 · Number of factors: eigenvalue above 1 · cumulative variance ≥ 60 % ·<br/>elbow of the scree plot; two criteria agreeing win, else the scree plot"]
+    F --> C{"coherent?<br/>no factor resting on a single item,<br/>not several items misbehaving at once"}
+    C -- no --> F2["one factor fewer"] --> C
+    C -- yes --> H{"4 · every communality ≥ .40?<br/>6 · every item loading ≥ .40 on its factor,<br/>no cross-loading (≥ .40 on two factors within .20)?"}
+    H -- no --> RM["remove the worst item, run again"] --> F
+    H -- yes --> V["6 · Varimax rotation, items assigned to their highest loading,<br/>factors oriented like most of their items, named after them"]
+    V --> A{"7 · Cronbach's alpha of each factor ≥ .60?<br/>(alpha if each item is deleted shown)"}
+    A -- no --> NS["no score for that factor"]
+    A -- yes --> S["8 · Factor = mean of its items (reversed items flipped)<br/>9 · mean, median, mode, standard deviation"]

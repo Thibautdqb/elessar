@@ -7,18 +7,20 @@ Only the small task keys go to the workers and only their results come back.
 
 Forked workers are used on Linux only: Windows has no fork, and on macOS forking a process that
 has loaded the system's numerical libraries can crash the children (Python itself no longer forks
-there by default). Elsewhere, or for small tables, steps run in this process, with identical results.
+there by default). There, the chunks of a big file, which are self-contained, are reduced by fresh
+``spawn`` processes (:func:`run_spawned`); the other steps run in this process, with identical results.
 """
 
 from __future__ import annotations
 
+import contextlib
 import multiprocessing as mp
 import os
 import sys
 import warnings
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, Iterator
 
 from .config import StoneConfig
 
@@ -63,6 +65,63 @@ def n_workers(cfg: StoneConfig, n_cells: int, n_tasks: int) -> int:
     else:
         wanted = cfg.n_jobs
     return max(1, min(wanted, n_tasks, cores))
+
+
+def n_spawn_workers(cfg: StoneConfig, n_tasks: int) -> int:
+    """Processes for self-contained tasks (chunks of a big file) where fork is not available or not
+    safe (macOS, Windows): fresh ``spawn`` processes, which only pay off for heavy, independent work."""
+    if n_tasks < 2 or can_fork() or os.environ.get(_IN_WORKER) or cfg.n_jobs == 1:
+        return 1
+    cores = os.cpu_count() or 1
+    wanted = cores if cfg.n_jobs is None else (max(1, cores + 1 + cfg.n_jobs) if cfg.n_jobs < 0 else cfg.n_jobs)
+    return max(1, min(wanted, n_tasks, cores))
+
+
+@contextlib.contextmanager
+def _main_hidden() -> Iterator[None]:
+    """Start spawned processes without re-running the caller's script: a spawned child imports the
+    ``__main__`` module, so a script calling ``elessar.see`` without an ``if __name__ == "__main__"``
+    guard would run again in every child. The tasks only need elessar, so the children skip it."""
+    main = sys.modules.get("__main__")
+    saved = {k: main.__dict__[k] for k in ("__file__", "__spec__") if main is not None and k in main.__dict__}
+    try:
+        for k in saved:
+            if k == "__spec__":
+                main.__spec__ = None  # type: ignore[union-attr]
+            else:
+                del main.__dict__[k]  # type: ignore[union-attr]
+        yield
+    finally:
+        if main is not None:
+            main.__dict__.update(saved)
+
+
+def _call(fn: Callable[..., Any], args: tuple[Any, ...]) -> Any:
+    try:
+        return fn(*args)
+    except Exception as exc:  # noqa: BLE001 - a failing task is reported, never fatal
+        return TaskError(repr(exc))
+
+
+def run_spawned(fn: Callable[..., Any], args: list[tuple[Any, ...]], workers: int) -> list[Any]:
+    """``[fn(*a) for a in args]`` on ``workers`` spawned processes, in order. ``fn`` and its arguments
+    must be picklable (module-level functions, plain objects). If the pool cannot start or dies, the
+    remaining tasks run in this process."""
+    if workers <= 1 or len(args) < 2:
+        return [_call(fn, a) for a in args]
+    try:
+        ctx = mp.get_context("spawn")
+        with _main_hidden():
+            pool = ctx.Pool(workers, initializer=_init_worker)  # every process starts here, main hidden
+    except Exception:  # noqa: BLE001 - frozen application, no permission to start processes...
+        return [_call(fn, a) for a in args]
+    try:
+        return pool.starmap(_call, [(fn, a) for a in args], chunksize=1)
+    except Exception:  # noqa: BLE001 - unpicklable task or dead worker: finish here
+        return [_call(fn, a) for a in args]
+    finally:
+        pool.terminate()
+        pool.join()
 
 
 def _init_worker() -> None:

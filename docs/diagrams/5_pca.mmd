@@ -1,0 +1,10 @@
+flowchart TD
+    A(["numeric columns"]) --> B{"at least 3 columns<br/>and max(20, 3p) rows?"}
+    B -- no --> X["not applicable"]
+    B -- yes --> C{"Bartlett's test of sphericity<br/>significant?"}
+    C -- no --> U["not useful: columns close to uncorrelated"]
+    C -- yes --> D{"KMO ≥ 0.50?"}
+    D -- no --> U2["not useful: sampling adequacy too low"]
+    D -- yes --> E{"components kept by parallel analysis<br/>below 3/4 of the columns?"}
+    E -- no --> W["weak: little to gain"]
+    E -- yes --> R["recommended, with the code"]

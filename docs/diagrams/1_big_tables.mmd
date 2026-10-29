@@ -1,0 +1,13 @@
+flowchart TD
+    A["First look:<br/>head + blocks at 25 / 50 / 75 / 99.5 %"] --> B["Typing decision tree<br/>on every column"]
+    B --> C{"Every decision<br/>certain?"}
+    C -- no --> D{"Time axis found<br/>in the first look?"}
+    D -- yes --> E["Draw 8 contiguous blocks<br/>(series stay whole)"]
+    D -- no --> F["Draw 64 short blocks<br/>(close to random rows)"]
+    E --> G["Type the uncertain columns again<br/>on twice as many rows"]
+    F --> G
+    G --> H{"Settled, stable for 2 rounds,<br/>or 200,000 rows read?"}
+    H -- no --> D
+    H -- yes --> I
+    C -- yes --> I["One full pass, guided by the types,<br/>in chunks, on every core"]
+    I --> J["Profile: row-level statistics on a uniform sample,<br/>exact counts and series over every row"]

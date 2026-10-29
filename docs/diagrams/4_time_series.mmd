@@ -1,0 +1,10 @@
+flowchart TD
+    A(["candidate time axis"]) --> B{"at least 12 distinct timestamps?"}
+    B -- no --> Z["not a time series"]
+    B -- yes --> C{"timestamps unique (≥ 95 %)<br/>and steps regular (≥ 60 %)?"}
+    C -- yes --> S["single series"]
+    C -- no --> D{"regular steps, and an entity column<br/>(2 to n/5 entities) making time × entity unique,<br/>each entity covering ≥ 20 % of the steps?"}
+    D -- yes --> P["panel"]
+    D -- no --> L{"at least 100 rows?"}
+    L -- yes --> E["event log<br/>(aggregated per period, incomplete<br/>first and last periods left out)"]
+    L -- no --> Z

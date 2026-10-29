@@ -1,5 +1,12 @@
 <p align="center">
-  <img src="docs/logo.png" alt="elessar logo: a marble statue of a bearded god codes on a laptop in a neon jungle temple, under a floating emerald crystal, with the word elessar in neon letters" width="100%">
+  <img src="https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/logo.png" alt="elessar logo: a marble statue of a bearded god codes on a laptop in a neon jungle temple, under a floating emerald crystal, with the word elessar in neon letters" width="100%">
+</p>
+
+<p align="center">
+  <a href="https://pypi.org/project/elessar/"><img src="https://img.shields.io/pypi/v/elessar" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/elessar/"><img src="https://img.shields.io/pypi/pyversions/elessar" alt="Python versions"></a>
+  <a href="https://github.com/thibautdqb/elessar/actions/workflows/ci.yml"><img src="https://github.com/thibautdqb/elessar/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/thibautdqb/elessar/blob/main/LICENSE"><img src="https://img.shields.io/pypi/l/elessar" alt="License: MIT"></a>
 </p>
 
 **Automated exploratory data analysis and data-quality profiling for pandas DataFrames.**
@@ -13,7 +20,7 @@ report-ready charts.
 *In Tolkien's legend, the Elessar is the green Elfstone through which whatever is seen is made whole again.*
 
 <p align="center">
-  <img src="docs/terminal.svg" alt="elessar installed and run on the Titanic dataset in a terminal, then its HTML report opening in a browser and scrolling (key findings, overall statistics, target analysis, feature selection, distributions, outliers)" width="900">
+  <img src="https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/terminal.svg" alt="elessar installed and run on the Titanic dataset in a terminal, then its HTML report opening in a browser and scrolling (key findings, overall statistics, target analysis, feature selection, distributions, outliers)" width="900">
 </p>
 
 Every decision elessar takes (a column's type, whether a table is a time series, whether a date is a date of
@@ -66,8 +73,10 @@ display needed (except to click the target, if you ask for it).
 ## Install
 
 ```bash
-pip install git+https://github.com/thibautdqb/elessar
+pip install elessar
 ```
+
+The development version: `pip install git+https://github.com/thibautdqb/elessar`.
 
 One install brings everything: pandas, NumPy, SciPy, Matplotlib, scikit-learn, **dask**, pyarrow (Parquet) and
 openpyxl / python-calamine (Excel). Requires Python ≥ 3.10.
@@ -185,21 +194,7 @@ its content.
 A table with more than `max_rows` rows (default 1,000,000), or larger than half of the free memory, is never
 loaded whole. It goes through three steps:
 
-```mermaid
-flowchart LR
-    A["First look:<br/>head + blocks at 25 / 50 / 75 / 99.5 %"] --> B["Typing decision tree<br/>on every column"]
-    B --> C{"Every decision<br/>certain?"}
-    C -- no --> D{"Time axis found<br/>in the first look?"}
-    D -- yes --> E["Draw 8 contiguous blocks<br/>(series stay whole)"]
-    D -- no --> F["Draw 64 short blocks<br/>(close to random rows)"]
-    E --> G["Type the uncertain columns again<br/>on twice as many rows"]
-    F --> G
-    G --> H{"Settled, stable for 2 rounds,<br/>or 200,000 rows read?"}
-    H -- no --> D
-    H -- yes --> I
-    C -- yes --> I["One full pass, guided by the types,<br/>in chunks, on every core"]
-    I --> J["Profile: row-level statistics on a uniform sample,<br/>exact counts and series over every row"]
-```
+<p align="center"><img src="https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/diagrams/1_big_tables.png" alt="Progressive typing of a big table: first look, typing tree, more rows only for uncertain columns (contiguous blocks when there is a time axis), then one full pass" width="420"></p>
 
 1. **Progressive typing.** The types are decided before the full read, on as few rows as the evidence allows.
    Rows are reached directly (byte offsets in a text file, row groups in Parquet) and never read twice; the
@@ -229,8 +224,12 @@ table.
 advanced analyses, every chart) run as independent tasks on forked processes, one per core: the DataFrame is
 inherited, never copied or pickled, and BLAS threads are limited to one per process. Results are identical to a
 single-process run (a test checks it). Small tables stay in one process; `StoneConfig(n_jobs=1)` / `-j 1`
-disables it, `n_jobs=k` caps it. On macOS and Windows everything runs in one process (Windows has no fork, and forking on macOS can crash
-the numerical libraries), with the same results.
+disables it, `n_jobs=k` caps it.
+
+On macOS and Windows, where a process cannot be forked safely (Windows has no fork; on macOS it can crash the
+numerical libraries), the chunks of a big file are read and summarised by fresh processes on every core instead
+(they are self-contained: a byte range or a row group), even from a script without an
+`if __name__ == "__main__":` guard; the other steps run in one process. Results are the same everywhere.
 
 | Table (full run: every analysis, every chart, the report) | Time (14 cores) |
 |---|---|
@@ -305,22 +304,7 @@ code and fields of `StoneConfig`.
 
 A column is first routed by how it is stored, then goes down the numeric or the text branch:
 
-```mermaid
-flowchart TD
-    S(["column"]) --> E{"any non-missing value?"}
-    E -- no --> T1["empty"]
-    E -- yes --> K{"a single distinct value?"}
-    K -- yes --> T2["constant"]
-    K -- no --> D{"how is it stored?"}
-    D -- "bool dtype" --> T3["boolean"]
-    D -- "datetime dtype" --> T4["datetime"]
-    D -- "ordered category" --> T5["ordinal-candidate"]
-    D -- "category / object holding<br/>numbers or strings" --> R["typed by its values<br/>(branches below)"]
-    D -- "dicts / lists in cells" --> T6["json_like"]
-    D -- "several Python types" --> T7["mixed"]
-    D -- "numbers, timedelta" --> N["numeric branch"]
-    D -- "strings" --> X["text branch"]
-```
+<p align="center"><img src="https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/diagrams/2_typing.png" alt="Typing decision tree: empty, constant, then routed by storage to the numeric or the text branch" width="820"></p>
 
 | Numeric branch: first *yes* wins | Type | | Text branch: first *yes* wins | Type |
 |---|---|---|---|---|
@@ -386,20 +370,7 @@ are placeholders for a missing date, never values. The suggested conversion uses
 A date of birth is a date, but not a time axis: it says *who* a row is about, not *when* something happened, and
 what models need is the **age**.
 
-```mermaid
-flowchart TD
-    A(["date column"]) --> B{"named like a birth date?<br/>(whole tokens: birth_date, dob,<br/>date_naissance, Geburtsdatum…)"}
-    B -- yes --> C{"ages plausible?<br/>(median -1 to 110,<br/>at most 5 % in the future)"}
-    C -- yes --> Y1["date of birth: certain"]
-    C -- no --> R["rejected, and reported"]
-    B -- no --> D{"named like an event?<br/>(hire, created, order, death,<br/>release, first, since, term…)"}
-    D -- yes --> N["not a date of birth"]
-    D -- no --> P{"table about people?<br/>(sex, gender, first name, age…)"}
-    P -- no --> N
-    P -- yes --> V{"to the day, no time of day, not sorted,<br/>at most 1 % future, ages 0-110,<br/>median 18-85, 5-95 % spread ≥ 20 years?"}
-    V -- yes --> Y2["date of birth: probable"]
-    V -- no --> N
-```
+<p align="center"><img src="https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/diagrams/3_birth_dates.png" alt="Is a date a date of birth: by name with plausible ages, or by values in a table about people" width="560"></p>
 
 Each date of birth gets a derived **age** column, profiled and tested against the target like any other,
 computed row by row at another event of the row when the table has one (age at admission, at the start of a term,
@@ -414,18 +385,7 @@ share of minors, and a reminder that a date of birth is personal data and a stro
 Candidate time axes: a datetime column, dates as text, a datetime index, a `year` column, or `year` + `month`
 columns (never a date of birth).
 
-```mermaid
-flowchart TD
-    A(["candidate time axis"]) --> B{"at least 12 distinct timestamps?"}
-    B -- no --> Z["not a time series"]
-    B -- yes --> C{"timestamps unique (≥ 95 %)<br/>and steps regular (≥ 60 %)?"}
-    C -- yes --> S["single series"]
-    C -- no --> D{"regular steps, and an entity column<br/>(2 to n/5 entities) making time × entity unique,<br/>each entity covering ≥ 20 % of the steps?"}
-    D -- yes --> P["panel"]
-    D -- no --> L{"at least 100 rows?"}
-    L -- yes --> E["event log<br/>(aggregated per period, incomplete<br/>first and last periods left out)"]
-    L -- no --> Z
-```
+<p align="center"><img src="https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/diagrams/4_time_series.png" alt="Time-series structure: single series, panel or event log" width="560"></p>
 
 Then, per series:
 
@@ -452,18 +412,7 @@ the training folds (jittering, scaling, window slicing, magnitude warping). The 
 On the standardised numeric columns (target, identifiers, booleans and constants left out, missing values
 replaced by the median):
 
-```mermaid
-flowchart TD
-    A(["numeric columns"]) --> B{"at least 3 columns<br/>and max(20, 3p) rows?"}
-    B -- no --> X["not applicable"]
-    B -- yes --> C{"Bartlett's test of sphericity<br/>significant?"}
-    C -- no --> U["not useful: columns close to uncorrelated"]
-    C -- yes --> D{"KMO ≥ 0.50?"}
-    D -- no --> U2["not useful: sampling adequacy too low"]
-    D -- yes --> E{"components kept by parallel analysis<br/>below 3/4 of the columns?"}
-    E -- no --> W["weak: little to gain"]
-    E -- yes --> R["recommended, with the code"]
-```
+<p align="center"><img src="https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/diagrams/5_pca.png" alt="Is PCA worth it: Bartlett, KMO, parallel analysis" width="520"></p>
 
 The report also gives Kaiser's rule and the components needed for 80 / 90 / 95 % of the variance.
 
@@ -472,24 +421,7 @@ The report also gives Kaiser's rule and the components needed for 80 / 90 / 95 %
 The factor analysis follows the method as it is taught and reported in SPSS-style studies. Each step is a line of
 the report's checklist, with its question, its answer and a *yes / no / removed* mark.
 
-```mermaid
-flowchart TD
-    P["1 · Preparation<br/>quantitative or Likert items · demographics left out<br/>questionnaire analysed alone · declared missing codes removed<br/>listwise deletion · exact combinations removed (VIF above 100)"] --> N{"n ≥ 100 and<br/>about 10 rows per item?"}
-    N -- "no (still runs)" --> Q["result marked indicative"]
-    N -- yes --> X
-    Q --> X["2 · Extraction: principal components of the correlation matrix,<br/>unrotated solution, scree plot"]
-    X --> K{"3 · KMO above .50 and<br/>Bartlett p below .05?"}
-    K -- no --> NU["not useful: stop"]
-    K -- yes --> F["5 · Number of factors: eigenvalue above 1 · cumulative variance ≥ 60 % ·<br/>elbow of the scree plot; two criteria agreeing win, else the scree plot"]
-    F --> C{"coherent?<br/>no factor resting on a single item,<br/>not several items misbehaving at once"}
-    C -- no --> F2["one factor fewer"] --> C
-    C -- yes --> H{"4 · every communality ≥ .40?<br/>6 · every item loading ≥ .40 on its factor,<br/>no cross-loading (≥ .40 on two factors within .20)?"}
-    H -- no --> RM["remove the worst item, run again"] --> F
-    H -- yes --> V["6 · Varimax rotation, items assigned to their highest loading,<br/>factors oriented like most of their items, named after them"]
-    V --> A{"7 · Cronbach's alpha of each factor ≥ .60?<br/>(alpha if each item is deleted shown)"}
-    A -- no --> NS["no score for that factor"]
-    A -- yes --> S["8 · Factor = mean of its items (reversed items flipped)<br/>9 · mean, median, mode, standard deviation"]
-```
+<p align="center"><img src="https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/diagrams/6_factor_analysis.png" alt="Factor analysis in nine steps, with the loops that remove items and reduce the number of factors" width="620"></p>
 
 1. **Preparation.** Items are quantitative or Likert variables: ordered labels such as *disagree < neutral <
    agree* become their ranks; identifiers, booleans, dates, free labels and the target are left out, and so are
@@ -538,14 +470,7 @@ Per numeric column, three methods: 3 sigma (|x − mean| > 3 sd), the boxplot fe
 modified z-score (Hampel, |0.6745 (x − median) / MAD| > 3.5). Every flagged point is listed with its row, value,
 z and robust z.
 
-```mermaid
-flowchart TD
-    A(["numeric column"]) --> B{"any point flagged<br/>by 2 methods or more?"}
-    B -- no --> K["keep"]
-    B -- yes --> C{"a few values (at most max(3, 0.2 % of rows))<br/>more than 10 robust sd away?"}
-    C -- yes --> R["remove: likely entry or unit errors"]
-    C -- no --> W["reassign: cap at the boxplot fences<br/>(winsorize) or use robust models"]
-```
+<p align="center"><img src="https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/diagrams/7_outliers.png" alt="What to do with an outlier: keep, remove or reassign" width="420"></p>
 
 **Multivariate outliers**: robust Mahalanobis distance (minimum covariance determinant on Yeo-Johnson-normalised
 continuous columns, near-duplicates and linear combinations removed) beyond the chi-square 99.9 % quantile,
@@ -829,12 +754,12 @@ Files are named `<NN>_<column>_<kind>.png` in the report folder.
 
 | | |
 |---|---|
-| ![Dataset overview](docs/overview.png) | ![Numeric distribution](docs/numeric_distribution.png) |
-| ![Association heatmap](docs/association_heatmap.png) | ![What drives the target](docs/target_ranking.png) |
-| ![Joint plot with hexbin density](docs/joint_plot.png) | ![Target by a categorical feature](docs/target_stacked.png) |
-| ![Feature selection by five methods](docs/feature_selection.png) | ![Outlier points of every numeric column](docs/outliers.png) |
-| ![PCA scree plot and loadings](docs/pca.png) | ![Factor analysis of the Big Five questionnaire](docs/factor_analysis.png) |
-| ![Seasonal decomposition of a time series](docs/decomposition.png) | |
+| ![Dataset overview](https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/overview.png) | ![Numeric distribution](https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/numeric_distribution.png) |
+| ![Association heatmap](https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/association_heatmap.png) | ![What drives the target](https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/target_ranking.png) |
+| ![Joint plot with hexbin density](https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/joint_plot.png) | ![Target by a categorical feature](https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/target_stacked.png) |
+| ![Feature selection by five methods](https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/feature_selection.png) | ![Outlier points of every numeric column](https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/outliers.png) |
+| ![PCA scree plot and loadings](https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/pca.png) | ![Factor analysis of the Big Five questionnaire](https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/factor_analysis.png) |
+| ![Seasonal decomposition of a time series](https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/decomposition.png) | |
 
 ## Development
 
@@ -846,7 +771,8 @@ python examples/demo.py
 ```
 
 The animation at the top is generated from a real run of the command line and a screenshot of the report it
-wrote (needs Chrome or Chromium): `python docs/make_terminal_svg.py train.csv Survived docs/terminal.svg`.
+wrote (needs Chrome or Chromium): `python docs/make_terminal_svg.py train.csv Survived docs/terminal.svg`. The
+decision-tree images are drawn from `docs/diagrams/*.mmd` (mermaid): `python docs/make_diagrams.py`.
 
 ## License
 
