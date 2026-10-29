@@ -24,6 +24,7 @@ DISCRETE_CANDIDATES: tuple[str, ...] = ("poisson", "nbinom", "geom", "binom")
 PLACEHOLDER_STRINGS: tuple[str, ...] = (
     "", "na", "n/a", "n.a.", "nan", "null", "none", "nil", "-", "--", "?", ".",
     "missing", "unknown", "undefined", "#n/a", "#null!", "not available",
+    "0000-00-00", "00/00/0000", "00-00-0000", "0000/00/00", "0000-00-00 00:00:00",  # zero dates: no date
 )
 PLACEHOLDER_NUMBERS: tuple[float, ...] = (-999, -9999, -99999, 999, 9999, 99999, 999999)
 

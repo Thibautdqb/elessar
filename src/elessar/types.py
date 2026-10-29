@@ -645,7 +645,13 @@ def _t_phone(w: Walk, v: _Text) -> dict[str, Any] | None:
     like = v.t.str.match(_PHONE) & digit_count.between(7, 15)
     like &= v.t.str.contains(r"^\+|\d[\s().-]+\d", regex=True) | hint
     m = _ratio(like)
-    if m > 0 and w.share("phone numbers", m, v.n, w.cfg.pattern_match_ratio):
+    if m == 0:
+        return None
+    with quiet():  # 1923-02-10 has the shape of a phone number: dates are never phones
+        dated = pd.to_datetime(v.t[like.to_numpy()], format="mixed", errors="coerce").notna().mean()
+    if dated > 0.5:
+        return None
+    if w.share("phone numbers", m, v.n, w.cfg.pattern_match_ratio):
         return w.leaf("phone", m, f"{m:.0%} of values look like phone numbers")
     return None
 

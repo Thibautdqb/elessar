@@ -51,7 +51,7 @@ def test_see_quality(messy_df: pd.DataFrame) -> None:
 def test_suspicious_dates() -> None:
     df = pd.DataFrame({"birth_date": pd.to_datetime(["1990-01-01", "2199-01-01", "1970-01-01", "1850-05-05"])})
     msgs = " ".join(see_quality(df)["suspicious_values"]["birth_date"])
-    assert "future" in msgs and "1970-01-01" in msgs and "before 1900" in msgs
+    assert "1970-01-01" in msgs and "before 1900" in msgs  # births in the future: see test_roles
 
 
 def test_correlation_alerts(rng: np.random.Generator) -> None:

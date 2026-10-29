@@ -389,7 +389,15 @@ def plan(
             if col == target:
                 continue
             stype, st = types.get(col), d.get("stats") or {}
-            if stype in DATETIME_TYPES:
+            if stype in DATETIME_TYPES and d.get("role") == "date of birth":
+                ref = (d.get("birth") or {}).get("reference", "")
+                steps.append(_step("transformation", "Decomposition", col,
+                                   f"a date of birth: model the age {ref}, not the calendar parts of the birth",
+                                   f"born = elessar.parse_dates(df[{col!r}])\n"
+                                   f"df[{col!r} + '_age'] = (pd.Timestamp('today') - born).dt.days / 365.2425  "
+                                   "# or: (df['<event date>'] - born)\n"
+                                   f"df[{col!r} + '_band'] = pd.cut(df[{col!r} + '_age'], [0, 18, 25, 35, 45, 55, 65, 120])"))
+            elif stype in DATETIME_TYPES:
                 steps.append(_step("transformation", "Decomposition", col,
                                    "a date is not a feature: decompose into calendar parts",
                                    f"d = elessar.parse_dates(df[{col!r}])\n"

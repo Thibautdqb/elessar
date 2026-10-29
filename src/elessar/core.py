@@ -15,6 +15,7 @@ from ._utils import dedupe_names, finite, prepare, quiet, resolve_target, safe_n
 from .multivariate import multivariate
 from .outliers import outliers as find_outliers
 from .preparation import plan as preparation_plan
+from .roles import age_column_name, birth_columns, birth_report
 from .selection import feature_selection
 from .timeseries import detect as detect_time, timeseries
 from .config import StoneConfig
@@ -29,7 +30,7 @@ from .report import Vision
 from .readers import COMPRESSIONS, FORMATS
 from .sources import Source, describe_origin, load
 from .stats import column_stats
-from .types import as_numeric, infer_type
+from .types import DATETIME_TYPES, as_numeric, infer_type
 
 
 def see_column(series: pd.Series, config: StoneConfig | None = None, fit: bool = True,
@@ -82,6 +83,17 @@ def _column_task(col: str) -> tuple[dict[str, Any], dict[str, Any]]:
 
 
 _QUANTITY_KINDS = {"outliers", "skewed", "heaping", "zero_inflated", "capped"}
+
+
+def birth_alerts(details: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    """The checks of every date of birth, and the dates named like one whose values say otherwise."""
+    out = []
+    for col, d in details.items():
+        for severity, message in (d.get("birth") or {}).get("checks", []):
+            out.append(alert(severity, col, message, kind="birth"))
+        if d.get("role_note"):
+            out.append(alert("medium", col, d["role_note"] + " -> check what this column holds", kind="birth"))
+    return out
 
 
 def verify_types(df: pd.DataFrame, details: dict[str, dict[str, Any]], found: dict[str, dict[str, Any]],
@@ -168,7 +180,7 @@ def advanced(
     For a streamed table (``src.full``), the time series are analysed on the exact per-period series
     computed over every row, and a panel on whole entities drawn at random.
     """
-    types = {c: d["semantic_type"] for c, d in details.items()}
+    types = {c: ("birth date" if d.get("role") == "date of birth" else d["semantic_type"]) for c, d in details.items()}
     names = ["multivariate", "outliers", "timeseries"] + (["selection"] if target is not None else [])
     state = {"df": df, "types": types, "target": target, "cfg": cfg, "correlations": correlations}
     full, plan = (src.full, src.plan) if src is not None else (None, None)
@@ -186,11 +198,42 @@ def advanced(
     return results, errors
 
 
+def apply_roles(df: pd.DataFrame, details: dict[str, dict[str, Any]], found: dict[str, dict[str, Any]],
+                cfg: StoneConfig, target: str | None = None) -> pd.DataFrame:
+    """Recognise the dates of birth among the date columns (:mod:`elessar.roles`) and add, for each, a
+    derived age column profiled like any other; returns the frame with those columns."""
+    types = {c: d["semantic_type"] for c, d in details.items()}
+    with quiet():
+        roles = birth_columns(df, types)
+    for col, d in details.items():
+        if d["semantic_type"] in DATETIME_TYPES and col not in roles:
+            d["path"] = list(d.get("path") or []) + ["a date of birth? no"]
+    for col, evidence in roles.items():
+        d = details[col]
+        if "rejected" in evidence:
+            d["path"] = list(d.get("path") or []) + ["a date of birth? no (values not plausible)"]
+            d["role_note"] = evidence["rejected"]
+            continue
+        d.update(role="date of birth", role_certainty=evidence["certainty"], role_reason=evidence["reason"],
+                 path=list(d.get("path") or []) + ["a date of birth? yes"])
+        report = birth_report(df, col, types, cfg.alpha)
+        d["birth"] = {k: v for k, v in report.items() if k != "age"}
+        if "age" not in report or col == target:
+            continue
+        name = age_column_name(col, list(df.columns))
+        df = df.assign(**{name: report["age"].round(2)})
+        details[name] = see_column(df[name], cfg)
+        details[name].update(derived_from=col, reason=f"derived: age in years {report['reference']}, from {col}")
+        found[name] = column_quality(df[name], details[name], cfg)
+    return df
+
+
 def analyze(
     df: pd.DataFrame, target: str | None, config: StoneConfig, workers: int = 1,
     timings: dict[str, float] | None = None, decided: dict[str, dict[str, Any]] | None = None,
-) -> tuple[dict[str, dict[str, Any]], dict[str, pd.DataFrame], dict[str, dict[str, Any]]]:
-    """Per-column details, correlations and per-column quality findings for a prepared DataFrame.
+) -> tuple[pd.DataFrame, dict[str, dict[str, Any]], dict[str, pd.DataFrame], dict[str, dict[str, Any]]]:
+    """Per-column details, roles (dates of birth, with a derived age column), correlations and
+    per-column quality findings for a prepared DataFrame; returns the frame with the derived columns.
 
     ``decided``: column types already decided (progressive typing), used instead of the tree.
     """
@@ -207,6 +250,7 @@ def analyze(
             found[col] = {"error": res.error}
         else:
             details[col], found[col] = res
+    df = apply_roles(df, details, found, config, target)
     types = {c: d["semantic_type"] for c, d in details.items()}
     corr_started = time.perf_counter()
     try:
@@ -216,7 +260,7 @@ def analyze(
     if timings is not None:
         timings["columns"] = corr_started - started
         timings["associations"] = time.perf_counter() - corr_started
-    return details, correlations, found
+    return df, details, correlations, found
 
 
 def _summary_row(detail: dict[str, Any]) -> dict[str, Any]:
@@ -342,14 +386,14 @@ def see(
     workers = n_workers(cfg, df.size, df.shape[1])
 
     decided = src.plan.types if src.plan is not None else None
-    details, correlations, found = analyze(df, target, cfg, workers, timings, decided)
+    df, details, correlations, found = analyze(df, target, cfg, workers, timings, decided)
     type_alerts = verify_types(df, details, found, src, cfg) if src.plan is not None else []
     step = time.perf_counter()
     exact_dups = full.duplicate_rows if full is not None else None
     if full is not None and exact_dups is None:  # too many rows to hash: say so instead of showing the sample's count
         exact_dups = {"not_counted": True}
     quality = check_quality(df, details, correlations, cfg, target, found, exact_dups)
-    alerts = list(quality["alerts"]) + type_alerts
+    alerts = list(quality["alerts"]) + type_alerts + birth_alerts(details)
     for d in details.values():
         alerts.extend(d["alerts"])
     if original and dedupe_names(original) != [str(c) for c in original]:

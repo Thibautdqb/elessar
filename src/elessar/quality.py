@@ -18,7 +18,6 @@ _HINT_AGE = re.compile(r"(^|_)age($|_)|(^|_)age_?years")
 _HINT_NONNEG = re.compile(
     r"price|amount|cost|salary|income|revenue|qty|quantity|count|weight|height|duration|distance|size|area|fare|fee"
 )
-_HINT_BIRTH = re.compile(r"birth|dob|born")
 _KIND_FAMILY = {"bool": "number", "list": "container", "dict": "container"}
 _DEFAULT_DATES = (pd.Timestamp("1970-01-01"), pd.Timestamp("1900-01-01"), pd.Timestamp("1899-12-30"))
 
@@ -213,10 +212,6 @@ def suspicious_values(s: pd.Series, stype: str) -> list[str]:
             n = int((d == default).sum())
             if n:
                 msgs.append(f"{n} default-looking dates ({default.date()})")
-        if _HINT_BIRTH.search(name):
-            future = int((d > pd.Timestamp.now(tz="UTC").tz_localize(None)).sum())
-            if future:
-                msgs.append(f"{future} birth dates in the future")
         old = int((d < pd.Timestamp("1900-01-01")).sum())
         if old:
             msgs.append(f"{old} dates before 1900")

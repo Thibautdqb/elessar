@@ -1125,5 +1125,5 @@ def see_plot(
     target = resolve_target(df, target)
     df = prepare(df)
     workers = n_workers(cfg, df.size, df.shape[1])
-    details, correlations, _ = analyze(df, target, cfg, workers)
+    df, details, correlations, _ = analyze(df, target, cfg, workers)
     return make_plots(df, details, correlations, out_dir, target, cfg, workers=workers)

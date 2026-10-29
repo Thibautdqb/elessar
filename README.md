@@ -259,7 +259,28 @@ scale? labels?*) until one answers yes. The report shows every column's path and
 
 **Semantic types**: `empty`, `constant`, `boolean` (including 0/1, yes/no, true/false, y/n, oui/non), `id` (unique or near-unique, consecutive ints, UUIDs), `numeric_continuous`, `numeric_discrete` (counts, few levels), `categorical` (labels and high-cardinality codes), `ordinal-candidate` (low/medium/high, sizes, Likert, months, weekdays, quarters, 1-5 integer scales, ordered categoricals), `datetime`, `datetime_string`, `numeric_string` (`"1 234,5"`, `"12%"`, `"$3.2"`), `text`, `multi_label` (lists of labels in a cell: `"Comedies, Dramas"`), `email`, `url`, `phone`, `postal_code`, `ip_address`, `json_like`, `mixed`. Numbers written with units (`"90 min"`, `"60 kg"`) are parsed, and mixed units in one column (`min` and `Seasons`, `kg` and `lbs`) are flagged.
 
-**Dates, whatever the format**: ISO 8601 with or without time and zone; day-first or month-first with any separator (the order that parses every value wins, and a column where both work is reported as ambiguous); month names in English, French, German, Spanish, Italian, Portuguese, Dutch and Czech; compact digits as text or numbers (`YYYYMMDD`, `YYMMDD`, `DDMMYYYY`, `YYYYMM`, `YYYYMMDDHHMM(SS)`, Czech / Slovak birth numbers with month + 50); quarters (`2020Q1`) and ISO weeks (`2020-W05`); Unix timestamps in s / ms / µs / ns; Excel serial days when the column name says it is a date. Two-digit years never land in the future. The suggested conversion uses the exact format found, and `elessar.parse_dates(series)` does it in one call.
+**Dates of birth**: a date of birth is a date, but not a time axis (it says *who* a row is about, not *when*
+something happened), and what models need is the **age**. Among the date columns, a date of birth is recognised:
+
+- **by name**, on whole name tokens (`birth_date`, `DateOfBirth`, `dob`, `date_naissance`, `Geburtsdatum`,
+  `fecha_nacimiento`, `birth_number`...; `adobe` or `stubborn` never match), when the ages it implies are
+  plausible: *certain*. A column named like a birth date whose values are not plausible is reported, not used;
+- **by values alone**, only when all of these hold: the table is about people (a sex, gender, first name,
+  age... column), dates recorded to the day, no time of day, not sorted in row order, at most 1% in the future,
+  98% of ages between 0 and 110, a median age between 18 and 85 and a 5-95% spread of at least 20 years:
+  *probable*, said as such. A date column whose name records an event (`hire`, `created`, `order`, `death`,
+  `release`, `first`, `since`, `term`...) is never taken for a birth date.
+
+Each date of birth then gets a derived **age** column, profiled and tested against the target like any other,
+computed row by row at another event of the row when the table has one (age at admission, at the start of a term,
+at an award year), else on the day of the analysis (which the report says). It is never used as a time axis, the
+preparation plan models the age instead of the calendar parts, and it is checked: births after the reference,
+ages above 120 at an event, an excess of 1 January or of first days of the month (one-sided binomial test against
+the calendar share: day or month unknown), agreement with an `age` column (a constant gap dates the extract), the
+share of minors, and a reminder that a date of birth is personal data and a strong quasi-identifier.
+
+**Dates, whatever the format**: ISO 8601 with or without time and zone; day-first or month-first with any separator (the order that parses every value wins, and a column where both work is reported as ambiguous); month names in English, French, German, Spanish, Italian, Portuguese, Dutch and Czech; compact digits as text or numbers (`YYYYMMDD`, `YYMMDD`, `DDMMYYYY`, `YYYYMM`, `YYYYMMDDHHMM(SS)`, Czech / Slovak birth numbers with month + 50); quarters (`2020Q1`) and ISO weeks (`2020-W05`); Unix timestamps in s / ms / µs / ns; Excel serial days when the column name says it is a date. Two-digit years never land in the future. Zero dates (`0000-00-00`, `00/00/0000`) are placeholders for a
+missing date, never values. The suggested conversion uses the exact format found, and `elessar.parse_dates(series)` does it in one call.
 
 **Statistics**
 - *all columns*: count, missing, unique, memory, modes, top-N values

@@ -27,6 +27,7 @@ from scipy import stats
 
 from ._utils import hashable, quiet
 from .config import StoneConfig
+from .roles import is_birth_name
 from .types import CATEGORY_TYPES, DATETIME_TYPES, NUMERIC_TYPES, as_datetime, as_numeric
 
 # natural seasonal periods (in steps) per sampling frequency
@@ -69,6 +70,8 @@ def _time_columns(df: pd.DataFrame, types: dict[str, str]) -> dict[str, pd.Serie
     out = {}
     month_cols = [c for c in df.columns if _MONTH.search(str(c))]
     for col in df.columns:
+        if is_birth_name(col):  # who a row is about, not when it happened: never a time axis
+            continue
         if _YEAR.search(str(col)) and pd.api.types.is_numeric_dtype(df[col].dtype):
             y = pd.to_numeric(df[col], errors="coerce")
             ok = y.dropna()

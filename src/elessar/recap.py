@@ -695,6 +695,16 @@ class _Recap:
             body.append(("p", [bold("Decision path: "), ("", " → ".join(path[:-1]) + (" → " if len(path) > 1 else "")),
                                bold(path[-1] + f" yes: {d.get('semantic_type')}"),
                                ("", f"  ({d.get('certainty', '-')}: {d.get('certainty_reason', '')})")]))
+        if d.get("role"):
+            b = d.get("birth") or {}
+            ages = (f" Ages {b['reference']}: median {b['median_age']:.0f}, {b['min_age']:.0f} to {b['max_age']:.0f}; "
+                    f"see the derived column {name}_age." if "median_age" in b else "")
+            body.append(("callout", [bold(f"Role: {d['role']} "), ("", f"({d['role_certainty']}: {d['role_reason']}).{ages}")]))
+            body += [("ul", [[(f"sev-{sev}", sev.upper()), ("", " " + msg)] for sev, msg in b.get("checks", [])])]
+        elif d.get("role_note"):
+            body.append(("callout", [bold("Not used as a date of birth: "), ("", d["role_note"] + ".")]))
+        if d.get("derived_from"):
+            body.append(("p", [("i", f"Derived column: {d['reason']}.")]))
         alerts = d.get("alerts") or []
         if alerts:
             body.append(("ul", [[(f"sev-{a['severity']}", a["severity"].upper()), ("", " " + a["message"])]

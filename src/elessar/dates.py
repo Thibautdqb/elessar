@@ -214,6 +214,7 @@ def _ratio(parsed: pd.Series, n: int) -> float:
 
 
 _PLACEHOLDERS = {"", "-", "--", "?", ".", "na", "n/a", "nan", "null", "none", "nat", "0", "00000000", "000000"}
+ZERO_DATE = re.compile(r"^0+([-/. :]0+)*$")  # 0000-00-00, 00/00/0000, 0000-00-00 00:00:00: "no date", not a date
 
 
 def detect(values: pd.Series, name: Any = None, min_ratio: float = 0.9, sample: int = 3_000) -> DateFormat | None:
@@ -230,7 +231,7 @@ def detect(values: pd.Series, name: Any = None, min_ratio: float = 0.9, sample: 
     hint = bool(_HINT.search(str(name or "")))
     numeric = pd.api.types.is_numeric_dtype(s.dtype)
     t = _strings(s)
-    t = t[~t.str.lower().isin(_PLACEHOLDERS)]
+    t = t[~(t.str.lower().isin(_PLACEHOLDERS) | t.str.match(ZERO_DATE))]
     n = len(t)
     if n < 3 or t.nunique() < 2:
         return None

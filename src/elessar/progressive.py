@@ -29,6 +29,7 @@ import pandas as pd
 
 from ._utils import dedupe_names, quiet
 from .config import StoneConfig
+from .roles import birth_columns
 from .timeseries import detect as detect_time
 from .types import infer_type
 
@@ -250,8 +251,10 @@ def progressive_types(probe: Probe, cfg: StoneConfig) -> TypePlan:
             probe.take_block(p, FIRST_LOOK_ROWS // 4)
     rows = _normalise(probe.rows())
     types = {c: infer_type(rows[c], cfg, sampled=True) for c in rows.columns}
+    semantic = {c: d["semantic_type"] for c, d in types.items()}
     with quiet():
-        ts = detect_time(rows, {c: d["semantic_type"] for c, d in types.items()})
+        births = {c for c, e in birth_columns(rows, semantic).items() if "rejected" not in e}
+        ts = detect_time(rows, {c: "birth date" if c in births else t for c, t in semantic.items()})
     keep_order = ts is not None and ts["kind"] in ("single series", "panel")
     plan = TypePlan(types=types, rows_used=len(rows), timeseries=ts, sampling="blocks" if keep_order else "rows")
     plan.rounds.append({"rows": len(rows), "uncertain": plan.uncertain, "changed": []})
