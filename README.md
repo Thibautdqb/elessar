@@ -20,7 +20,7 @@ Pass a `DataFrame`, a file or almost anything tabular to `see()`, or a file to t
 - **associations of every kind with statistical significance**: Pearson, Spearman, Kendall, Cramér's V, correlation ratio, mutual information, AUC, with p-values, Benjamini-Hochberg correction and confidence intervals
 - **target analysis**: feature ranking, **leakage detection**, informative missingness
 - **feature selection** by embedded methods (decision tree, random forest, lasso, ridge) and a filter, cross-validated, with a vote per feature
-- **multivariate statistics**: whether **PCA** or **factor analysis** is worth it (Bartlett, KMO, parallel analysis), redundant groups of columns, rows that are outliers on several columns at once
+- **multivariate statistics**: whether **PCA** is worth it (Bartlett, KMO, parallel analysis), a step-by-step **factor analysis** (KMO, communalities, varimax, Cronbach's alpha, scale scores), redundant groups of columns, rows that are outliers on several columns at once
 - **outliers** found three ways (3 sigma, boxplot, modified z) and listed point by point, with whether to remove or reassign them
 - **time series** recognised on their own (single series, panel, event log): trend, stationarity, seasonality, decomposition, windows, validation folds on the real dates, augmentation recipes
 - a **preparation plan**: every cleaning step (invalid values, wrong formats, misspellings, duplicates, consistency, missing data, outliers) and transformation (bucketing, decomposition, aggregation, combination, rescaling, normalisation, transformation, encoding, dimensionality reduction), each with its reason and its code
@@ -81,7 +81,7 @@ When the analysis finishes, elessar writes **`report.html`** next to the charts 
 - **outliers**: the three methods per column, a chart of every flagged point, the most extreme points by row,
   the rows that are outliers on several columns (`outliers.csv` lists every flagged point)
 - **data quality**
-- **multivariate statistics**: PCA and factor analysis (with the verdict, the loadings and the code), groups of
+- **multivariate statistics**: PCA, and the factor analysis step by step (KMO, communalities, Cronbach's alpha, new factors), groups of
   redundant columns, then the associations (heatmaps with significance, strongest pairs, linear
   dependencies, VIF)
 - the **preparation plan**: cleaning then transformation steps, each with why and the code
@@ -232,7 +232,7 @@ anyway when you run interactively without `-t`). `python -m elessar` works too.
 | `.full` | for a sampled big table: exact figures over every row, one row per column; else `None` |
 | `.timings` | seconds per step: load, columns, associations, quality, advanced, charts, report |
 | `.selection` | feature selection: `table` (importance per method, votes, decision), `keep`, `borderline`, `drop`, `scores` |
-| `.multivariate` | `pca`, `factor` (verdict, reason, loadings, code), `groups` of redundant columns, multivariate `outliers` |
+| `.multivariate` | `pca`, `factor` (verdict, reason, `steps`, `loadings`, `unrotated`, `communality`, `removed`, `reliability`, `scores`, `descriptives`, code), `groups` of redundant columns, multivariate `outliers` |
 | `.outliers` | per numeric column the three methods and the action; `points`: every flagged point; `summary` |
 | `.timeseries` | structure, per-series trend / stationarity / seasonality, `treatment`, `folds`; `None` if not a time series |
 | `.preparation` | `steps` (kind, action, column, why, code), plus what the detectors found (misspellings, groups, bins...) |
@@ -318,11 +318,35 @@ ROC AUC (binary) or balanced accuracy, by 5-fold cross-validation, in time order
 **Multivariate statistics**: on the standardised numeric columns, Bartlett's test of sphericity (is there anything
 to reduce?), the Kaiser-Meyer-Olkin adequacy, and the number of components by parallel analysis (Horn), Kaiser's
 rule and 80 / 90 / 95 % of variance. **PCA** is *recommended* when Bartlett is significant, KMO ≥ 0.5 and it
-keeps fewer than three quarters of the columns; **factor analysis** (varimax) when KMO ≥ 0.6, with the loadings,
-communalities and the columns that define each factor. Groups of columns with mean |Spearman| ≥ 0.7 are proposed
+keeps fewer than three quarters of the columns. Groups of columns with mean |Spearman| ≥ 0.7 are proposed
 for combination. **Multivariate outliers**: robust Mahalanobis distance (minimum covariance determinant on
 Yeo-Johnson-normalised continuous columns, linear combinations removed) beyond the chi-square 99.9 % quantile,
 confirmed by an isolation forest; flagged as indicative when more than 15 % of rows exceed it.
+
+**Factor analysis**, step by step as it is taught and reported, each step shown in the report with its answer:
+
+1. **Preparation**: quantitative or Likert items only (ordered labels such as *disagree < neutral < agree* become
+   their ranks; identifiers, booleans, dates, free labels and the target are left out); declared missing codes
+   (`-999`...) removed; same scale for every item (a Likert battery) or not, in which case items are standardised
+   for the reliability and the scores; listwise deletion; at least 100 complete rows and about 10 per variable
+   (below that the result is *indicative*).
+2. **Extraction**: principal components of the correlation matrix, unrotated solution, scree plot, varimax
+   rotation (Kaiser normalisation), loadings sorted by size.
+3. **Pertinence**: KMO > .50 and Bartlett's test of sphericity < .05, otherwise *not useful*.
+4. **Communalities** (extraction): an item explained below .50 is removed and the analysis run again, one item
+   at a time, the weakest first.
+5. **Number of factors**: eigenvalue > 1, cumulative variance ≥ 60 % and the elbow of the scree plot; the number
+   two criteria agree on, else the scree plot, reduced if needed so that no factor rests on a single item
+   (theoretical coherence).
+6. **Rotated component matrix**: each item goes to its highest loading; an item whose highest loading is below
+   .50, or that loads ≥ .40 on a second factor within .20 of the first (cross-loading), is removed and the analysis
+   run again. Factors are named after their items.
+7. **Cronbach's alpha per factor** (negatively loading items reversed), with the alpha if each item is deleted:
+   excellent ≥ .90, very good ≥ .80, good ≥ .70, acceptable ≥ .60, poor ≥ .50, else unacceptable. A deletion that
+   would raise alpha by .05 or more is *proposed*, never applied: it must also make sense for the construct.
+8. **New factors**, only for the scales with an acceptable alpha: the mean of their items (code given for the mean
+   of the answered items and for the version requiring every item, `MEAN.k`).
+9. **Descriptives** of the new factors: mean, median, mode, standard deviation.
 
 **Outliers**: per numeric column, 3 sigma (|x − mean| > 3 sd), the boxplot fences (Tukey, 1.5 IQR) and the modified
 z-score (Hampel, |0.6745 (x − median) / MAD| > 3.5); 2 methods = consensus. Every flagged point is listed with its
@@ -502,7 +526,7 @@ named `out_dir/<NN>_<column>_<kind>.png`.
 - **pairs**: joint plots with marginal distributions, hexbin density for large data, least-squares line and a median trend (honest for non-linear relations), levels jittered for discrete variables
 - **target**: "what drives the target" ranking (non-significant greyed out), and per-feature plots: joint plot, boxplots sorted by median with individual points, or stacked shares with % labels
 - **feature selection**: importance of every feature by every method with the selections boxed and the votes; the lasso path
-- **PCA**: scree plot (variance per component, cumulative, parallel-analysis threshold, components kept) beside the loadings; **factor analysis**: varimax loadings grouped by factor
+- **PCA**: scree plot (variance per component, cumulative, parallel-analysis threshold, components kept) beside the loadings; **factor analysis**: scree plot with the Kaiser and 60 % lines beside the rotated component matrix
 - **outliers**: every numeric column on one robust scale with its boxplot fences, the points flagged by 1 or 2-3 methods, the most extreme labelled by row; **multivariate outliers**: robust distance of every row against its cutoff
 - **time series**: each series with its rolling mean and its trend / season / stationarity verdict, the autocorrelation with its significance band and seasonal lag, and the seasonal decomposition (observed, trend, seasonal, residual)
 

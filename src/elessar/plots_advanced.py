@@ -95,18 +95,43 @@ def plot_pca(writer: Any, pca: dict[str, Any], cfg: StoneConfig) -> None:
 
 
 def plot_factors(writer: Any, fa: dict[str, Any], cfg: StoneConfig) -> None:
-    load = fa.get("loadings")
-    if load is None or load.empty:
+    """Scree plot with the three criteria for the number of factors, and the rotated component matrix."""
+    load, sol = fa.get("loadings"), fa.get("solution")
+    if load is None or load.empty or sol is None:
         return
-    order = load.abs().idxmax(axis=1).map(list(load.columns).index)
-    rows = sorted(load.index, key=lambda r: (order[r], -load.loc[r].abs().max()))
-    fig, body = _figure(min(10, max(6.5, 1.1 * load.shape[1] + 4.5)), 0.34 * len(rows) + 2.3, "Factor analysis (varimax)",
-                        f"{fa['n_factors']} factor{'s' if fa['n_factors'] > 1 else ''}  ·  " + "  ·  ".join(
-                            f"{f}: {', '.join(truncate(c, 14) for c in cols[:2])}" for f, cols in fa["defined_by"].items())[:150],
-                        "Loadings = correlation of each column with each latent factor; bold when |loading| ≥ 0.4. "
-                        "Columns are grouped by the factor they load on most.")
-    ax = body.add_subplot()
-    _matrix(ax, np.clip(load.loc[rows].to_numpy(dtype="float64"), -1, 1), rows, list(load.columns), True, strong=0.4)
+    eig = np.asarray(sol["eigenvalues"])
+    shown = min(len(eig), 15)
+    k = fa["n_factors"]
+    rows = list(load.index)
+    alphas = {f: r["alpha"] for f, r in (fa.get("reliability") or {}).items() if len(r["items"]) > 1}
+    fig, body = _figure(13, max(5.2, 0.32 * len(rows) + 2.4), "Factor analysis (principal components, varimax)",
+                        f"{k} factor{'s' if k > 1 else ''}  ·  KMO {fa['kmo']:.2f}  ·  Bartlett p {fmt_p(fa['bartlett_p'])}"
+                        + "".join(f"  ·  {f} α {a:.2f}" for f, a in alphas.items())[:120],
+                        "Left: share of the variance of each component (scree plot) - the dashed line is the Kaiser "
+                        "criterion (eigenvalue 1) - and the cumulative share against the 60% target. Right: rotated loadings, items "
+                        "grouped by the factor they load on most; bold when |loading| ≥ 0.5.")
+    gs = body.add_gridspec(1, 2, width_ratios=[1.1, 1])
+    ax = body.add_subplot(gs[0, 0])
+    x = np.arange(1, shown + 1)
+    p = len(eig)
+    share = 100 * eig[:shown] / p  # one axis: eigenvalue 1 = 100 / p % of the variance
+    ax.plot(x, share, color=BLUE, lw=2, marker="o", ms=5, label="variance of the component (scree)")
+    ax.plot(x, 100 * np.asarray(sol["cumulative"])[:shown], color=ORANGE, lw=1.6, marker="o", ms=3,
+            label="cumulative")
+    ax.axhline(100 / p, color=INK_2, lw=1, ls=(0, (4, 3)))
+    ax.text(shown + 0.3, 100 / p, "eigenvalue 1", fontsize=7.5, color=MUTED, va="center")
+    ax.axhline(60, color=GRID, lw=1, ls=(0, (3, 2)), zorder=0)
+    ax.text(shown + 0.3, 60, "60%", fontsize=7.5, color=MUTED, va="center")
+    ax.axvline(k + 0.5, color=INK, lw=1, ls=(0, (4, 3)))
+    ax.text(k + 0.6, 35, f"keep {k}", fontsize=8.5, color=INK, rotation=90, va="center")
+    ax.set_xticks(x, [f"C{i}" for i in x])
+    ax.set_ylim(0, 105)
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:.0f}%"))
+    ax.legend(loc="center right", fontsize=8)
+    ax.set_title("Scree plot")
+    ax2 = body.add_subplot(gs[0, 1])
+    _matrix(ax2, np.clip(load.loc[rows].to_numpy(dtype="float64"), -1, 1), rows, list(load.columns), True, strong=0.5)
+    ax2.set_title("Rotated component matrix", pad=24)
     writer.save(fig, None, "factors")
 
 

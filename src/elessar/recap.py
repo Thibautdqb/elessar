@@ -620,20 +620,60 @@ class _Recap:
         else:
             self.add("p", f"PCA {pca.get('verdict')}: {pca.get('reason')}")
         self.figures(self.charts(("pca", "factors")))
-        if fa.get("verdict") == "recommended":
-            load = fa["loadings"]
-            self.add("table", ["column"] + list(load.columns) + ["communality"],
-                     [[[code(c)]] + [f"{x:+.2f}" for x in load.loc[c]] + [f"{fa['communality'][c]:.2f}"] for c in load.index],
-                     "data")
-            self.add("code", fa["code"])
-            if fa.get("weak_columns"):
-                self.add("p", "Columns with little shared variance (communality < 0.2), not well described by the "
-                              "factors: " + ", ".join(map(str, fa["weak_columns"])))
+        self.factor_analysis(fa)
         if groups:
             self.add("h", 3, "Groups of redundant columns", None)
             self.add("table", ["columns", "mean |Spearman|", "keep"],
                      [[", ".join(map(str, g["columns"])), f"{g['mean_abs_spearman']:.2f}", [code(g["representative"])]]
                       for g in groups], "data")
+
+    def factor_analysis(self, fa: dict[str, Any]) -> None:
+        """The factor analysis step by step: checklist, matrices, reliability, the new factors."""
+        if not fa.get("steps"):
+            return
+        self.add("h", 3, "Factor analysis", None)
+        self.add("p", "Principal components of the correlation matrix, varimax rotation, then Cronbach's alpha per "
+                      "factor; items are examined and removed one at a time (communality < .50, highest loading "
+                      "< .50 or cross-loading), and the analysis is run again after each removal.")
+        chip = {True: ("cert-certain", "yes"), False: ("cert-uncertain", "no"), None: ("sev-info", "done"),
+                "removed": ("sev-medium", "removed")}
+        self.add("table", ["step", "question", "answer", ""],
+                 [[str(st["step"]), st["question"], st["answer"], [chip[st["ok"]]]] for st in fa["steps"]], "data")
+        load = fa.get("loadings")
+        if load is None:
+            return
+        unrot, h = fa["unrotated"], fa["communality"]
+        assign = load.abs().idxmax(axis=1)
+        self.add("p", [bold("Component matrices"), ("", " (sorted by size; each item goes to its highest rotated "
+                                                         "loading; communality = share of the item explained)")])
+        self.add("table", ["item"] + [f"{f} unrotated" for f in unrot.columns] + [f"{f} rotated" for f in load.columns]
+                 + ["communality", "factor"],
+                 [[[code(c)]] + [f"{x:+.2f}" for x in unrot.loc[c]] + [f"{x:+.2f}" for x in load.loc[c]]
+                  + [f"{h[c]:.2f}", assign[c]] for c in load.index], "data")
+        rel = fa.get("reliability") or {}
+        rows = []
+        for f, r in rel.items():
+            if len(r["items"]) < 2:
+                rows.append([f, ", ".join(map(str, r["items"])), "-", "single item", "-"])
+                continue
+            deleted = ", ".join(f"{c}: {a:.2f}" + (" (+)" if a - r["alpha"] >= 0.05 else "") for c, a in r["if_deleted"].items())
+            rows.append([f, ", ".join(f"{c} (reversed)" if c in r["reversed"] else str(c) for c in r["items"]),
+                         f"{r['alpha']:.2f}", r["label"], deleted or "-"])
+        if rows:
+            self.add("p", [bold("Reliability"), ("", ": Cronbach's alpha per factor (excellent >= .90, very good >= .80, "
+                                                     "good >= .70, acceptable >= .60, poor >= .50). (+) marks a deletion "
+                                                     "that would raise alpha by .05 or more: delete only if it also makes "
+                                                     "sense for the construct; marginal gains are not worth an item.")])
+            self.add("table", ["factor", "items", "alpha", "", "alpha if item deleted"], rows, "data")
+        desc = fa.get("descriptives") or {}
+        if desc:
+            self.add("p", [bold("New factors"), ("", " (created only for factors with an acceptable alpha: the mean of "
+                                                      "their items)")])
+            self.add("table", ["factor", "items", "n", "mean", "median", "mode", "std"],
+                     [[[code(k)], ", ".join(map(str, d["items"])), f"{d['n']:,}", f"{d['mean']:.2f}", f"{d['median']:.2f}",
+                       f"{d['mode']:.2f}", f"{d['std']:.2f}"] for k, d in desc.items()], "data")
+        if fa.get("code"):
+            self.add("code", fa["code"])
 
     def distribution_section(self) -> None:
         v = self.v

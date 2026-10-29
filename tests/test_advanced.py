@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from elessar import StoneConfig, see
+from elessar.factor import alpha_label, cronbach_alpha, factor_analysis, scree_elbow
 from elessar.multivariate import kmo, multivariate, pca_analysis
 from elessar.outliers import column_outliers
 from elessar.preparation import BKTree, composite, edit_distance, group_categories, magnitude_mix, misspellings
@@ -36,6 +37,87 @@ def test_pca_and_factors_find_two_latent_factors() -> None:
     groups = sorted(sorted(g) for g in fa["defined_by"].values())
     assert groups == [["a0", "a1", "a2"], ["b0", "b1", "b2"]]
     assert sorted(sorted(g["columns"]) for g in mv["groups"]) == groups
+
+
+def _survey(n: int = 400, seed: int = 3) -> pd.DataFrame:
+    """Two Likert scales of four items (one reversed), an unrelated item, an item loading on both."""
+    rng = np.random.default_rng(seed)
+    f1, f2 = rng.normal(size=n), rng.normal(size=n)
+
+    def likert(z: np.ndarray) -> np.ndarray:
+        return np.clip(np.round(3 + 1.1 * z), 1, 5)
+
+    df = pd.DataFrame({**{f"sat{i}": likert(f1 + 0.6 * rng.normal(size=n)) for i in range(4)},
+                       **{f"trust{i}": likert(f2 + 0.6 * rng.normal(size=n)) for i in range(3)},
+                       "trust_rev": likert(-f2 + 0.6 * rng.normal(size=n)),
+                       "noise": likert(rng.normal(size=n)),
+                       "mixed": likert(0.7 * f1 + 0.7 * f2 + 0.5 * rng.normal(size=n))})
+    df.loc[:5, "noise"] = -999
+    return df
+
+
+def test_factor_analysis_follows_the_nine_steps() -> None:
+    df = _survey()
+    fa = factor_analysis(df, {c: "numeric_discrete" for c in df}, CFG)
+    assert fa["declared_missing"] == {"noise": [-999]} and fa["same_scale"] and fa["sample_ok"]
+    assert fa["kmo"] > 0.5 and fa["bartlett_p"] < 0.05
+    # the unrelated item goes for its communality, then the cross-loading one; one at a time
+    assert [r["item"] for r in fa["removed"]] == ["noise", "mixed"]
+    assert fa["removed"][0]["why"].startswith("communality") and "cross-loading" in fa["removed"][1]["why"]
+    sol = fa["solution"]
+    assert sol["k_kaiser"] == sol["k_variance"] == sol["k_scree"] == fa["n_factors"] == 2
+    assert sorted(sorted(m) for m in fa["factors"].values()) == [["sat0", "sat1", "sat2", "sat3"],
+                                                                 ["trust0", "trust1", "trust2", "trust_rev"]]
+    assert min(fa["communality"].values()) >= 0.5
+    trust = next(f for f, m in fa["factors"].items() if "trust0" in m)
+    rel = fa["reliability"][trust]
+    assert rel["reversed"] == ["trust_rev"] and rel["alpha"] > 0.8 and rel["label"] in ("very good", "excellent")
+    assert not rel["proposals"]
+    assert set(fa["descriptives"]) == set(fa["scores"].columns) and len(fa["descriptives"]) == 2
+    d = next(iter(fa["descriptives"].values()))
+    assert {"mean", "median", "mode", "std"} <= set(d) and 1 <= d["mean"] <= 5
+    assert "6 - items['trust_rev']" in fa["code"] and "MEAN.4" in fa["code"]
+    assert [st["step"] for st in fa["steps"]] == sorted(st["step"] for st in fa["steps"])
+    assert fa["verdict"] == "recommended"
+
+
+def test_factor_analysis_ranks_likert_labels_and_standardises_mixed_scales() -> None:
+    rng = np.random.default_rng(5)
+    n = 300
+    f = rng.normal(size=n)
+    labels = np.array(["strongly disagree", "disagree", "neutral", "agree", "strongly agree"])
+    df = pd.DataFrame({"q1": labels[np.clip(np.round(2 + f + 0.5 * rng.normal(size=n)), 0, 4).astype(int)],
+                       "income": 2000 + 800 * f + 300 * rng.normal(size=n),
+                       "score": 50 + 10 * f + 4 * rng.normal(size=n)})
+    types = {"q1": "ordinal-candidate", "income": "numeric_continuous", "score": "numeric_continuous"}
+    fa = factor_analysis(df, types, CFG)
+    assert fa["kinds"]["q1"].startswith("Likert labels") and not fa["same_scale"]
+    assert fa["n_factors"] == 1 and next(iter(fa["reliability"].values()))["standardised"]
+    assert "z-scores" in fa["code"]
+
+
+def test_factor_analysis_not_applicable_or_not_useful() -> None:
+    rng = np.random.default_rng(1)
+    two = pd.DataFrame(rng.normal(size=(200, 2)), columns=["a", "b"])
+    assert factor_analysis(two, {c: "numeric_continuous" for c in two}, CFG)["verdict"] == "not applicable"
+    noise = pd.DataFrame(rng.normal(size=(500, 5)), columns=list("abcde"))
+    assert factor_analysis(noise, {c: "numeric_continuous" for c in noise}, CFG)["verdict"] == "not useful"
+    small = _survey(n=60)
+    fa = factor_analysis(small, {c: "numeric_discrete" for c in small}, CFG)
+    assert not fa["sample_ok"] and fa["verdict"] == "indicative"
+
+
+def test_cronbach_alpha_and_scree_elbow() -> None:
+    items = pd.DataFrame({"a": [1, 2, 3, 4, 5], "b": [2, 3, 4, 5, 6], "c": [1, 2, 3, 4, 5]})
+    assert cronbach_alpha(items) == pytest.approx(1.0)
+    # the textbook formula on a small example: k / (k - 1) * (1 - sum var_i / var_total)
+    x = pd.DataFrame({"a": [3, 4, 2, 5, 4, 3], "b": [2, 4, 3, 5, 3, 2], "c": [3, 5, 2, 4, 4, 3]})
+    expected = 3 / 2 * (1 - x.var().sum() / x.sum(axis=1).var())
+    assert cronbach_alpha(x) == pytest.approx(expected)
+    assert [alpha_label(a) for a in (0.95, 0.85, 0.75, 0.65, 0.55, 0.3)] == [
+        "excellent", "very good", "good", "acceptable", "poor", "unacceptable"]
+    assert scree_elbow(np.array([3.5, 2.4, 0.4, 0.3, 0.2, 0.2])) == 2
+    assert scree_elbow(np.array([4.0, 0.5, 0.4, 0.3])) == 1
 
 
 def test_pca_not_useful_on_independent_columns() -> None:

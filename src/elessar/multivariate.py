@@ -1,4 +1,5 @@
-"""Multivariate statistics: is dimensionality reduction worth it (PCA, factor analysis), which
+"""Multivariate statistics: is dimensionality reduction worth it (PCA; factor analysis in
+:mod:`elessar.factor`), which
 columns form redundant groups, and which rows are outliers on several columns at once.
 
 Everything runs on the numeric columns (identifiers, constants and the target left out),
@@ -171,50 +172,6 @@ def varimax(loadings: np.ndarray, max_iter: int = 500, tol: float = 1e-8) -> np.
     return (a @ rot) * h
 
 
-def factor_analysis(num: pd.DataFrame, pca: dict[str, Any], cfg: StoneConfig) -> dict[str, Any]:
-    """Varimax-rotated factor analysis when the correlations support latent factors."""
-    p = num.shape[1]
-    out: dict[str, Any] = {}
-    if pca.get("verdict") in (None, "not applicable") or p < 4:
-        out.update(verdict="not applicable", reason="needs at least 4 correlated numeric columns")
-        return out
-    k = int(min(max(1, pca["k_parallel"]), p // 2))
-    if pca["bartlett_p"] >= cfg.alpha or pca["kmo"] < 0.6 or k < 1:
-        out.update(verdict="not useful", reason=f"KMO {pca['kmo']:.2f} ({pca['kmo_label']}) and Bartlett p "
-                                                f"{fmt_p(pca['bartlett_p'])}: no clear shared factors")
-        return out
-    from sklearn.decomposition import FactorAnalysis
-
-    x = _standardize(num)
-    if len(x) > 5_000:  # loadings are stable long before that; the iterative fit is linear in rows
-        x = x[np.random.default_rng(cfg.random_state).choice(len(x), 5_000, replace=False)]
-    with quiet(), warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        fa = FactorAnalysis(n_components=k, svd_method="lapack", random_state=cfg.random_state)
-        fa.fit(x)
-    raw = fa.components_.T
-    load = pd.DataFrame(varimax(raw) if k > 1 else raw, index=num.columns, columns=[f"F{i + 1}" for i in range(k)])
-    for c in load.columns:  # sign: the strongest loading positive
-        if load[c].iloc[int(np.argmax(load[c].abs().to_numpy()))] < 0:
-            load[c] *= -1
-    communality = (load**2).sum(axis=1)
-    names = {}
-    for c in load.columns:
-        strong = load[c][load[c].abs() >= 0.4].abs().sort_values(ascending=False)
-        names[c] = list(strong.index[:4]) or [load[c].abs().idxmax()]
-    out.update(
-        verdict="recommended", n_factors=k, loadings=load, communality=communality.to_dict(),
-        variance=((load**2).sum(axis=0) / p).to_dict(), defined_by=names,
-        weak_columns=[c for c, h in communality.items() if h < 0.2],
-        reason=f"{k} latent factor{'s' if k > 1 else ''} (varimax) explain "
-               f"{100 * float((load**2).to_numpy().sum()) / p:.0f}% of the shared variance of {p} columns",
-        code=(f"from sklearn.decomposition import FactorAnalysis\nfrom sklearn.preprocessing import StandardScaler\n"
-              f"cols = {list(num.columns)!r}\nx = StandardScaler().fit_transform(df[cols].fillna(df[cols].median()))\n"
-              f"factors = FactorAnalysis(n_components={k}, rotation='varimax').fit_transform(x)"),
-    )
-    return out
-
-
 def feature_groups(num: pd.DataFrame, threshold: float = 0.7) -> list[dict[str, Any]]:
     """Groups of columns whose pairwise |Spearman| is high (average linkage): candidates to merge or thin out."""
     if num.shape[1] < 2:
@@ -317,11 +274,13 @@ def multivariate(df: pd.DataFrame, types: dict[str, str], target: str | None, cf
         out["generalized_variance"] = float(np.linalg.det(np.corrcoef(_standardize(num), rowvar=False))) \
             if num.shape[1] > 1 else None
     out["pca"] = pca_analysis(num, cfg)
-    out["factor"] = factor_analysis(num, out["pca"], cfg)
+    from .factor import factor_analysis
+
+    out["factor"] = factor_analysis(df, types, cfg, target)
     out["groups"] = feature_groups(num)
     out["outliers"] = multivariate_outliers(num, cfg)
     return out
 
 
-__all__ = ["bartlett_sphericity", "factor_analysis", "feature_groups", "kmo", "multivariate", "multivariate_outliers",
+__all__ = ["bartlett_sphericity", "feature_groups", "kmo", "multivariate", "multivariate_outliers",
            "parallel_analysis", "pca_analysis"]

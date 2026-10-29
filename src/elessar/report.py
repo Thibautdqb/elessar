@@ -236,8 +236,11 @@ class Vision:
             rows.append(("PCA", f"{pca.get('verdict')}: {pca.get('reason')}"))
         if fa:
             rows.append(("factors", f"{fa.get('verdict')}: {fa.get('reason')}"))
+            rel = fa.get("reliability") or {}
             for f, cols in (fa.get("defined_by") or {}).items():
-                rows.append(("", f"{f}: {', '.join(map(str, cols))}"))
+                a = (rel.get(f) or {}).get("alpha")
+                alpha = f" (alpha {a:.2f}, {rel[f]['label']})" if a is not None and a == a else ""
+                rows.append(("", f"{f}: {', '.join(map(str, cols))}{alpha}"))
         for g in mv.get("groups") or []:
             rows.append(("redundant group", f"{', '.join(map(str, g['columns']))} (|rho| {g['mean_abs_spearman']:.2f})"))
         if mo.get("verdict") == "computed":

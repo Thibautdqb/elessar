@@ -1046,7 +1046,7 @@ def _advanced_jobs(adv: dict[str, Any], target: str | None, cfg: StoneConfig) ->
         jobs.append(("multivariate outliers", pa.plot_multivariate_outliers, (mv["outliers"], cfg)))
     if (mv.get("pca") or {}).get("eigenvalues"):
         jobs.append(("pca", pa.plot_pca, (mv["pca"], cfg)))
-    if (mv.get("factor") or {}).get("verdict") == "recommended":
+    if (mv.get("factor") or {}).get("loadings") is not None:
         jobs.append(("factors", pa.plot_factors, (mv["factor"], cfg)))
     return jobs
 
