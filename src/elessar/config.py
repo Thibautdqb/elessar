@@ -91,6 +91,11 @@ class StoneConfig:
     """Pairs with |association| above this are listed as strong."""
     high_corr: float = 0.95
     """Pairs above this are flagged as redundant."""
+    pearson_max_skew: float = 1.0
+    pearson_max_kurtosis: float = 3.0
+    """A numeric pair is tested with Pearson when both columns have |skewness| and |excess kurtosis| below
+    these, with Spearman otherwise. The choice looks only at each column's shape, never at the pair's
+    association, so the test keeps its stated error rate."""
     leakage_threshold: float = 0.98
     vif_threshold: float = 10.0
     """Variance inflation factor above which a column is flagged as multicollinear."""

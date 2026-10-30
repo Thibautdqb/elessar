@@ -81,6 +81,42 @@ def test_factor_analysis_follows_the_nine_steps() -> None:
     assert fa["verdict"] == "recommended"
 
 
+def test_parallel_analysis_sets_the_number_of_factors() -> None:
+    from elessar.factor import _solution
+
+    rng = np.random.default_rng(4)  # 2 factors of 8 items loading .5: Kaiser and the scree elbow both say 3
+    n, k, per, lam = 300, 2, 8, 0.5
+    loadings = np.zeros((k * per, k))
+    for j in range(k):
+        loadings[j * per:(j + 1) * per, j] = lam
+    x = rng.normal(size=(n, k)) @ loadings.T + rng.normal(size=(n, k * per)) * np.sqrt(1 - lam**2)
+    df = pd.DataFrame(x, columns=[f"q{i}" for i in range(k * per)])
+    sol = _solution(df, None)
+    assert (sol["k_kaiser"], sol["k_scree"]) == (3, 3)  # the former rule kept 3: two criteria agreed
+    assert sol["k_parallel"] == 2 and sol["k"] == 2
+    fa = factor_analysis(df, {c: "numeric_continuous" for c in df}, CFG)
+    assert fa["n_factors"] == 2
+    step5 = next(s["answer"] for s in fa["steps"] if s["step"] == 5)
+    assert step5.startswith("parallel analysis (Horn): 2 -> 2")
+
+
+def test_two_item_factor_is_judged_on_spearman_brown() -> None:
+    from elessar.factor import _reliability
+
+    rng = np.random.default_rng(24)
+    z = rng.normal(size=2_000)
+    wide = np.clip(np.round(3 + 1.3 * (0.8 * z + 0.6 * rng.normal(size=2_000))), 1, 5)  # same 1-5 scale,
+    narrow = np.clip(np.round(3 + 0.45 * (0.8 * z + 0.6 * rng.normal(size=2_000))), 1, 5)  # unequal spreads
+    items = pd.DataFrame({"wide": wide, "narrow": narrow})
+    rel = _reliability(items, pd.Series({"wide": 0.8, "narrow": 0.8}), True, (1.0, 5.0))
+    r = items.corr().iloc[0, 1]
+    assert rel["spearman_brown"] == pytest.approx(2 * r / (1 + r)) and rel["reliability"] == rel["spearman_brown"]
+    # alpha understates a two-item scale whose items vary unequally: below .60 here, so no score used to be made
+    assert rel["alpha"] < 0.60 <= rel["spearman_brown"] and rel["label"] == "acceptable"
+    three = _reliability(items.assign(third=wide), pd.Series(0.8, index=["wide", "narrow", "third"]), True, (1.0, 5.0))
+    assert three["spearman_brown"] is None and three["reliability"] == three["alpha"]
+
+
 def test_factor_analysis_ranks_likert_labels_and_standardises_mixed_scales() -> None:
     rng = np.random.default_rng(5)
     n = 300
@@ -146,7 +182,20 @@ def test_outlier_methods_and_actions() -> None:
     assert r["action"] == "remove"  # one value 70 robust sd away: an error
     tail = pd.Series(rng.lognormal(0, 1, 1000))
     assert column_outliers(tail, CFG)["action"] == "reassign"
+    # a value 10 robust sd away from a heavy-tailed column is not called an error (it happens), but checked
+    heavy = pd.Series(np.r_[rng.standard_t(3, 999), [40.0]])
+    r = column_outliers(heavy, CFG)
+    assert r["action"] == "reassign" and "check them" in r["why"]
     assert column_outliers(pd.Series(rng.normal(size=300)), CFG)["n_consensus"] <= 3
+
+
+def test_outliers_of_a_series_with_repeated_row_labels() -> None:
+    rng = np.random.default_rng(3)
+    x = pd.Series(np.r_[[40.0, 50.0], rng.normal(size=200)], index=[7, 7] + list(range(200)))
+    pts = column_outliers(x, CFG)["points"]  # used to fail: a label lookup on 7 returned two rows
+    top = pts.iloc[:2]
+    assert list(top["row"]) == [7, 7] and sorted(top["value"]) == [40.0, 50.0]
+    assert (top["methods"] == "3 sigma, boxplot, modified z").all() and (top["n_methods"] == 3).all()
 
 
 # ------------------------------------------------------------------------------------------- time series
@@ -187,6 +236,35 @@ def test_panel_event_log_and_year_month() -> None:
     assert detect(pd.DataFrame({"x": range(50)}), {"x": "numeric_discrete"}) is None
 
 
+def test_every_treatment_snippet_runs_on_the_analysed_column() -> None:
+    rng = np.random.default_rng(14)
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    t = pd.date_range("2021-01-01", periods=120, freq="D")
+    panel = pd.DataFrame({"day": np.tile(t, 3), "store": np.repeat(["a", "b", "c"], 120),
+                          "sales": np.repeat([0.0, 100.0, 200.0], 120) + rng.normal(size=360)}).sample(frac=1, random_state=0)
+    cases = {"single": _daily(),
+             "year + month": pd.DataFrame({"year": np.repeat(np.arange(1990, 2002), 12), "month": np.tile(months, 12),
+                                           "passengers": 100 + np.arange(144) + 20 * np.tile(np.sin(np.arange(12)), 12)}),
+             "event log": pd.DataFrame({"at": pd.Timestamp("2022-01-01") + pd.to_timedelta(rng.integers(0, 10**7, 600), unit="s"),
+                                        "duration": [f"{m} min" for m in rng.integers(60, 180, 600)],
+                                        "kind": rng.choice(["film", "show"], 600)}),
+             "panel": panel}
+    for name, df in cases.items():
+        ts = see(df, plots=False, verbose=False).timeseries
+        ns = {"np": np, "pd": pd, "elessar": __import__("elessar"), "df": df.copy()}
+        for st in ts["treatment"]:
+            assert "<value>" not in st.get("code", ""), (name, st["step"])
+            try:
+                exec(st.get("code", ""), ns)
+            except Exception as e:  # pragma: no cover - the message names the failing snippet
+                raise AssertionError(f"{name}: {st['step']} fails: {e!r}") from e
+        if name == "panel":  # lags stay within each store: the first day of a store has no lag
+            out = ns["df"]
+            assert out.groupby("store")["lag_1"].apply(lambda s: s.isna().iloc[0]).all()
+            assert ((out["lag_1"] - out["sales"]).abs().dropna() < 10).all()
+            assert ((out["roll_mean_7"] - out["sales"]).abs().dropna() < 10).all()
+
+
 def test_adf_kpss_and_combined_verdict() -> None:
     rng = np.random.default_rng(5)
     noise = rng.normal(size=500)
@@ -211,7 +289,7 @@ def test_mann_kendall_corrects_for_autocorrelation() -> None:
         mk = mann_kendall(y)
         assert mk["variance_inflation"] >= 1 and mk["p_value"] >= mk["p_value_naive"]
         false_positive += mk["p_value"] < 0.05
-    assert false_positive <= 12  # the naive version rejects in most of these series
+    assert false_positive <= 6  # about 2.6 expected; the textbook Hamed-Rao gave about 10, the naive test 20
     up = mann_kendall(0.05 * np.arange(200) + rng.normal(size=200))
     assert up["trend"] == "increasing" and abs(up["slope"] - 0.05) < 0.01
 
@@ -240,6 +318,31 @@ def test_feature_selection_separates_signal_from_noise() -> None:
     df["label"] = (df["y"] > df["y"].median()).map({True: "hi", False: "lo"})
     out = feature_selection(df.drop(columns="y"), "label", {**types, "label": "boolean"}, {}, CFG)
     assert out["task"] == "binary classification" and {"x1", "x2", "c"} <= set(out["keep"])
+    assert out["n_train"] + out["n_holdout"] == out["n_rows"] and abs(out["n_holdout"] / out["n_rows"] - 0.2) < 0.01
+    # pure noise with a binary target: a method votes only for features that beat their shuffled shadows
+    noise = pd.DataFrame(np.random.default_rng(7).normal(size=(400, 10)), columns=[f"z{i}" for i in range(10)])
+    noise["label"] = np.random.default_rng(8).integers(0, 2, 400)
+    out = feature_selection(noise, "label", {**{c: "numeric_continuous" for c in noise}, "label": "boolean"}, {}, CFG)
+    assert len(out["keep"]) <= 1 and out["votes"]["ridge"].sum() <= 2  # the ridge rule used to vote for most
+
+
+def test_selection_on_dated_rows_is_validated_on_their_future() -> None:
+    from elessar.selection import _time_folds
+
+    codes = np.repeat(np.arange(12), 3)  # a panel: three rows per date
+    for tr, te in _time_folds(codes, 5):  # cut between dates: a date is never on both sides
+        assert codes[tr].max() < codes[te].min()
+    rng = np.random.default_rng(12)
+    n = 500  # two independent random walks: x tells nothing about y
+    df = pd.DataFrame({"day": pd.date_range("2020-01-01", periods=n, freq="D"), "x": np.cumsum(rng.normal(size=n)),
+                       "noise": rng.normal(size=n), "y": np.cumsum(rng.normal(size=n))})
+    ordered = see(df, target="y", plots=False, verbose=False).selection
+    shuffled = see(df.sample(frac=1, random_state=1), target="y", plots=False, verbose=False).selection
+    # shuffled rows used to be cross-validated at random: neighbouring days on both sides, R2 about +0.4
+    assert shuffled["scores"] == ordered["scores"] and shuffled["cv"] == "time-ordered 5-fold"
+    assert max(ordered["scores"].values()) < 0
+    assert f"later rows (from {df['day'].iloc[400].date()})" in ordered["validation"]
+    assert ordered["on_differences"] == ["x", "y"]  # two random walks: their changes are modelled, not their levels
 
 
 # ------------------------------------------------------------------------------------------- preparation
@@ -332,3 +435,62 @@ def test_see_types_shows_the_decision_path() -> None:
     out = see_types(pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "x"]}))
     assert {"certainty", "path"} <= set(out.columns)
     assert out.loc["a", "path"].startswith("any non-missing value?") and out.loc["a", "certainty"] == "certain"
+
+
+def test_box_cox_snippet_keeps_the_observed_values(tmp_path: Path) -> None:
+    """boxcox() on a column with NaN returns NaN everywhere: the snippet must fit on the observed values."""
+    rng = np.random.default_rng(2)
+    x = rng.chisquare(3, 600) + 0.1  # skewed and positive: Box-Cox, not log, is proposed
+    x[:30] = np.nan
+    df = pd.DataFrame({"x": x, "y": rng.normal(size=600)})
+    v = see(df, plots=False, verbose=False, out_dir=tmp_path, open_report=False)
+    step = next(s for s in v.preparation["steps"] if s["action"] == "Transformation" and s["column"] == "x")
+    assert "Box-Cox" in step["why"]
+    ns = {"df": df.copy(), "np": np, "pd": pd}
+    exec(step["code"], ns)
+    out = ns["df"]["x"]
+    assert out.isna().sum() == 30 and np.isfinite(out.dropna()).all()
+    assert abs(out.skew()) < abs(df["x"].skew()) / 2
+
+
+def test_every_preparation_snippet_runs_in_plan_order(tmp_path: Path) -> None:
+    """The plan is code to run: every step, in order, on the user's own DataFrame (not elessar's renamed copy)."""
+    import elessar
+
+    rng = np.random.default_rng(4)
+    n = 400
+    skewed = rng.chisquare(3, n) + 0.1
+    skewed[:25] = np.nan
+    df = pd.DataFrame({
+        0: rng.normal(50, 10, n),  # integer column names, as in a file without a header row
+        1: np.where(rng.random(n) < 0.03, 99999, rng.integers(20, 90, n)),  # a numeric missing-value code
+        2: skewed,  # skewed with NaN: Box-Cox fitted on the observed values
+        3: rng.normal(0, 1000, n),  # scales 1000x apart, no outlier: rescale without RobustScaler
+        "joined": [" 2021-03-%02d" % (i % 28 + 1) for i in range(n)],  # spaces around dates
+        "mostly_empty": np.where(rng.random(n) < 0.8, np.nan, rng.normal(size=n)),
+        "colour": pd.Series(rng.choice(["red", "blue", None], n), dtype="object"),
+        "length": [f"{rng.integers(60, 120)} min" if i % 3 else f"{rng.integers(1, 5)} Seasons" for i in range(n)],
+        "tags": [", ".join(rng.choice(["a", "b", "c", "d"], rng.integers(1, 3), replace=False)) if i % 9 else None
+                 for i in range(n)],
+    })
+    v = see(df, plots=False, verbose=False, out_dir=tmp_path, open_report=False)
+    assert v.preparation["steps"][0]["code"].startswith("df.columns = ['0', '1', '2', '3'")
+    ns = {"df": df.copy(), "np": np, "pd": pd, "elessar": elessar}
+    for step in v.preparation["steps"]:
+        if "[...]" in step["code"]:
+            continue  # asks for the user's input (an order of levels)
+        exec(step["code"], ns)
+    out = ns["df"]
+    assert "mostly_empty" not in out.columns and "mostly_empty_missing" in out.columns
+    assert not out.select_dtypes("number").isin([99999]).any().any()
+    # scaled once, after the power transforms (Box-Cox needs the positive, unscaled values)
+    actions = [st["action"] for st in v.preparation["steps"]]
+    assert actions.count("Rescale") == 1 and "Normalization" not in actions
+    assert max(i for i, a in enumerate(actions) if a == "Transformation") < actions.index("Rescale")
+    assert abs(out["3"].mean()) < 1e-9 and abs(out["3"].std() - 1) < 0.01
+
+
+def test_formatted_placeholders_are_read_back_as_numbers() -> None:
+    from elessar.preparation import _literal
+
+    assert [_literal(k) for k in ("99,999", "-999", "1,234.5", "'?'", "NA")] == [99999, -999, 1234.5, "?", "NA"]

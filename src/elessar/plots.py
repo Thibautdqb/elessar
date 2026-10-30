@@ -542,7 +542,7 @@ def plot_text(writer: _Writer, col: str, s: pd.Series, detail: dict[str, Any], c
 
 
 # ---------------------------------------------------------------------------------------------- dataset level
-def plot_missing(writer: _Writer, df: pd.DataFrame, cfg: StoneConfig) -> None:
+def plot_missing(writer: _Writer, df: pd.DataFrame, cfg: StoneConfig, n_rows_total: int | None = None) -> None:
     """Missing-values matrix (rows x columns) with the per-column missing share on top."""
     miss = df.isna()
     pct = 100 * miss.mean()
@@ -551,7 +551,7 @@ def plot_missing(writer: _Writer, df: pd.DataFrame, cfg: StoneConfig) -> None:
     cols = list(df.columns) if df.shape[1] <= 60 else list(pct.sort_values(ascending=False).index[:60])
     m = sample(miss[cols], 1_000, cfg.random_state).to_numpy(dtype="int8")
     subtitle = (f"{100 * miss.to_numpy().mean():.1f}% of cells missing  ·  {int(miss.any(axis=1).sum()):,} of "
-                f"{len(df):,} rows have at least one  ·  {int((pct > 0).sum())} of {df.shape[1]} columns affected")
+                f"{len(df):,} {'sampled ' if (n_rows_total or 0) > len(df) else ''}rows have at least one  ·  {int((pct > 0).sum())} of {df.shape[1]} columns affected")
     fig, body = _figure(max(8, 0.32 * len(cols) + 2.5), 6.6, "Missing values", subtitle,
                         "Each line of the matrix is a row (in file order" + (", sampled" if len(df) > len(m) else "")
                         + "); pink = missing.")
@@ -654,7 +654,8 @@ def plot_nullity(writer: _Writer, df: pd.DataFrame, cfg: StoneConfig) -> None:
                  f"{len(cols)} partly-missing columns  ·  1 = always missing together, −1 = never together")
 
 
-def plot_overview(writer: _Writer, df: pd.DataFrame, details: dict[str, dict[str, Any]], cfg: StoneConfig) -> None:
+def plot_overview(writer: _Writer, df: pd.DataFrame, details: dict[str, dict[str, Any]], cfg: StoneConfig,
+                  n_rows_total: int | None = None) -> None:
     """One-page profile: one row per column with type, missing share, distinct count, summary and sparkline."""
     cols = list(df.columns)[:40]
     if len(cols) < 2:
@@ -662,7 +663,9 @@ def plot_overview(writer: _Writer, df: pd.DataFrame, details: dict[str, dict[str
     n_rows = len(df)
     row_h, width = 0.36, 13.0
     pct_missing = 100 * float(df.isna().to_numpy().mean()) if df.size else 0.0
-    subtitle = (f"{n_rows:,} rows × {df.shape[1]} columns  ·  {pct_missing:.1f}% of cells missing  ·  "
+    # on a sample, every figure of the subtitle is the sample's
+    rows = f"random sample of {n_rows:,} of {n_rows_total:,} rows" if (n_rows_total or 0) > n_rows else f"{n_rows:,} rows"
+    subtitle = (f"{rows} × {df.shape[1]} columns  ·  {pct_missing:.1f}% of cells missing  ·  "
                 f"{duplicate_rows(df)['count']:,} duplicate rows  ·  "
                 f"{fmt_bytes(float(df.memory_usage(deep=True).sum()))} in memory")
     more = f"Showing the first 40 of {df.shape[1]} columns. " if df.shape[1] > 40 else ""
@@ -985,7 +988,9 @@ def plot_jobs(
 ) -> list[Job]:
     """Every chart to draw, in report order, as independent ``(label, function, args)`` jobs."""
     types = {c: d.get("semantic_type", "mixed") for c, d in details.items()}
-    jobs: list[Job] = [("overview", plot_overview, (df, details, cfg)), ("missing matrix", plot_missing, (df, cfg)),
+    total = (advanced or {}).get("n_rows_total")  # rows of the whole table when df is a sample
+    jobs: list[Job] = [("overview", plot_overview, (df, details, cfg, total)),
+                      ("missing matrix", plot_missing, (df, cfg, total)),
                        ("nullity heatmap", plot_nullity, (df, cfg))]
     for key, title, signed in (
         ("pearson", "Pearson correlation", True),

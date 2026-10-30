@@ -1,0 +1,877 @@
+{
+  "meta": {
+    "elessar": "1.1.0",
+    "python": "3.12.14",
+    "pandas": "3.1.0",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "scikit-learn": "1.9.1",
+    "platform": "Linux-7.0.0-30-generic-x86_64-inconnu-with-glibc2.43",
+    "date": "2026-10-30",
+    "exit_status": 0
+  },
+  "results": {
+    "test_numeric_pairs_keep_their_type_i_error[discrete 0-9]": {
+      "shape": "discrete 0-9",
+      "pairs": 1740,
+      "type_i_rate": 0.052873563218390804,
+      "methods": [
+        "pearson"
+      ]
+    },
+    "test_numeric_pairs_keep_their_type_i_error[lognormal]": {
+      "shape": "lognormal",
+      "pairs": 1740,
+      "type_i_rate": 0.04252873563218391,
+      "methods": [
+        "spearman"
+      ]
+    },
+    "test_numeric_pairs_keep_their_type_i_error[normal]": {
+      "shape": "normal",
+      "pairs": 1740,
+      "type_i_rate": 0.05459770114942529,
+      "methods": [
+        "pearson"
+      ]
+    },
+    "test_numeric_pairs_keep_their_type_i_error[student t3]": {
+      "shape": "student t3",
+      "pairs": 1740,
+      "type_i_rate": 0.04655172413793104,
+      "methods": [
+        "pearson",
+        "spearman"
+      ]
+    },
+    "test_numeric_pairs_keep_their_type_i_error[uniform]": {
+      "shape": "uniform",
+      "pairs": 1740,
+      "type_i_rate": 0.05747126436781609,
+      "methods": [
+        "pearson"
+      ]
+    },
+    "test_numeric_pairs_keep_their_type_i_error[zero-inflated]": {
+      "shape": "zero-inflated",
+      "pairs": 1740,
+      "type_i_rate": 0.04770114942528736,
+      "methods": [
+        "spearman"
+      ]
+    },
+    "test_categorical_and_mixed_tests_keep_their_type_i_error": {
+      "runs": 2000,
+      "chi-square (cat-cat)": 0.0555,
+      "Kruskal-Wallis (cat-num)": 0.0535,
+      "Mann-Whitney AUC (binary target)": 0.0525
+    },
+    "test_benjamini_hochberg_controls_the_false_discovery_rate": {
+      "runs": 300,
+      "tests_per_run": 200,
+      "true_effects": 20,
+      "fdr": 0.045176647970765614,
+      "power": 0.49,
+      "max_gap_to_reference": 2.220446049250313e-16
+    },
+    "test_correlation_intervals_cover_the_true_value[0.0]": {
+      "rho": 0.0,
+      "n": 80,
+      "runs": 2000,
+      "pearson_coverage": 0.9485,
+      "spearman_coverage": 0.947
+    },
+    "test_correlation_intervals_cover_the_true_value[0.3]": {
+      "rho": 0.3,
+      "n": 80,
+      "runs": 2000,
+      "pearson_coverage": 0.9515,
+      "spearman_coverage": 0.954
+    },
+    "test_correlation_intervals_cover_the_true_value[0.7]": {
+      "rho": 0.7,
+      "n": 80,
+      "runs": 2000,
+      "pearson_coverage": 0.941,
+      "spearman_coverage": 0.955
+    },
+    "test_mutual_information_is_zero_without_information": {
+      "constant_column_bits": 0.0,
+      "noise_mean_bits": 0.003075994114380036,
+      "noise_p99_bits": 0.00740024087969838,
+      "signal_bits": 0.1377431222509358,
+      "signal_bits_sorted_file": 0.1377431222509358
+    },
+    "test_numeric_test_choice_keeps_power": {
+      "runs": 400,
+      "n": 200,
+      "linear, normal (r .15)": 0.5875,
+      "monotone, lognormal": 0.91
+    },
+    "test_time_ordered_rows_keep_the_type_i_error[white noise]": {
+      "series": "white noise",
+      "runs": 120,
+      "pairs": 360,
+      "type_i_rate": 0.04722222222222222
+    },
+    "test_time_ordered_rows_keep_the_type_i_error[AR(1) 0.5]": {
+      "series": "AR(1) 0.5",
+      "runs": 120,
+      "pairs": 360,
+      "type_i_rate": 0.03333333333333333
+    },
+    "test_time_ordered_rows_keep_the_type_i_error[AR(1) 0.9]": {
+      "series": "AR(1) 0.9",
+      "runs": 120,
+      "pairs": 360,
+      "type_i_rate": 0.04722222222222222
+    },
+    "test_time_ordered_rows_keep_the_type_i_error[random walk]": {
+      "series": "random walk",
+      "runs": 120,
+      "pairs": 360,
+      "type_i_rate": 0.05555555555555555
+    },
+    "test_time_ordered_rows_keep_the_type_i_error[panel of random walks]": {
+      "series": "panel of random walks",
+      "runs": 120,
+      "pairs": 360,
+      "type_i_rate": 0.03333333333333333
+    },
+    "test_time_ordered_rows_keep_their_power": {
+      "runs": 150,
+      "n": 300,
+      "AR(1) 0.5, innovations correlated 0.25": 0.8733333333333333,
+      "random walks sharing a common walk": 0.9066666666666666
+    },
+    "test_target_link_sees_monotone_and_u_shaped_effects[none]": {
+      "effect": "none",
+      "runs": 400,
+      "n": 300,
+      "rejected": 0.0425
+    },
+    "test_target_link_sees_monotone_and_u_shaped_effects[linear r .15]": {
+      "effect": "linear r .15",
+      "runs": 400,
+      "n": 300,
+      "rejected": 0.6125
+    },
+    "test_target_link_sees_monotone_and_u_shaped_effects[U shape 0.3 x2]": {
+      "effect": "U shape 0.3 x2",
+      "runs": 400,
+      "n": 300,
+      "rejected": 0.9725
+    },
+    "test_target_link_sees_monotone_and_u_shaped_effects[monotone exp]": {
+      "effect": "monotone exp",
+      "runs": 400,
+      "n": 300,
+      "rejected": 0.9975
+    },
+    "test_number_of_factors_on_simulated_structures": {
+      "structures": 300,
+      "right_number": {
+        "parallel": 0.97,
+        "kaiser": 0.3933333333333333,
+        "variance 60%": 0.04666666666666667,
+        "scree": 0.86,
+        "elessar": 0.9833333333333333
+      },
+      "overestimated": {
+        "parallel": 0.023333333333333334,
+        "kaiser": 0.6066666666666667,
+        "variance 60%": 0.9533333333333334,
+        "scree": 0.13,
+        "elessar": 0.01
+      },
+      "junk_items_removed": 0.99,
+      "true_items_kept": 0.9064861111111111,
+      "design": "1-4 factors of 3-6 items, loadings .45-.80, factor correlation 0-.3, n 150/300/800, 0-3 items loading on nothing"
+    },
+    "test_reference_datasets_keep_their_known_structure[Holzinger-Swineford, 9 tests-sem/HS.data.csv-columns0-3]": {
+      "dataset": "Holzinger-Swineford, 9 tests",
+      "source": "https://vincentarelbundock.github.io/Rdatasets/csv/sem/HS.data.csv",
+      "rows": 301,
+      "items": 9,
+      "expected_factors": 3,
+      "factors": 3,
+      "kmo": 0.7522311382407673,
+      "items_kept": 9,
+      "removed": [],
+      "groups": {
+        "F1": [
+          "paragrap",
+          "sentence",
+          "wordm"
+        ],
+        "F2": [
+          "cubes",
+          "flags",
+          "visual"
+        ],
+        "F3": [
+          "addition",
+          "counting",
+          "straight"
+        ]
+      },
+      "alphas": {
+        "F1": 0.885,
+        "F2": 0.627,
+        "F3": 0.69
+      }
+    },
+    "test_reference_datasets_keep_their_known_structure[Holzinger-Swineford, 24 tests-sem/HS.data.csv-columns1-4]": {
+      "dataset": "Holzinger-Swineford, 24 tests",
+      "source": "https://vincentarelbundock.github.io/Rdatasets/csv/sem/HS.data.csv",
+      "rows": 301,
+      "items": 24,
+      "expected_factors": 4,
+      "factors": 4,
+      "kmo": 0.8569308296311728,
+      "items_kept": 16,
+      "removed": [
+        "figurew",
+        "paper",
+        "numberf",
+        "numeric",
+        "problemr",
+        "arithmet",
+        "figurer",
+        "series"
+      ],
+      "groups": {
+        "F1": [
+          "general",
+          "paragrap",
+          "sentence",
+          "wordc",
+          "wordm"
+        ],
+        "F2": [
+          "addition",
+          "code",
+          "counting",
+          "straight"
+        ],
+        "F3": [
+          "cubes",
+          "deduct",
+          "flags",
+          "visual"
+        ],
+        "F4": [
+          "numberr",
+          "object",
+          "wordr"
+        ]
+      },
+      "alphas": {
+        "F1": 0.912,
+        "F2": 0.753,
+        "F3": 0.675,
+        "F4": 0.621
+      }
+    },
+    "test_reference_datasets_keep_their_known_structure[Big Five questionnaire (BFI, 25 items)-psych/bfi.csv-columns2-5]": {
+      "dataset": "Big Five questionnaire (BFI, 25 items)",
+      "source": "https://vincentarelbundock.github.io/Rdatasets/csv/psych/bfi.csv",
+      "rows": 2800,
+      "items": 25,
+      "expected_factors": 5,
+      "factors": 5,
+      "kmo": 0.8354141029595595,
+      "items_kept": 24,
+      "removed": [
+        "A5"
+      ],
+      "groups": {
+        "F1": [
+          "N1",
+          "N2",
+          "N3",
+          "N4",
+          "N5"
+        ],
+        "F2": [
+          "E1",
+          "E2",
+          "E3",
+          "E4",
+          "E5"
+        ],
+        "F3": [
+          "C1",
+          "C2",
+          "C3",
+          "C4",
+          "C5"
+        ],
+        "F4": [
+          "O1",
+          "O2",
+          "O3",
+          "O4",
+          "O5"
+        ],
+        "F5": [
+          "A1",
+          "A2",
+          "A3",
+          "A4"
+        ]
+      },
+      "alphas": {
+        "F1": 0.817,
+        "F2": 0.765,
+        "F3": 0.737,
+        "F4": 0.608,
+        "F5": 0.658
+      }
+    },
+    "test_clean_data_flags_and_actions[normal]": {
+      "shape": "normal",
+      "runs": 300,
+      "rows": 1000,
+      "consensus_share": 0.002596666666666667,
+      "actions": {
+        "reassign": 0.95,
+        "keep": 0.05
+      }
+    },
+    "test_clean_data_flags_and_actions[student t5]": {
+      "shape": "student t5",
+      "runs": 300,
+      "rows": 1000,
+      "consensus_share": 0.013553333333333332,
+      "actions": {
+        "reassign": 0.99,
+        "remove": 0.01
+      }
+    },
+    "test_clean_data_flags_and_actions[student t3]": {
+      "shape": "student t3",
+      "runs": 300,
+      "rows": 1000,
+      "consensus_share": 0.028703333333333334,
+      "actions": {
+        "reassign": 1.0
+      }
+    },
+    "test_clean_data_flags_and_actions[lognormal]": {
+      "shape": "lognormal",
+      "runs": 300,
+      "rows": 1000,
+      "consensus_share": 0.07549333333333333,
+      "actions": {
+        "reassign": 1.0
+      }
+    },
+    "test_clean_data_flags_and_actions[exponential]": {
+      "shape": "exponential",
+      "runs": 300,
+      "rows": 1000,
+      "consensus_share": 0.04106,
+      "actions": {
+        "reassign": 0.9966666666666667,
+        "remove": 0.0033333333333333335
+      }
+    },
+    "test_planted_errors_are_found[normal]": {
+      "column": "normal",
+      "runs": 300,
+      "planted_errors": "1 or 2 values x100",
+      "all_flagged": 1.0,
+      "advice_remove": 1.0
+    },
+    "test_planted_errors_are_found[uniform]": {
+      "column": "uniform",
+      "runs": 300,
+      "planted_errors": "1 or 2 values x100",
+      "all_flagged": 1.0,
+      "advice_remove": 1.0
+    },
+    "test_planted_errors_are_found[normal, 100 rows]": {
+      "column": "normal, 100 rows",
+      "runs": 300,
+      "planted_errors": "1 or 2 values x100",
+      "all_flagged": 1.0,
+      "advice_remove": 0.9933333333333333
+    },
+    "test_planted_errors_are_found[student t5]": {
+      "column": "student t5",
+      "runs": 300,
+      "planted_errors": "1 or 2 values x100",
+      "all_flagged": 1.0,
+      "advice_remove": 0.02
+    },
+    "test_planted_errors_are_found[exponential]": {
+      "column": "exponential",
+      "runs": 300,
+      "planted_errors": "1 or 2 values x100",
+      "all_flagged": 0.9433333333333334,
+      "advice_remove": 0.0033333333333333335
+    },
+    "test_counts_match_pandas[titanic]": {
+      "dataset": "titanic",
+      "source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/titanic.csv",
+      "expected": {
+        "rows": 891,
+        "columns": 15,
+        "rows_with_missing": 709,
+        "duplicate_rows": 107
+      },
+      "found": {
+        "rows": 891,
+        "columns": 15,
+        "rows_with_missing": 709,
+        "duplicate_rows": 107
+      },
+      "types": {
+        "categorical": 5,
+        "boolean": 4,
+        "ordinal-candidate": 2,
+        "numeric_continuous": 2,
+        "numeric_discrete": 2
+      }
+    },
+    "test_counts_match_pandas[iris]": {
+      "dataset": "iris",
+      "source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/iris.csv",
+      "expected": {
+        "rows": 150,
+        "columns": 5,
+        "rows_with_missing": 0,
+        "duplicate_rows": 1
+      },
+      "found": {
+        "rows": 150,
+        "columns": 5,
+        "rows_with_missing": 0,
+        "duplicate_rows": 1
+      },
+      "types": {
+        "numeric_continuous": 4,
+        "categorical": 1
+      }
+    },
+    "test_counts_match_pandas[tips]": {
+      "dataset": "tips",
+      "source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/tips.csv",
+      "expected": {
+        "rows": 244,
+        "columns": 7,
+        "rows_with_missing": 0,
+        "duplicate_rows": 1
+      },
+      "found": {
+        "rows": 244,
+        "columns": 7,
+        "rows_with_missing": 0,
+        "duplicate_rows": 1
+      },
+      "types": {
+        "numeric_continuous": 2,
+        "categorical": 2,
+        "boolean": 1,
+        "ordinal-candidate": 1,
+        "numeric_discrete": 1
+      }
+    },
+    "test_counts_match_pandas[penguins]": {
+      "dataset": "penguins",
+      "source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/penguins.csv",
+      "expected": {
+        "rows": 344,
+        "columns": 7,
+        "rows_with_missing": 11,
+        "duplicate_rows": 0
+      },
+      "found": {
+        "rows": 344,
+        "columns": 7,
+        "rows_with_missing": 11,
+        "duplicate_rows": 0
+      },
+      "types": {
+        "numeric_continuous": 4,
+        "categorical": 3
+      }
+    },
+    "test_counts_match_pandas[mpg]": {
+      "dataset": "mpg",
+      "source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/mpg.csv",
+      "expected": {
+        "rows": 398,
+        "columns": 9,
+        "rows_with_missing": 6,
+        "duplicate_rows": 0
+      },
+      "found": {
+        "rows": 398,
+        "columns": 9,
+        "rows_with_missing": 6,
+        "duplicate_rows": 0
+      },
+      "types": {
+        "numeric_continuous": 5,
+        "numeric_discrete": 2,
+        "categorical": 1,
+        "text": 1
+      }
+    },
+    "test_counts_match_pandas[flights]": {
+      "dataset": "flights",
+      "source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/flights.csv",
+      "expected": {
+        "rows": 144,
+        "columns": 3,
+        "rows_with_missing": 0,
+        "duplicate_rows": 0
+      },
+      "found": {
+        "rows": 144,
+        "columns": 3,
+        "rows_with_missing": 0,
+        "duplicate_rows": 0
+      },
+      "types": {
+        "numeric_discrete": 1,
+        "ordinal-candidate": 1,
+        "numeric_continuous": 1
+      }
+    },
+    "test_counts_match_pandas[healthexp]": {
+      "dataset": "healthexp",
+      "source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/healthexp.csv",
+      "expected": {
+        "rows": 274,
+        "columns": 4,
+        "rows_with_missing": 0,
+        "duplicate_rows": 0
+      },
+      "found": {
+        "rows": 274,
+        "columns": 4,
+        "rows_with_missing": 0,
+        "duplicate_rows": 0
+      },
+      "types": {
+        "numeric_continuous": 3,
+        "categorical": 1
+      }
+    },
+    "test_counts_match_pandas[diamonds]": {
+      "dataset": "diamonds",
+      "source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/diamonds.csv",
+      "expected": {
+        "rows": 53940,
+        "columns": 10,
+        "rows_with_missing": 0,
+        "duplicate_rows": 146
+      },
+      "found": {
+        "rows": 53940,
+        "columns": 10,
+        "rows_with_missing": 0,
+        "duplicate_rows": 146
+      },
+      "types": {
+        "numeric_continuous": 7,
+        "categorical": 2,
+        "ordinal-candidate": 1
+      }
+    },
+    "test_counts_match_pandas[planets]": {
+      "dataset": "planets",
+      "source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/planets.csv",
+      "expected": {
+        "rows": 1035,
+        "columns": 6,
+        "rows_with_missing": 537,
+        "duplicate_rows": 4
+      },
+      "found": {
+        "rows": 1035,
+        "columns": 6,
+        "rows_with_missing": 537,
+        "duplicate_rows": 4
+      },
+      "types": {
+        "numeric_continuous": 3,
+        "numeric_discrete": 2,
+        "categorical": 1
+      }
+    },
+    "test_counts_match_pandas[taxis]": {
+      "dataset": "taxis",
+      "source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/taxis.csv",
+      "expected": {
+        "rows": 6433,
+        "columns": 14,
+        "rows_with_missing": 92,
+        "duplicate_rows": 0
+      },
+      "found": {
+        "rows": 6433,
+        "columns": 14,
+        "rows_with_missing": 92,
+        "duplicate_rows": 0
+      },
+      "types": {
+        "categorical": 6,
+        "numeric_continuous": 4,
+        "datetime_string": 2,
+        "numeric_discrete": 2
+      }
+    },
+    "test_known_facts": {
+      "flights: monthly airline passengers 1949-1960": {
+        "kind": "single series",
+        "time": "year + month",
+        "frequency": "month",
+        "period": 12,
+        "seasonality": "strong",
+        "trend": "increasing"
+      },
+      "healthexp: one series per country": {
+        "kind": "panel",
+        "entity": "Country"
+      },
+      "titanic: 'alive' is the target written as yes/no": {
+        "leakage_suspects": [
+          "alive"
+        ],
+        "kept": [
+          "adult_male",
+          "who",
+          "deck",
+          "class",
+          "pclass",
+          "fare",
+          "sibsp"
+        ]
+      },
+      "iris: strongest link with species": {
+        "top_two": [
+          "petal_length",
+          "petal_width"
+        ],
+        "kept": [
+          "petal_length",
+          "petal_width",
+          "sepal_length",
+          "sepal_width"
+        ]
+      },
+      "tips: strongest link with tip": {
+        "top_two": [
+          "total_bill",
+          "size"
+        ],
+        "kept": [
+          "total_bill",
+          "size"
+        ]
+      },
+      "diamonds: strongest link with price": {
+        "top_two": [
+          "x",
+          "carat"
+        ],
+        "kept": [
+          "carat",
+          "clarity",
+          "color",
+          "x",
+          "cut",
+          "depth",
+          "y",
+          "z",
+          "table"
+        ]
+      }
+    },
+    "test_scores_on_pure_noise_are_not_optimistic[binary]": {
+      "task": "binary",
+      "runs": 60,
+      "rows": 400,
+      "features": 10,
+      "scoring": "roc_auc",
+      "mean_scores": {
+        "decision tree": 0.5065,
+        "random forest": 0.506,
+        "lasso": 0.4979,
+        "ridge": 0.4961
+      },
+      "noise_features_kept": 0.018333333333333337
+    },
+    "test_scores_on_pure_noise_are_not_optimistic[regression]": {
+      "task": "regression",
+      "runs": 60,
+      "rows": 400,
+      "features": 10,
+      "scoring": "r2",
+      "mean_scores": {
+        "decision tree": -0.0823,
+        "random forest": -0.0735,
+        "lasso": -0.0164,
+        "ridge": -0.0166
+      },
+      "noise_features_kept": 0.02666666666666667
+    },
+    "test_known_signals_are_kept_and_noise_dropped": {
+      "runs": 30,
+      "rows": 600,
+      "linear_signals_kept": 1.0,
+      "u_shaped_signal_kept": 0.9,
+      "u_shaped_signal_kept_or_borderline": 1.0,
+      "noise_kept": 0.004166666666666667
+    },
+    "test_dated_rows_are_validated_on_their_future_whatever_their_order": {
+      "runs": 10,
+      "mean_best_r2": -0.011429461531938545,
+      "shuffled_file_gives_same_scores": 1.0,
+      "random_walk_kept": 0.0,
+      "modelled_on_differences": 0.9
+    },
+    "test_seasonality_detection[white noise]": {
+      "case": "white noise",
+      "runs": 200,
+      "frequency": "day",
+      "detected": 0.0,
+      "right_period": 0.0,
+      "truth": "no seasonality"
+    },
+    "test_seasonality_detection[AR(1) 0.7]": {
+      "case": "AR(1) 0.7",
+      "runs": 200,
+      "frequency": "day",
+      "detected": 0.0,
+      "right_period": 0.0,
+      "truth": "no seasonality"
+    },
+    "test_seasonality_detection[weekly cycle]": {
+      "case": "weekly cycle",
+      "runs": 200,
+      "frequency": "day",
+      "detected": 1.0,
+      "right_period": 1.0,
+      "truth": "seasonal"
+    },
+    "test_seasonality_detection[weekly cycle, weak]": {
+      "case": "weekly cycle, weak",
+      "runs": 200,
+      "frequency": "day",
+      "detected": 0.175,
+      "right_period": 0.175,
+      "truth": "seasonal"
+    },
+    "test_seasonality_detection[monthly, yearly cycle]": {
+      "case": "monthly, yearly cycle",
+      "runs": 200,
+      "frequency": "month",
+      "detected": 1.0,
+      "right_period": 1.0,
+      "truth": "seasonal"
+    },
+    "test_mann_kendall_keeps_its_type_i_error_under_autocorrelation[white noise]": {
+      "noise": "white noise",
+      "runs": 600,
+      "n": 200,
+      "type_i_corrected": 0.05,
+      "type_i_uncorrected": 0.055
+    },
+    "test_mann_kendall_keeps_its_type_i_error_under_autocorrelation[AR(1) 0.5]": {
+      "noise": "AR(1) 0.5",
+      "runs": 600,
+      "n": 200,
+      "type_i_corrected": 0.06333333333333334,
+      "type_i_uncorrected": 0.25833333333333336
+    },
+    "test_mann_kendall_keeps_its_type_i_error_under_autocorrelation[AR(1) 0.8]": {
+      "noise": "AR(1) 0.8",
+      "runs": 600,
+      "n": 200,
+      "type_i_corrected": 0.055,
+      "type_i_uncorrected": 0.49333333333333335
+    },
+    "test_mann_kendall_keeps_its_type_i_error_under_autocorrelation[AR(2) 0.5, 0.3]": {
+      "noise": "AR(2) 0.5, 0.3",
+      "runs": 600,
+      "n": 200,
+      "type_i_corrected": 0.11333333333333333,
+      "type_i_uncorrected": 0.5766666666666667
+    },
+    "test_mann_kendall_keeps_its_type_i_error_under_autocorrelation[MA(1) 0.7]": {
+      "noise": "MA(1) 0.7",
+      "runs": 600,
+      "n": 200,
+      "type_i_corrected": 0.018333333333333333,
+      "type_i_uncorrected": 0.165
+    },
+    "test_mann_kendall_keeps_its_type_i_error_under_autocorrelation[ARMA(1,1) 0.7, 0.4]": {
+      "noise": "ARMA(1,1) 0.7, 0.4",
+      "runs": 600,
+      "n": 200,
+      "type_i_corrected": 0.018333333333333333,
+      "type_i_uncorrected": 0.43166666666666664
+    },
+    "test_mann_kendall_keeps_its_type_i_error_under_autocorrelation[long memory (Hurst 0.8)]": {
+      "noise": "long memory (Hurst 0.8)",
+      "runs": 600,
+      "n": 200,
+      "type_i_corrected": 0.27,
+      "type_i_uncorrected": 0.5383333333333333
+    },
+    "test_mann_kendall_power_on_a_trend": {
+      "runs": 500,
+      "n": 200,
+      "trend": "0.005 per step under AR(1) 0.5 noise (1 sd of the series over the period)",
+      "power": 0.496
+    },
+    "test_stationarity_verdicts[white noise]": {
+      "kind": "white noise",
+      "runs": 300,
+      "n": 300,
+      "expected": "stationary",
+      "verdicts": {
+        "stationary": 0.9433333333333334,
+        "trend-stationary": 0.056666666666666664
+      }
+    },
+    "test_stationarity_verdicts[AR(1) 0.5]": {
+      "kind": "AR(1) 0.5",
+      "runs": 300,
+      "n": 300,
+      "expected": "stationary",
+      "verdicts": {
+        "stationary": 0.9433333333333334,
+        "trend-stationary": 0.05,
+        "inconclusive": 0.006666666666666667
+      }
+    },
+    "test_stationarity_verdicts[random walk]": {
+      "kind": "random walk",
+      "runs": 300,
+      "n": 300,
+      "expected": "unit root",
+      "verdicts": {
+        "unit root": 0.7466666666666667,
+        "inconclusive": 0.22333333333333333,
+        "trend-stationary": 0.016666666666666666,
+        "stationary": 0.013333333333333334
+      }
+    },
+    "test_stationarity_verdicts[linear trend + noise]": {
+      "kind": "linear trend + noise",
+      "runs": 300,
+      "n": 300,
+      "expected": "trend-stationary",
+      "verdicts": {
+        "trend-stationary": 0.9633333333333334,
+        "unit root": 0.03666666666666667
+      }
+    }
+  }
+}

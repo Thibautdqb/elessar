@@ -5,8 +5,10 @@
 - **modified z (Hampel)**: |0.6745 (x - median) / MAD| > 3.5, robust to the outliers themselves.
 
 A point flagged by at least two methods is a consensus outlier. For each column elessar then
-proposes to **remove** (values so far out they are likely errors) or **reassign** them (cap at
-the boxplot fences: the tail is real but too influential).
+proposes to **remove** (values so far out they are likely errors: more than 10 robust standard deviations,
+on the log scale for a positive, right-skewed column, from a column whose other values have light tails) or
+**reassign** them (cap at the boxplot fences: the
+tail is real but too influential).
 """
 
 from __future__ import annotations
@@ -41,21 +43,42 @@ def column_outliers(x: pd.Series, cfg: StoneConfig) -> dict[str, Any] | None:
     n_methods = flags.sum(axis=1)
     consensus = n_methods >= 2
     robust = (v - med) / (iqr / 1.349 if iqr > 0 else (mad * 1.4826 or std or 1.0))
-    picked = v[n_methods >= 1]
+    # by position: a row label can be repeated, and a label lookup would then return several rows
+    picked = (n_methods >= 1).to_numpy()
     points = pd.DataFrame({
-        "row": picked.index, "value": picked.to_numpy(), "z": z[picked.index].to_numpy(),
-        "robust_z": robust[picked.index].to_numpy(),
-        "methods": [", ".join(m for m in METHODS if flags.at[i, m]) for i in picked.index],
-        "n_methods": n_methods[picked.index].to_numpy(),
+        "row": v.index[picked], "value": v.to_numpy()[picked], "z": z.to_numpy()[picked],
+        "robust_z": robust.to_numpy()[picked],
+        "methods": [", ".join(m for m, on in zip(METHODS, row) if on) for row in flags[list(METHODS)].to_numpy()[picked]],
+        "n_methods": n_methods.to_numpy()[picked],
     })
     points = points.reindex(points["robust_z"].abs().sort_values(ascending=False).index).reset_index(drop=True)
-    extreme = int((robust.abs() > 10).sum())
+    # an entry or unit error sits far out on the scale of the data: for positive, right-skewed data that is the
+    # log scale, where a long natural tail (incomes, durations) does not look like errors
+    errors_scale = robust
+    if (v > 0).all() and float(v.skew()) > 1:
+        lv = np.log(v)
+        lq1, lq3 = float(lv.quantile(0.25)), float(lv.quantile(0.75))
+        lmad = float((lv - lv.median()).abs().median())
+        spread = (lq3 - lq1) / 1.349 if lq3 > lq1 else (lmad * 1.4826 or float(lv.std()) or 1.0)
+        errors_scale = (lv - float(lv.median())) / spread
+    far = errors_scale.abs() > 10
+    extreme = int(far.sum())
+    # a value 10 robust sd away is an error only where the rest of the column has light tails; in a heavy-tailed
+    # column (Student t, exponential) such values happen: the excess kurtosis of the rest must stay within what a
+    # light-tailed column gives, 1 plus 3 standard errors
+    rest = errors_scale[~far]
+    light = len(rest) > 8 and float(rest.kurt()) < 1 + 3 * np.sqrt(24 / len(rest))
     n_cons = int(consensus.sum())
     if n_cons == 0:
         action, why = "keep", "no point is flagged by two methods"
-    elif extreme and extreme <= max(3, 0.002 * len(v)):
+    elif extreme and extreme <= max(3, 0.002 * len(v)) and light:
         action, why = "remove", (f"{extreme} value{'s are' if extreme > 1 else ' is'} more than 10 robust standard "
-                                 "deviations away: likely entry or unit errors")
+                                 "deviations away from a light-tailed column: likely entry or unit errors")
+    elif extreme and extreme <= max(3, 0.002 * len(v)):
+        action, why = "reassign", (f"{extreme} value{'s are' if extreme > 1 else ' is'} more than 10 robust standard "
+                                   "deviations away, but the rest of the column is heavy-tailed: such values happen, "
+                                   "check them before removing anything; meanwhile cap the consensus outliers at the "
+                                   "boxplot fences (winsorize) or use robust models")
     else:
         action, why = "reassign", (f"{n_cons} consensus outliers form a real but influential tail: cap them at the "
                                    "boxplot fences (winsorize) or use robust models")

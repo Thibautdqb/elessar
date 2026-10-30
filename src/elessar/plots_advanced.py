@@ -95,7 +95,8 @@ def plot_pca(writer: Any, pca: dict[str, Any], cfg: StoneConfig) -> None:
 
 
 def plot_factors(writer: Any, fa: dict[str, Any], cfg: StoneConfig) -> None:
-    """Scree plot with the three criteria for the number of factors, and the rotated component matrix."""
+    """Scree plot with the parallel analysis that sets the number of factors and the classic criteria, and the
+    rotated component matrix."""
     load, sol = fa.get("loadings"), fa.get("solution")
     if load is None or load.empty or sol is None:
         return
@@ -103,12 +104,14 @@ def plot_factors(writer: Any, fa: dict[str, Any], cfg: StoneConfig) -> None:
     shown = min(len(eig), 15)
     k = fa["n_factors"]
     rows = list(load.index)
-    alphas = {f: r["alpha"] for f, r in (fa.get("reliability") or {}).items() if len(r["items"]) > 1}
+    alphas = {f: ("SB" if r.get("spearman_brown") is not None else "α", r.get("reliability", r["alpha"]))
+              for f, r in (fa.get("reliability") or {}).items() if len(r["items"]) > 1}
     fig, body = _figure(13, max(5.2, 0.32 * len(rows) + 2.4), "Factor analysis (principal components, varimax)",
                         f"{k} factor{'s' if k > 1 else ''}  ·  KMO {fa['kmo']:.2f}  ·  Bartlett p {fmt_p(fa['bartlett_p'])}"
-                        + "".join(f"  ·  {f} α {a:.2f}" for f, a in alphas.items())[:120],
-                        "Left: share of the variance of each component (scree plot) - the dashed line is the Kaiser "
-                        "criterion (eigenvalue 1) - and the cumulative share against the 60% target. Right: rotated loadings, items "
+                        + "".join(f"  ·  {f} {sym} {a:.2f}" for f, (sym, a) in alphas.items())[:120],
+                        "Left: share of the variance of each component (scree plot); a component is kept while it "
+                        "beats random data of the same size (grey ticks, parallel analysis). The Kaiser criterion "
+                        "(eigenvalue 1, dashed) and the cumulative share against 60% are shown for reference. Right: rotated loadings, items "
                         "grouped by the factor they load on most; bold when |loading| ≥ 0.4."
                         + (f" Removed before this solution: {', '.join(str(r['item']) for r in fa['removed'])}."
                            if fa.get("removed") else ""))
@@ -120,6 +123,9 @@ def plot_factors(writer: Any, fa: dict[str, Any], cfg: StoneConfig) -> None:
     ax.plot(x, share, color=BLUE, lw=2, marker="o", ms=5, label="variance of the component (scree)")
     ax.plot(x, 100 * np.asarray(sol["cumulative"])[:shown], color=ORANGE, lw=1.6, marker="o", ms=3,
             label="cumulative")
+    if sol.get("parallel_threshold") is not None:
+        ax.scatter(x, 100 * np.asarray(sol["parallel_threshold"])[:shown] / p, marker="_", s=160, lw=2, color=MUTED,
+                   label="random data (parallel analysis)", zorder=3)
     ax.axhline(100 / p, color=INK_2, lw=1, ls=(0, (4, 3)))
     ax.text(shown, 100 / p + 1.5, "eigenvalue 1", fontsize=7.5, color=MUTED, ha="right", va="bottom")
     ax.axhline(60, color=GRID, lw=1, ls=(0, (3, 2)), zorder=0)
@@ -145,13 +151,14 @@ def plot_selection(writer: Any, sel: dict[str, Any], target: str, cfg: StoneConf
     if table.empty:
         return
     scores = sel["scores"]
-    sub = f"{sel['task']}  ·  {sel['n_rows']:,} rows  ·  {sel['cv']} CV {sel['scoring']}: " + ", ".join(
+    sub = f"{sel['task']}  ·  {sel['n_rows']:,} rows  ·  held-out {sel['scoring']}: " + ", ".join(
         f"{m} {scores[m]:.2f}" for m in methods if m in scores)
     fig, body = _figure(12, 0.34 * len(table) + 2.6, f"Feature selection for {target}", sub,
                         "Cells: importance by each method, scaled to the strongest feature (1). Decision tree: impurity "
                         "importance; random forest: drop in held-out score when the feature is shuffled; lasso / ridge: "
-                        "size of the standardised coefficient (0 in lasso = dropped); filter: univariate association. "
-                        "Keep = selected by 3+ methods, borderline = 2.")
+                        "size of the standardised coefficient; filter: univariate association. Boxed = selected: above "
+                        "every shuffled shadow (tree, lasso, ridge), significant (forest, filter). Keep = selected by 3+ "
+                        "methods, borderline = 2.")
     gs = body.add_gridspec(1, 2, width_ratios=[len(methods), 1.6])
     ax = body.add_subplot(gs[0, 0])
     vals = table[methods].to_numpy(dtype="float64")

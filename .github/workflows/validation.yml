@@ -1,0 +1,31 @@
+name: Statistical validation
+
+# The simulations of tests/validation (a few minutes): on demand and once a month, with the measures kept
+# as an artifact. VALIDATION.md documents them.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 4 1 * *"
+
+jobs:
+  validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: Validate
+        env:
+          ELESSAR_VALIDATION_OUT: validation-results.json
+        run: python -m pytest -m validation tests/validation
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: validation-results
+          path: validation-results.json

@@ -11,13 +11,13 @@ from typing import Any
 
 import pandas as pd
 
-from ._utils import dedupe_names, finite, prepare, quiet, resolve_target, safe_name
+from ._utils import dedupe_names, finite, prepare, quiet, resolve_target, safe_name, truncate
 from .multivariate import multivariate
 from .outliers import outliers as find_outliers
 from .preparation import plan as preparation_plan
 from .roles import age_column_name, birth_columns, birth_report
 from .selection import feature_selection
-from .timeseries import detect as detect_time, timeseries
+from .timeseries import _time_columns as time_columns, detect as detect_time, serial_structure, timeseries
 from .config import StoneConfig
 from .correlations import PAIR_COLUMNS, compute_correlations
 from .distributions import _fmt_params, analyze_distribution, is_fittable
@@ -165,9 +165,12 @@ def _advanced_task(name: str) -> Any:
                 return timeseries(frame, types, target, cfg, exact=exact, info=info)
             return timeseries(df, types, target, cfg)
         if name == "selection":
-            info = detect_time(df, types)
-            ordered = info is not None and info["kind"] != "event log" and info["sorted"]
-            return feature_selection(df, target, types, correlations, cfg, time_ordered=ordered)
+            info = detect_time(df, types)  # any dated table, sorted or not, is validated on its future
+            times = time_columns(df, types).get(info["time_column"]) if info is not None else None
+            ser = correlations.get("serial")
+            diffed = list(ser.loc[ser["differenced"].astype(bool), "column"]) if ser is not None else []
+            differences = (serial_structure(df, types, diffed)["differences"] if target in diffed else None)
+            return feature_selection(df, target, types, correlations, cfg, times=times, differences=differences)
     raise ValueError(name)
 
 
@@ -254,7 +257,9 @@ def analyze(
     types = {c: d["semantic_type"] for c, d in details.items()}
     corr_started = time.perf_counter()
     try:
-        correlations = compute_correlations(df, types, target, config, workers)
+        with quiet():  # rows in time order: unit roots differenced, tests on the effective sample size
+            serial = serial_structure(df, types)
+        correlations = compute_correlations(df, types, target, config, workers, serial)
     except Exception as exc:  # noqa: BLE001
         correlations = {"top_pairs": pd.DataFrame(columns=PAIR_COLUMNS), "error": pd.DataFrame({"error": [repr(exc)]})}
     if timings is not None:
@@ -339,6 +344,20 @@ def _variable_name(obj: Any, frame: Any) -> str | None:
     return None
 
 
+def _with_names_step(prep: dict[str, Any], original: list[Any]) -> dict[str, Any]:
+    """Put first the line that gives a DataFrame the column names every snippet uses (non-string or duplicate
+    names are renamed by the analysis: 1 -> '1', a, a -> a, a.1)."""
+    names = dedupe_names(original)
+    changed = ", ".join(f"{o!r} -> {n!r}" for o, n in zip(original, names) if o != n or type(o) is not str)
+    step = {"kind": "cleaning", "action": "Wrong formats", "column": None,
+            "why": f"column names renamed by the analysis ({truncate(changed, 120)}): every snippet below uses the new "
+                   "names, so run this first",
+            "code": f"df.columns = {names!r}"}
+    counts = dict(prep.get("counts") or {})
+    counts["Wrong formats"] = counts.get("Wrong formats", 0) + 1
+    return {**prep, "steps": [step] + list(prep.get("steps") or []), "counts": counts}
+
+
 def see(
     data: Any,
     target: str | None = None,
@@ -392,12 +411,16 @@ def see(
     exact_dups = full.duplicate_rows if full is not None else None
     if full is not None and exact_dups is None:  # too many rows to hash: say so instead of showing the sample's count
         exact_dups = {"not_counted": True}
-    quality = check_quality(df, details, correlations, cfg, target, found, exact_dups)
+    quality = check_quality(df, details, correlations, cfg, target, found, exact_dups,
+                            full.n_rows_missing_at_least(cfg.row_missing_pct) if full is not None and df.shape[1] >= 2 else None)
     alerts = list(quality["alerts"]) + type_alerts + birth_alerts(details)
     for d in details.values():
         alerts.extend(d["alerts"])
-    if original and dedupe_names(original) != [str(c) for c in original]:
-        alerts.append(alert("medium", None, "duplicate or non-string column names were renamed (a, a.1, ...)"))
+    renamed = bool(original) and dedupe_names(original) != original
+    if renamed:
+        alerts.append(alert("medium", None, "column names that are not unique strings were renamed (1 -> '1', a, a.1, "
+                                            "...): the code snippets use the new names, set them first with the "
+                                            "first step of the preparation plan"))
     if "error" in correlations:
         alerts.append(alert("high", None, f"correlations failed: {correlations['error'].iloc[0, 0]}"))
     alerts.extend(correlation_alerts(correlations, target, cfg, quality["duplicate_columns"]))
@@ -412,6 +435,13 @@ def see(
     if src.origin.get("headerless"):
         alerts.append(alert("medium", None, "the file has no header row (its first line is data): columns are numbered "
                             "0, 1, ... -> pass names=[...] when reading it", kind="headerless"))
+    skipped = src.origin.get("bad_lines")
+    if skipped and skipped["count"]:
+        where = f" (line {', '.join(map(str, skipped['examples']))}{', ...' if skipped['count'] > len(skipped['examples']) else ''})" \
+            if skipped["examples"] else ""
+        alerts.append(alert("high", None, f"{skipped['count']:,} lines of the file were skipped: they have more fields "
+                            f"than the header{where} -> check the delimiter and the quoting, these rows are not in the "
+                            "profile", kind="bad_lines"))
     if full is not None:
         alerts.append(alert("info", None, f"profiled on a uniform random sample of {len(df):,} of {full.n_rows:,} rows "
                             f"({100 * len(df) / full.n_rows:.1f}%); row counts, missing values, min/max/mean/std, "
@@ -459,7 +489,7 @@ def see(
         # a chart costs ~0.2 s whatever the table size: processes pay off as soon as there are a dozen
         plot_workers = n_workers(cfg, cfg.parallel_min_cells if n_charts >= 12 else df.size, n_charts)
         plot_paths = make_plots(df, details, correlations, out_dir, target, cfg, plot_errors, plot_index, plot_workers,
-                                advanced=extra)
+                                advanced={**extra, "n_rows_total": full.n_rows if full is not None else None})
     for err in plot_errors:
         alerts.append(alert("info", None, f"plot skipped after an error: {err[:100]}"))
     timings["charts"] = time.perf_counter() - step
@@ -484,7 +514,8 @@ def see(
         "pct_duplicate_rows": quality["duplicate_rows"]["pct"],
         "duplicates_text": duplicates_text(quality["duplicate_rows"]),
         "pct_missing_cells": pct_missing_cells,
-        "n_rows_with_missing": int(df.isna().any(axis=1).sum()) if df.shape[1] else 0,
+        "n_rows_with_missing": full.n_rows_with_missing if full is not None else
+        (int(df.isna().any(axis=1).sum()) if df.shape[1] else 0),
         "target": target,
         "source": describe_origin(src),
         "typing": None if src.plan is None else {
@@ -512,7 +543,7 @@ def see(
         outliers=extra.get("outliers") or {},
         timeseries=extra.get("timeseries"),
         selection=extra.get("selection"),
-        preparation=prep,
+        preparation=_with_names_step(prep, original) if renamed else prep,
     )
     if plots and df.shape[1]:
         step = time.perf_counter()

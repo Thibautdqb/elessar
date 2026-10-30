@@ -21,7 +21,7 @@ from .types import CATEGORY_TYPES, NUMERIC_TYPES, as_numeric, infer_type
 
 PAIR_COLUMNS = [
     "col_a", "col_b", "kind", "method", "value", "abs_value", "n", "test", "p_value", "p_adjusted",
-    "significant", "ci_low", "ci_high",
+    "significant", "ci_low", "ci_high", "other_value", "method_reason",
 ]
 TARGET_COLUMNS = [
     "feature", "feature_type", "method", "association", "n", "test", "p_value", "p_adjusted", "significant",
@@ -112,8 +112,11 @@ def correlation_ratio(categories: pd.Series, values: pd.Series) -> float:
 
 def _discretize(s: pd.Series, numeric: bool, bins: int = 10) -> pd.Series:
     if numeric:
-        x = s.replace([np.inf, -np.inf], np.nan)
-        return pd.qcut(x.rank(method="first"), q=min(bins, max(x.notna().sum(), 1)), labels=False, duplicates="drop")
+        # equal values always share a bin: ranking ties by position would let the row order pass for information
+        x = s.replace([np.inf, -np.inf], np.nan).astype("float64")
+        if x.nunique() <= bins:
+            return x
+        return pd.qcut(x, q=bins, labels=False, duplicates="drop")
     labels = _labels(s.where(s.notna()))
     top = labels.value_counts().index[:50]
     return labels.where(labels.isin(top) | s.isna(), "__other__").where(s.notna())
@@ -171,8 +174,58 @@ def _pairwise_n(frame: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(present.T @ present, index=frame.columns, columns=frame.columns)
 
 
+def serial_inflation(rho_a: float | None, rho_b: float | None) -> float:
+    """Bartlett's variance inflation of a correlation between two autocorrelated series (lag-1 model):
+    (1 + r_a r_b) / (1 - r_a r_b), never below 1."""
+    k = float(np.clip((rho_a or 0.0) * (rho_b or 0.0), -0.98, 0.98))
+    return max(1.0, (1 + k) / (1 - k))
+
+
+def deflate_chi2(p: float, dof: float, inflation: float) -> float:
+    """A chi-square (or Kruskal-Wallis) p-value with its statistic divided by the variance inflation."""
+    if not np.isfinite(p) or dof < 1 or inflation <= 1:
+        return p
+    return float(stats.chi2.sf(stats.chi2.isf(p, dof) / inflation, dof))
+
+
+def serial_dependence(df: pd.DataFrame, num: pd.DataFrame, categorical: list[Any], serial: dict[str, Any]) -> dict[Any, float]:
+    """Lag-1 autocorrelation of every column of rows in time order (within each entity of a panel), with
+    Kendall's small-sample bias correction. For a categorical column: how much more often a label repeats from
+    one row to the next than chance would make it (a kappa)."""
+    key = pd.DataFrame({"t": serial["time"].reindex(df.index)})
+    if serial.get("entity") is not None:
+        key["e"] = serial["entity"].reindex(df.index)
+    key = key[key["t"].notna()]
+    order = key.sort_values(list(key.columns[::-1]), kind="stable").index
+    same_group = (key.loc[order, "e"].eq(key.loc[order, "e"].shift()) if "e" in key
+                  else pd.Series(True, index=order)).fillna(False).to_numpy(dtype=bool, copy=True)
+    if len(same_group):
+        same_group[0] = False
+    out: dict[Any, float] = {}
+    for c in num.columns:
+        v = num.loc[order, c].to_numpy(dtype="float64")
+        ok = same_group & np.isfinite(v) & np.isfinite(np.r_[np.nan, v[:-1]])
+        if ok.sum() < 10:
+            continue
+        with quiet():
+            r = float(np.corrcoef(v[ok], np.r_[np.nan, v[:-1]][ok])[0, 1])
+        if np.isfinite(r):
+            out[c] = float(np.clip(r + (1 + 4 * r) / ok.sum(), -0.99, 0.99))
+    for c in categorical:
+        lab = hashable(df.loc[order, c]).astype("string")
+        prev = lab.shift()
+        ok = same_group & lab.notna().to_numpy(dtype=bool) & prev.notna().to_numpy(dtype=bool)
+        if ok.sum() < 10:
+            continue
+        p_same = float((lab[ok] == prev[ok]).mean())
+        chance = float((lab[ok].value_counts(normalize=True) ** 2).sum())
+        if chance < 1:
+            out[c] = float(np.clip((p_same - chance) / (1 - chance), -0.99, 0.99))
+    return out
+
+
 def _p_matrix(r: pd.DataFrame, n: pd.DataFrame) -> pd.DataFrame:
-    p = np.vectorize(corr_pvalue, otypes=[float])(r.to_numpy(), n.to_numpy().astype(int))
+    p = np.vectorize(corr_pvalue, otypes=[float])(r.to_numpy(), n.to_numpy().astype(float))
     np.fill_diagonal(p, 0.0)
     return pd.DataFrame(p, index=r.index, columns=r.columns)
 
@@ -242,22 +295,44 @@ def linear_dependencies(num: pd.DataFrame, vif: pd.DataFrame, config: StoneConfi
     return pd.DataFrame(rows, columns=["column", "equation", "columns"])
 
 
+def numeric_shape(num: pd.DataFrame, cfg: StoneConfig) -> pd.DataFrame:
+    """Skewness and excess kurtosis of each column, and whether it is shaped for Pearson (roughly
+    symmetric, light tails): a pair is tested with Pearson only when both of its columns are."""
+    rows = []
+    for c in num.columns:
+        x = num[c].dropna().to_numpy(dtype="float64")
+        skew = kurt = np.nan
+        if len(x) >= 8 and np.ptp(x) > 0:
+            with quiet():
+                skew, kurt = float(stats.skew(x)), float(stats.kurtosis(x))
+        ok = bool(abs(skew) < cfg.pearson_max_skew and abs(kurt) < cfg.pearson_max_kurtosis)  # False when NaN
+        rows.append({"column": c, "skewness": skew, "excess_kurtosis": kurt, "pearson": ok})
+    return pd.DataFrame(rows, columns=["column", "skewness", "excess_kurtosis", "pearson"]).set_index("column")
+
+
 def _pairs(out: dict[str, pd.DataFrame], cfg: StoneConfig) -> pd.DataFrame:
     """One row per column pair with its best association, test p-value, BH-adjusted p and CI."""
     rows = []
     if "pearson" in out:
         cols = list(out["pearson"].columns)
+        shape = out["numeric_shape"]["pearson"].to_dict() if "numeric_shape" in out else {}
         for i, a in enumerate(cols):
             for b in cols[i + 1:]:
                 n = int(out["n_numeric"].loc[a, b])
                 rp, rs = out["pearson"].loc[a, b], out["spearman"].loc[a, b]
                 if pd.isna(rp) and pd.isna(rs):
                     continue
-                use_s = pd.isna(rp) or (pd.notna(rs) and abs(rs) > abs(rp))
-                method, r = ("spearman", rs) if use_s else ("pearson", rp)
+                # chosen from the shape of each column, never from which coefficient is larger: picking the
+                # stronger of the two after the fact is two tests, and rejects 6.5 to 9.5% of independent pairs at 5%
+                off = [c for c in (a, b) if not shape.get(c, False)]
+                use_s = bool(off) or pd.isna(rp)
+                method, r, other = ("spearman", rs, rp) if use_s else ("pearson", rp, rs)
+                reason = (f"skewed or heavy-tailed: {', '.join(map(str, off))}" if off else
+                          "Pearson undefined" if pd.isna(rp) else "both columns roughly symmetric, light tails")
                 p = out[f"{method}_p"].loc[a, b]
-                lo, hi = fisher_ci(r, n, cfg.alpha, spearman=use_s)
-                rows.append([a, b, "num-num", method, r, n, f"{method} t-test", p, lo, hi])
+                n_eff = float(out["n_effective"].loc[a, b]) if "n_effective" in out else n
+                lo, hi = fisher_ci(r, n_eff, cfg.alpha, spearman=use_s)
+                rows.append([a, b, "num-num", method, r, n, f"{method} t-test", p, lo, hi, other, reason])
     for key, kind, test in (("cramers_v", "cat-cat", "chi-square"), ("eta", "cat-num", "kruskal-wallis")):
         if key not in out:
             continue
@@ -268,9 +343,10 @@ def _pairs(out: dict[str, pd.DataFrame], cfg: StoneConfig) -> pd.DataFrame:
                     continue
                 v = mat.loc[a, b]
                 if pd.notna(v):
-                    rows.append([a, b, kind, key, v, int(nmat.loc[a, b]), test, pmat.loc[a, b], np.nan, np.nan])
+                    rows.append([a, b, kind, key, v, int(nmat.loc[a, b]), test, pmat.loc[a, b], np.nan, np.nan,
+                                 np.nan, None])
     frame = pd.DataFrame(rows, columns=["col_a", "col_b", "kind", "method", "value", "n", "test", "p_value",
-                                        "ci_low", "ci_high"])
+                                        "ci_low", "ci_high", "other_value", "method_reason"])
     frame["abs_value"] = frame["value"].abs()
     frame["p_adjusted"] = bh_adjust(frame["p_value"])
     frame["significant"] = frame["p_adjusted"] < cfg.alpha
@@ -302,9 +378,13 @@ def _association_matrix(out: dict[str, pd.DataFrame], pairs: pd.DataFrame, cols:
 
 # --------------------------------------------------------------------------- target & missingness
 def target_associations(
-    df: pd.DataFrame, target: str, types: dict[str, str], config: StoneConfig | None = None
+    df: pd.DataFrame, target: str, types: dict[str, str], config: StoneConfig | None = None,
+    rho: dict[Any, float] | None = None,
 ) -> pd.DataFrame:
-    """Association of every feature with ``target``: effect size, test, adjusted p, AUC, mutual information."""
+    """Association of every feature with ``target``: effect size, test, adjusted p, AUC, mutual information.
+
+    ``rho``: for rows in time order, the lag-1 autocorrelation of each column (see :func:`serial_dependence`):
+    every p-value is then computed on Bartlett's effective sample size."""
     cfg = config or StoneConfig()
     numeric, categorical = _roles(df, types, cfg)
     t_type = types[target]
@@ -326,8 +406,17 @@ def target_associations(
                 pair = pd.concat([x, y], axis=1).dropna()
                 if len(pair) < 3:
                     continue
-                value, p = stats.spearmanr(pair.iloc[:, 0], pair.iloc[:, 1])
-                method, test, n = "spearman", "spearman t-test", len(pair)
+                value, p_mono = stats.spearmanr(pair.iloc[:, 0], pair.iloc[:, 1])
+                # Spearman only sees monotone links: the target is also compared across the deciles of the feature
+                # (Kruskal-Wallis), which sees a U shape; two tests fixed in advance, so Bonferroni keeps the 5%
+                bins = _discretize(pair.iloc[:, 0], True)
+                _, p_shape, _ = correlation_ratio_test(bins, pair.iloc[:, 1])
+                if rho is not None:
+                    infl = serial_inflation(rho.get(col), rho.get(target))
+                    p_mono = corr_pvalue(value, len(pair) / infl)
+                    p_shape = deflate_chi2(p_shape, bins.nunique() - 1, infl)
+                p = min(1.0, 2 * min(p_mono, p_shape)) if np.isfinite(p_shape) else p_mono
+                method, test, n = "spearman", "spearman + kruskal-wallis by deciles (Bonferroni)", len(pair)
             elif f_numeric:
                 value, p, n = correlation_ratio_test(y, x)
                 method, test = "eta", "kruskal-wallis"
@@ -342,6 +431,15 @@ def target_associations(
                 method, test = "cramers_v", "chi-square"
             if not np.isfinite(value):
                 continue
+            if rho is not None and test != "spearman + kruskal-wallis by deciles (Bonferroni)":
+                infl = serial_inflation(rho.get(col), rho.get(target))
+                if test == "mann-whitney":  # a z test: the statistic shrinks by the square root
+                    p = float(2 * stats.norm.sf(stats.norm.isf(p / 2) / np.sqrt(infl))) if np.isfinite(p) else p
+                elif test == "kruskal-wallis":
+                    groups = (y if f_numeric else x).nunique()
+                    p = deflate_chi2(p, groups - 1, infl)
+                else:
+                    p = deflate_chi2(p, (x.nunique() - 1) * (y.nunique() - 1), infl)
             mi = mutual_information(x, y, f_numeric, t_numeric)
             leak = abs(value) >= cfg.leakage_threshold or (np.isfinite(auc) and abs(auc - 0.5) >= cfg.leakage_threshold / 2)
             rows.append([col, types[col], method, float(value), int(n), test, float(p), np.nan, False, auc, mi, leak])
@@ -465,9 +563,16 @@ def _corr_task(key: tuple[str, ...]) -> Any:
     with quiet():
         if kind == "numeric":
             out: dict[str, Any] = {"n_numeric": _pairwise_n(num)}
+            n_eff = out["n_numeric"]
+            if st.get("rho") is not None:  # Bartlett's effective sample size of each pair
+                r1 = np.array([st["rho"].get(c, 0.0) for c in num.columns])
+                infl = np.vectorize(serial_inflation)(r1[:, None], r1[None, :])
+                n_eff = out["n_numeric"] / infl
+            out["n_effective"] = n_eff
             for method in ("pearson", "spearman"):
                 out[method] = num.corr(method=method)
-                out[f"{method}_p"] = _p_matrix(out[method], out["n_numeric"])
+                out[f"{method}_p"] = _p_matrix(out[method], n_eff)
+            out["numeric_shape"] = numeric_shape(num, cfg)
             features = num.drop(columns=[target], errors="ignore")
             out["vif"] = variance_inflation(features, cfg)
             out["linear_dependencies"] = linear_dependencies(features, out["vif"], cfg)
@@ -482,13 +587,27 @@ def _corr_task(key: tuple[str, ...]) -> Any:
             return out_rows
         if kind == "cramers":
             a = key[1]
-            return [(b, *cramers_v_test(df[a], df[b])) for b in categorical[categorical.index(a) + 1:]]
+            rows = []
+            for b in categorical[categorical.index(a) + 1:]:
+                v, p, n = cramers_v_test(df[a], df[b])
+                if st.get("rho") is not None:
+                    dof = (df[a].nunique() - 1) * (df[b].nunique() - 1)
+                    p = deflate_chi2(p, dof, serial_inflation(st["rho"].get(a), st["rho"].get(b)))
+                rows.append((b, v, p, n))
+            return rows
         if kind == "eta":
-            return [(n_col, *correlation_ratio_test(df[key[1]], num[n_col])) for n_col in numeric]
+            rows = []
+            for n_col in numeric:
+                v, p, n = correlation_ratio_test(df[key[1]], num[n_col])
+                if st.get("rho") is not None:
+                    p = deflate_chi2(p, df[key[1]].nunique() - 1,
+                                     serial_inflation(st["rho"].get(key[1]), st["rho"].get(n_col)))
+                rows.append((n_col, v, p, n))
+            return rows
         if kind == "missing":
             return _missingness_rows(df, key[1], numeric, categorical, num)
         if kind == "target":
-            return target_associations(df, target, types, cfg)
+            return target_associations(df, target, types, cfg, st.get("rho"))
         if kind == "missing_target":
             return missing_vs_target(df, target, types, cfg)
     raise ValueError(f"unknown correlation task {key!r}")
@@ -496,17 +615,27 @@ def _corr_task(key: tuple[str, ...]) -> Any:
 
 def compute_correlations(
     df: pd.DataFrame, types: dict[str, str], target: str | None = None, config: StoneConfig | None = None,
-    workers: int = 1,
+    workers: int = 1, serial: dict[str, Any] | None = None,
 ) -> dict[str, pd.DataFrame]:
     """All association matrices and tests given precomputed semantic types (see :func:`see_corr`).
 
     The tests are independent pieces run on ``workers`` processes (see :mod:`elessar.parallel`);
     the multiple-testing corrections are applied once every piece is back.
+
+    ``serial`` (rows indexed by time, see :func:`elessar.timeseries.serial_structure`): the columns with a unit
+    root are replaced by their first differences (two random walks look associated whatever they are), and
+    every test uses Bartlett's effective sample size n (1 - r_a r_b) / (1 + r_a r_b) from the lag-1
+    autocorrelations of the two columns: autocorrelated rows carry less information than independent ones.
     """
     cfg = config or StoneConfig()
+    if serial is not None and serial["differences"] is not None:
+        df = df.copy()
+        for c in serial["differences"].columns:
+            df[c] = serial["differences"][c].reindex(df.index)
     df = sample(df, cfg.sample_size, cfg.random_state)
     numeric, categorical = _roles(df, types, cfg)
     num = _numeric_frame(df, numeric, types)
+    rho = serial_dependence(df, num, categorical, serial) if serial is not None else None
     keys: list[tuple[str, ...]] = [("numeric",)] + [("kendall", a) for a in numeric[:-1]] if len(numeric) >= 2 else []
     if len(categorical) >= 2:
         keys += [("cramers", a) for a in categorical[:-1]]
@@ -516,7 +645,7 @@ def compute_correlations(
     if target is not None:
         keys += [("target",), ("missing_target",)]
     state = {"df": df, "types": types, "target": target, "cfg": cfg, "numeric": numeric,
-             "categorical": categorical, "num": num}
+             "categorical": categorical, "num": num, "rho": rho}
     results = dict(zip(keys, run_tasks(_corr_task, keys, workers, state)))
     failed = [f"{k[0]}: {r.error}" for k, r in results.items() if isinstance(r, TaskError)]
     if failed:
@@ -551,6 +680,10 @@ def compute_correlations(
                         frame.loc[c, n_col] = val
             out["eta"], out["eta_p"], out["eta_n"] = frames
         pairs = _pairs(out, cfg)
+        if rho is not None:
+            diffed = set(serial["differences"].columns) if serial["differences"] is not None else set()
+            out["serial"] = pd.DataFrame({"column": list(rho), "lag1_autocorrelation": list(rho.values()),
+                                          "differenced": [c in diffed for c in rho]})
         out["pairs"] = pairs
         out["top_pairs"] = pairs[pairs["abs_value"] >= cfg.corr_threshold].reset_index(drop=True)
         if len(numeric) + len(categorical) >= 2:
@@ -577,7 +710,12 @@ def see_corr(
     - ``association`` / ``association_p``: one matrix over every column (Spearman, Cramér's V or
       eta depending on the pair) with the raw test p-values
     - ``pairs`` (every pair tested, with p, BH-adjusted p, significance and Fisher CI) and
-      ``top_pairs`` (those with ``|value| >= corr_threshold``)
+      ``top_pairs`` (those with ``|value| >= corr_threshold``). A numeric pair is tested with Pearson
+      when both columns are roughly symmetric with light tails (``numeric_shape``), with Spearman
+      otherwise; ``other_value`` holds the other coefficient and ``method_reason`` the reason
+    - for rows indexed by time, ``serial``: the lag-1 autocorrelation of each column and whether it was
+      replaced by its first differences (not shown stationary); every test then uses Bartlett's effective
+      sample size (``n_effective`` for the numeric pairs)
     - ``missingness``: which columns' missingness depends on other columns
     - with ``target``: ``target`` (feature ranking with tests, AUC, mutual information, leakage) and
       ``missing_target`` (is the target different when a feature is missing?)
@@ -591,11 +729,16 @@ def see_corr(
             types[col] = infer_type(df[col], cfg)["semantic_type"]
         except Exception:  # noqa: BLE001 - an un-typable column is just left out
             types[col] = "mixed"
-    return compute_correlations(df, types, target, cfg)
+    from .timeseries import serial_structure
+
+    with quiet():  # rows indexed by time: unit roots differenced, tests on the effective sample size
+        serial = serial_structure(df, types)
+    return compute_correlations(df, types, target, cfg, serial=serial)
 
 
 __all__ = [
     "auc_binary", "bh_adjust", "compute_correlations", "correlation_ratio", "correlation_ratio_test", "corr_pvalue",
-    "cramers_v", "cramers_v_test", "fisher_ci", "see_corr", "missing_vs_target", "missingness_dependence",
-    "mutual_information", "target_associations", "variance_inflation",
+    "cramers_v", "cramers_v_test", "deflate_chi2", "fisher_ci", "see_corr", "missing_vs_target",
+    "missingness_dependence", "mutual_information", "serial_dependence", "serial_inflation", "target_associations",
+    "variance_inflation",
 ]

@@ -1,11 +1,11 @@
-"""elessar: automated exploratory data analysis and data-quality profiling for pandas DataFrames.
+"""elessar: automated exploratory data analysis and data-quality profiling.
 
 >>> import elessar
 >>> report = elessar.see(df, target="price")        # prints the report, writes plots + report.html
 >>> report = elessar.see("sales.parquet", target="ask")  # any file; pick the target in a window
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 from .config import StoneConfig  # noqa: E402 - __version__ first: submodules read it
 from .core import see, see_column  # noqa: E402

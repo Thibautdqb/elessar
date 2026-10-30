@@ -179,3 +179,226 @@ def test_duplicates_ignoring_identifiers_exact_and_in_sample(tmp_path: Path) -> 
     capped = see(path, plots=False, verbose=False, config=StoneConfig(max_rows=1_000, chunk_rows=700, max_hashed_rows=1_000),
                  engine="pandas")
     assert capped.quality["duplicate_rows"].get("not_counted") and "in the sample" in capped.overview["duplicates_text"]
+
+
+def test_rows_with_missing_are_counted_over_every_row(tmp_path: Path) -> None:
+    rng = np.random.default_rng(8)
+    n = 6_000
+    df = pd.DataFrame({"a": rng.normal(size=n), "b": rng.normal(size=n), "c": rng.integers(0, 9, n).astype(float)})
+    for col in df:
+        df.loc[rng.choice(n, 300, replace=False), col] = np.nan
+    df.loc[rng.choice(n, 120, replace=False), ["a", "b"]] = np.nan
+    truth = int(df.isna().any(axis=1).sum())
+    many = int((df.isna().mean(axis=1) >= StoneConfig().row_missing_pct / 100).sum())
+    path = tmp_path / "gaps.csv"
+    df.to_csv(path, index=False)
+    v = see(path, plots=False, verbose=False, config=StoneConfig(max_rows=1_000, chunk_rows=700))
+    assert v.overview["sampled"] and v.overview["n_rows_with_missing"] == truth  # not the count in the 1,000-row sample
+    assert v.quality["missing_patterns"]["n_rows_many_missing"] == many
+    # a column missing from some chunks leaves every row of those chunks with a missing value
+    a = scan_chunks([df.iloc[:3000], df.iloc[3000:].drop(columns="c")], k=500)
+    assert a.n_rows_with_missing == int(df.iloc[:3000].isna().any(axis=1).sum()) + 3000
+
+
+def test_ragged_lines_are_skipped_counted_and_reported(tmp_path: Path) -> None:
+    lines = ["a,b,c"] + [f"{i},{i % 7},{i % 3}" for i in range(12_000)]
+    for k in (50, 6_000, 9_001):  # three lines with two extra fields (file lines 51, 6001, 9002)
+        lines[k] += ",9,9"
+    path = tmp_path / "ragged.csv"
+    path.write_text("\n".join(lines) + "\n")
+    runs = {"whole": {}, "chunks": {"config": StoneConfig(max_rows=1_000, chunk_rows=2_500), "engine": "pandas"}}
+    if has_dask():
+        runs["dask"] = {"config": StoneConfig(max_rows=1_000, chunk_rows=2_500), "engine": "dask"}
+    for how, kw in runs.items():  # the chunked readers used to stop with a ParserError
+        v = see(path, plots=False, verbose=False, **kw)
+        assert v.overview["n_rows"] == 12_000 - 3, how
+        found = [a["message"] for a in v.alerts if a.get("kind") == "bad_lines"]
+        assert found and found[0].startswith("3 lines") and "(line 51, 6001, 9002)" in found[0], (how, found)
+    if has_dask():  # a dask block counts its skipped lines but cannot number them in the file
+        from dask.bytes import read_bytes
+
+        from elessar.sources import _CsvBlock
+
+        _, blocks = read_bytes([str(path)], delimiter=b"\n", blocksize=40_000, sample=False)
+        header = lines[0].encode() + b"\n"
+        frames = [_CsvBlock(b, None if i == 0 else header, {"sep": ","}, "utf-8")() for i, b in enumerate(blocks[0])]
+        assert len(frames) > 1 and sum(f.attrs["bad_lines"] for f in frames) == 3
+        assert not any(f.attrs["bad_line_numbers"] for f in frames)
+
+
+def test_sqlite_table_names_are_quoted_and_checked(tmp_path: Path) -> None:
+    path = tmp_path / "q.db"
+    name = 'my "big" table'
+    with sqlite3.connect(path) as con:
+        con.execute('CREATE TABLE "my ""big"" table" (a INT, b TEXT)')
+        con.executemany('INSERT INTO "my ""big"" table" VALUES (?, ?)', [(i, str(i % 5)) for i in range(3_000)])
+        con.execute("CREATE TABLE small (a INT)")
+        con.execute("INSERT INTO small VALUES (1)")
+    # the biggest table, found although its name holds quotes (its count used to fail, and 'small' was read)
+    assert load(path).origin["table"] == name and len(load(path).df) == 3_000
+    assert len(load(path, table=name).df) == 3_000
+    streamed = load(path, StoneConfig(max_rows=500, chunk_rows=700), table=name)
+    assert streamed.full is not None and streamed.full.n_rows == 3_000
+    with pytest.raises(LoadError, match="no table 'nope'"):
+        load(path, table="nope")
+
+
+_RAN: list[str] = []
+
+
+def _mark(what: str) -> None:
+    _RAN.append(what)
+
+
+class _Runs:
+    """Unpickling this calls ``_mark``: a stand-in for the code a pickle can run."""
+
+    def __reduce__(self):  # noqa: ANN204
+        return (_mark, ("unpickled",))
+
+
+def test_pickles_are_read_only_when_named(tmp_path: Path) -> None:
+    import pickle
+
+    pd.DataFrame({"a": range(50), "b": range(50)}).to_csv(tmp_path / "a.csv", index=False)
+    (tmp_path / "z.pkl").write_bytes(pickle.dumps(_Runs()))
+    _RAN.clear()
+    for scan in (tmp_path, tmp_path / "*"):  # a folder or a pattern reads the CSV and leaves the pickle alone
+        src = load(scan)
+        assert src.origin["kind"] == "csv file" and len(src.df) == 50
+    with pytest.raises(LoadError, match="only pickle files"):
+        load(tmp_path / "*.pkl")
+    assert _RAN == []
+    with pytest.raises(LoadError):  # named on its own: read, as pd.read_pickle would (this one holds no table)
+        load(tmp_path / "z.pkl")
+    assert _RAN == ["unpickled"]
+
+
+@pytest.fixture
+def web(tmp_path: Path):  # noqa: ANN201
+    """A local HTTP server on ``tmp_path``: yields (base URL, bodies sent in full per path, whether to announce
+    sizes). A body counts once the server wrote its last byte, i.e. the client read it all."""
+    import functools
+    import http.server
+    import threading
+
+    sent: dict[str, int] = {}
+    opts = {"length": True}
+
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        def log_message(self, *args: object) -> None:
+            pass
+
+        def send_header(self, key: str, value: str) -> None:
+            if key != "Content-Length" or opts["length"]:
+                super().send_header(key, value)
+
+        def copyfile(self, source, outputfile) -> None:  # noqa: ANN001
+            try:
+                while chunk := source.read(64 << 10):
+                    outputfile.write(chunk)
+            except OSError:  # the client stopped reading: it only wanted the head
+                return
+            path = self.path.lstrip("/")
+            sent[path] = sent.get(path, 0) + 1
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0),
+                                             functools.partial(Handler, directory=str(tmp_path)))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        yield f"http://127.0.0.1:{server.server_address[1]}", sent, opts
+    finally:
+        server.shutdown()
+
+
+def test_web_files_are_streamed_not_downloaded_whole(web, tmp_path: Path) -> None:  # noqa: ANN001
+    base, sent, opts = web
+    rng = np.random.default_rng(5)
+    n = 500_000  # 12 MB: well beyond what the local socket buffers absorb from a client that stops reading
+    df = pd.DataFrame({"a": rng.normal(size=n), "b": rng.integers(0, 50, n), "c": rng.choice(["x", "y"], n)})
+    df.to_csv(tmp_path / "big.csv", index=False)
+    size = (tmp_path / "big.csv").stat().st_size
+    cfg = StoneConfig(max_rows=2_000, chunk_rows=20_000)
+    src = load(f"{base}/big.csv", cfg)
+    assert src.full is not None and src.full.n_rows == n and src.origin["size_bytes"] == size
+    # sniffing, header and size estimate read the head only: the body goes through once (it used to go four times)
+    assert sent["big.csv"] == 1
+    opts["length"] = False  # a server that does not give the size: read in chunks, exact either way
+    sent.clear()
+    assert load(f"{base}/big.csv", cfg).full.n_rows == n
+    df.head(300).to_csv(tmp_path / "small.csv", index=False)
+    small = load(f"{base}/small.csv", cfg)
+    assert small.full is None and len(small.df) == 300  # all of it fitted in the sample: profiled whole
+    (tmp_path / "page.html").write_text("<!doctype html><html><body>download</body></html>")
+    with pytest.raises(LoadError, match="web page"):
+        load(f"{base}/page.html")
+    with pytest.raises(LoadError, match="HTTP 404"):
+        load(f"{base}/missing.csv")
+
+
+def test_feather_and_orc_are_streamed_and_whole_reads_are_guarded(tmp_path: Path, monkeypatch) -> None:  # noqa: ANN001
+    import pyarrow as pa
+    import pyarrow.feather as feather
+
+    from elessar import sources
+
+    rng = np.random.default_rng(6)
+    n = 30_000
+    df = pd.DataFrame({"a": rng.normal(size=n), "b": rng.integers(0, 9, n), "c": rng.choice(["x", "y", "z"], n)})
+    feather.write_feather(pa.Table.from_pandas(df, preserve_index=False), tmp_path / "t.feather", chunksize=7_000)
+    names = ["t.feather"]
+    try:  # pyarrow has no ORC support on Windows
+        import pyarrow.orc  # noqa: F401
+
+        df.to_orc(tmp_path / "t.orc")
+        names.append("t.orc")
+    except ImportError:
+        pass
+    cfg = StoneConfig(max_rows=2_000, chunk_rows=3_000)
+    for name in names:  # these used to be read whole whatever their size
+        src = load(tmp_path / name, cfg)
+        assert src.full is not None and src.full.n_rows == n, name
+        assert src.full.engine == "pandas chunks" and src.full.n_chunks >= 10  # read part by part, never whole
+        assert src.full.columns.loc["a", "mean"] == pytest.approx(df["a"].mean())
+        assert src.full.columns.loc["c", "n_distinct"] == 3
+    assert load(tmp_path / "t.feather").full is None  # small enough: read whole as before
+    df.head(2_000).to_excel(tmp_path / "t.xlsx", index=False)
+    assert len(load(tmp_path / "t.xlsx").df) == 2_000
+    monkeypatch.setattr(sources, "available_memory", lambda: 64 << 10)  # 64 KiB free: reading it whole would not fit
+    with pytest.raises(LoadError, match="convert it to Parquet or CSV"):
+        load(tmp_path / "t.xlsx")
+
+
+class _Gadget:
+    """Starts from an allowed class and walks out through getattr (to __init__, then its __globals__...): the usual
+    way out of a naive unpickling whitelist."""
+
+    def __reduce__(self):  # noqa: ANN204
+        return (getattr, (pd.DataFrame, "__init__"))
+
+
+def test_pickles_from_a_url_are_rebuilt_only_from_table_parts(web, tmp_path: Path) -> None:  # noqa: ANN001
+    import pickle
+
+    base, _, _ = web
+    n = 40
+    rng = np.random.default_rng(13)
+    df = pd.DataFrame({"i": np.arange(n), "f": rng.normal(size=n), "s": [f"x{i}" for i in range(n)],
+                       "cat": pd.Categorical(rng.choice(list("abc"), n)),
+                       "when": pd.date_range("2020-01-01", periods=n, tz="Europe/Paris"),
+                       "per": pd.period_range("2020-01", periods=n, freq="M"),
+                       "I": pd.array(list(range(n - 1)) + [None], dtype="Int64"),
+                       "arrow": pd.array(rng.normal(size=n), dtype="double[pyarrow]")}).set_index(["s", "i"])
+    for proto in (2, 4, 5):
+        (tmp_path / f"t{proto}.pkl").write_bytes(pickle.dumps(df, protocol=proto))
+        got = load(f"{base}/t{proto}.pkl").df
+        pd.testing.assert_frame_equal(got.reset_index(), df.reset_index(), check_dtype=False)
+    _RAN.clear()
+    (tmp_path / "evil.pkl").write_bytes(pickle.dumps(_Runs()))
+    with pytest.raises(LoadError, match="download it"):
+        load(f"{base}/evil.pkl")
+    assert _RAN == []  # refused before running anything
+    (tmp_path / "gadget.pkl").write_bytes(pickle.dumps(_Gadget()))
+    with pytest.raises(LoadError, match=r"getattr\(DataFrame, '__init__'\)"):
+        load(f"{base}/gadget.pkl")
+    assert len(load(tmp_path / "t4.pkl").df) == n  # a local pickle named by its path is read as before

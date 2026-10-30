@@ -34,7 +34,8 @@ from .config import StoneConfig
 from .parallel import TaskError, n_spawn_workers, n_workers, run_spawned, run_tasks, shared
 from .progressive import CsvProbe, FrameProbe, HeadProbe, ParquetProbe, Probe, TypePlan, progressive_types
 from .readers import (COMPRESSIONS, STREAMABLE, LoadError, _chunk_iter, _csv_kwargs, _expand, _head_bytes,  # noqa: F401
-                      _is_url, _read_csv, _read_whole, _sqlite_table, _suffixes, detect_format, has_header, sniff_csv)
+                      _is_url, _read_csv, _read_whole, _sqlite_table, _suffixes, bad_lines, counting_bad_lines,
+                      _is_web, READ_PEAK_PER_BYTE, arrow_batches, arrow_rows, complete_lines, detect_format, has_header, sniff_csv, sql_name, url_info)
 from .scan import FullScan, Part, ScanPlan, finalize, merge, reduce_chunk, scan_chunks
 from .timeseries import aggregation_unit, finest_unit
 
@@ -92,9 +93,15 @@ def hash_cap(cfg: StoneConfig) -> int:
 # ------------------------------------------------------------------------------------------- planning
 def _estimate(files: list[str], fmt: str, opts: dict[str, Any], cfg: StoneConfig) -> dict[str, Any]:
     """Rows and in-memory bytes the files would take, from a small head (cheap)."""
-    size = sum(os.path.getsize(f) for f in files if not _is_url(f) and os.path.exists(f))
-    est: dict[str, Any] = {"size_bytes": size, "rows": None, "memory": None}
     first = files[0]
+    if _is_web(first):  # the size the server announces; the body is only streamed when reading
+        sizes = [url_info(f)["size"] for f in files]
+        size = None if None in sizes else sum(sizes)
+    else:
+        size = sum(os.path.getsize(f) for f in files if not _is_url(f) and os.path.exists(f))
+    est: dict[str, Any] = {"size_bytes": size, "rows": None, "memory": None}
+    if size is None and fmt in ("csv", "jsonl"):
+        est["unknown_size"] = True  # read in chunks: safe whatever the size, and exact for a small file
     if fmt == "parquet":
         try:
             import pyarrow.parquet as pq
@@ -114,19 +121,29 @@ def _estimate(files: list[str], fmt: str, opts: dict[str, Any], cfg: StoneConfig
             est["rows"] = int(size / (len(raw) / lines))
             try:
                 kw = _csv_kwargs(first, opts) if fmt == "csv" else {}
-                head = (_read_csv(first, kw, nrows=min(lines, 20_000)) if fmt == "csv"
-                        else pd.read_json(first, lines=True, nrows=min(lines, 20_000)))
+                part = io.BytesIO(complete_lines(raw)) if _is_web(first) else first  # never download it whole
+                head = (_read_csv(part, kw, nrows=min(lines, 20_000)) if fmt == "csv"
+                        else pd.read_json(part, lines=True, nrows=min(lines, 20_000)))
                 per_row = head.memory_usage(deep=True, index=False).sum() / max(len(head), 1)
                 est["memory"] = int(per_row * est["rows"])
             except Exception:  # noqa: BLE001
                 pass
         elif compressed and size:
             est["memory"] = size * 12  # typical text compression ratio x in-memory overhead
+    elif fmt in ("feather", "orc") and not _is_url(first):
+        try:
+            est["rows"] = sum(arrow_rows(f, fmt) for f in files)
+            head = next(arrow_batches(first, fmt, opts.get("columns"))).slice(0, 5_000).to_pandas()
+            est["memory"] = int(head.memory_usage(deep=True, index=False).sum() / max(len(head), 1) * est["rows"])
+        except Exception:  # noqa: BLE001 - leave unknown
+            pass
+    elif fmt in READ_PEAK_PER_BYTE and size:
+        est["read_peak"] = int(size * READ_PEAK_PER_BYTE[fmt])  # read whole: what reading it takes, at most
     elif fmt == "sqlite":
         try:
             with sqlite3.connect(f"file:{first}?mode=ro", uri=True) as con:
-                table = opts.get("table") or _sqlite_table(con)
-                est["rows"] = int(con.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0])
+                table = _sqlite_table(con, opts.get("table"))
+                est["rows"] = int(con.execute(f"SELECT COUNT(*) FROM {sql_name(table)}").fetchone()[0])
         except Exception:  # noqa: BLE001
             pass
     return est
@@ -135,6 +152,8 @@ def _estimate(files: list[str], fmt: str, opts: dict[str, Any], cfg: StoneConfig
 def _too_big(est: dict[str, Any], cfg: StoneConfig) -> bool:
     budget = cfg.memory_fraction * available_memory()
     rows, memory = est.get("rows"), est.get("memory")
+    if est.get("unknown_size"):
+        return True
     return bool((rows is not None and rows > cfg.max_rows) or (memory is not None and memory > budget))
 
 
@@ -144,8 +163,8 @@ def _dask_tasks(files: list[str], fmt: str, opts: dict[str, Any], cfg: StoneConf
                 info: dict[str, Any]) -> list[Callable[[], pd.DataFrame]] | None:
     """Independent chunk loaders for dask, or None when this input cannot be split that way."""
     if fmt == "csv":
-        if any(s in COMPRESSIONS for f in files for s in _suffixes(f)):
-            return None  # compressed text cannot be split into byte ranges
+        if any(s in COMPRESSIONS for f in files for s in _suffixes(f)) or any(_is_url(f) for f in files):
+            return None  # compressed or remote text cannot be split into byte ranges here
         from dask.bytes import read_bytes
 
         kw = _csv_kwargs(files[0], opts)
@@ -197,7 +216,8 @@ class _CsvBlock:
         if self.header is not None:
             data = self.header + data
         kw = {**self.kw, "encoding": "utf-8" if self.encoding == "utf-8-sig" and self.header is not None else self.encoding}
-        return pd.read_csv(io.BytesIO(data), **kw)
+        # numbered lines would count from the start of the block, not of the file
+        return counting_bad_lines(lambda: pd.read_csv(io.BytesIO(data), **kw, on_bad_lines="warn"), numbered=False)
 
 
 class _Compute:
@@ -399,6 +419,8 @@ def load(
 
 def _from_scan(full: FullScan, name: str | None, info: dict[str, Any]) -> Source:
     info = {**info, "engine": full.engine, "chunks": full.n_chunks}
+    if full.bad_lines["count"]:
+        info["bad_lines"] = full.bad_lines
     if not full.sampled:  # it all fitted in the sample: profile every row, no approximation
         return Source(full.sample, name=name, origin=info)
     return Source(full.sample, name=name, origin=info, full=full)
@@ -410,6 +432,8 @@ def _load_path(path: str, cfg: StoneConfig, opts: dict[str, Any], engine: str) -
     name = Path(urlparse(path).path).name if _is_url(path) else (Path(path).name or path)
     info: dict[str, Any] = {"kind": f"{fmt} file" if len(files) == 1 else f"{len(files)} {fmt} files",
                             "format": fmt, "path": path, "n_files": len(files)}
+    if _is_web(files[0]) and fmt not in ("xml", "json") and url_info(files[0])["type"] == "text/html":
+        raise LoadError(f"{path} returns a web page (text/html), not a table -> use the link to the raw file")
     est = _estimate(files, fmt, opts, cfg) if opts.get("nrows") is None else {"size_bytes": None}
     info["size_bytes"] = est.get("size_bytes")
     stream = fmt in STREAMABLE and opts.get("nrows") is None and _too_big(est, cfg)
@@ -433,7 +457,15 @@ def _load_path(path: str, cfg: StoneConfig, opts: dict[str, Any], engine: str) -
             return scan_chunks(chunks, cfg.max_rows, cfg.random_state, hash_cap(cfg), "pandas chunks", sp)
 
         return _streamed(_probe(files, fmt, opts, cfg, info), run_pass, cfg, info, name)
+    peak, free = est.get("read_peak"), available_memory()
+    if peak and peak > free:  # this format is read whole: stop with advice rather than be killed by the system
+        raise LoadError(f"reading this {fmt} file whole would take about {fmt_bytes(peak)} of memory, "
+                        f"{fmt_bytes(free)} are available -> convert it to Parquet or CSV (read in chunks), "
+                        "or split it")
     frames = [_read_whole(f, fmt, opts, info) for f in files]
+    skipped = bad_lines(frames)
+    if skipped["count"]:
+        info["bad_lines"] = skipped
     with quiet():
         df = frames[0] if len(frames) == 1 else pd.concat(frames, ignore_index=True, sort=False)
     if opts.get("columns") and fmt not in ("csv", "parquet", "feather", "orc"):

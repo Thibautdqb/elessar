@@ -352,8 +352,8 @@ class _Recap:
         self.add("h", 2, SECTIONS["selection"], "selection")
         scores = ", ".join(f"{m} {sel['scores'][m]:.3f}" for m in sel["scores"])
         self.add("p", f"{sel['task'].capitalize()} of {v.target} on {sel['n_rows']:,} rows and {sel['n_features']} "
-                      f"features ({sel['n_design_columns']} model columns after one-hot encoding). Cross-validated "
-                      f"{sel['scoring']} ({sel['cv']}): {scores}.")
+                      f"features ({sel['n_design_columns']} model columns after one-hot encoding). Held-out "
+                      f"{sel['scoring']}: {scores} ({sel.get('validation') or sel['cv'] + ' CV'}).")
         self.add("p", [bold("Keep: "), ("", ", ".join(map(str, sel["keep"])) or "-"), ("", "  ·  "),
                        bold("Borderline: "), ("", ", ".join(map(str, sel["borderline"])) or "-"), ("", "  ·  "),
                        bold("Drop: "), ("", ", ".join(map(str, sel["drop"])) or "-")])
@@ -394,8 +394,8 @@ class _Recap:
         notes = []
         if ts.get("n_trimmed_periods"):
             notes.append(f"{ts['n_trimmed_periods']} incomplete edge period(s) left out (their counts are biased low)")
-        self.add("p", [("i", f"Computed on {basis}. Trend: Mann-Kendall test with the Hamed-Rao correction for "
-                              "autocorrelation (the uncorrected p-value of an autocorrelated series is far too small), "
+        self.add("p", [("i", f"Computed on {basis}. Trend: Mann-Kendall test corrected for "
+                              "autocorrelation (Hamed-Rao variance inflation from AR(1) and AR(p) models; the uncorrected p-value of an autocorrelated series is far too small), "
                               "slope by Sen's estimator. Stationarity: ADF (H0 unit root) and KPSS (H0 stationary), "
                               "with and without a linear trend, read together, on the seasonally adjusted series when there "
                               "is a seasonality. Seasonality: a period natural to the frequency is screened on the "
@@ -599,7 +599,9 @@ class _Recap:
         pairs, top = v.correlations.get("pairs"), v.correlations.get("top_pairs")
         if pairs is not None and not pairs.empty:
             self.add("p", f"{len(pairs):,} pairs tested, {int(pairs['significant'].sum()):,} significant after "
-                          f"Benjamini-Hochberg correction (alpha {v.alpha:g}).")
+                          f"Benjamini-Hochberg correction (alpha {v.alpha:g}). Two numeric columns are tested "
+                          "with Pearson when both are roughly symmetric with light tails, with Spearman otherwise: "
+                          "the choice never depends on which coefficient is the larger.")
         self.figures(self.charts(("association", "corr_pearson", "corr_spearman", "corr_cramers_v")), grid=True)
         if top is not None and not top.empty:
             self.add("h", 3, "Strongest associations", None)
@@ -680,14 +682,18 @@ class _Recap:
                 rows.append([f, ", ".join(map(str, r["items"])), "-", "single item", "-"])
                 continue
             deleted = ", ".join(f"{c}: {a:.2f}" + (" (+)" if a - r["alpha"] >= 0.05 else "") for c, a in r["if_deleted"].items())
+            value = (f"{r['spearman_brown']:.2f} (Spearman-Brown; r {r['r']:.2f}, alpha {r['alpha']:.2f})"
+                     if r.get("spearman_brown") is not None else f"{r['alpha']:.2f}")
             rows.append([f, ", ".join(f"{c} (reversed)" if c in r["reversed"] else str(c) for c in r["items"]),
-                         f"{r['alpha']:.2f}", r["label"], deleted or "-"])
+                         value, r["label"], deleted or "-"])
         if rows:
             self.add("p", [bold("Reliability"), ("", ": Cronbach's alpha per factor (excellent >= .90, very good >= .80, "
                                                      "good >= .70, acceptable >= .60, poor >= .50). (+) marks a deletion "
                                                      "that would raise alpha by .05 or more: delete only if it also makes "
-                                                     "sense for the construct; marginal gains are not worth an item.")])
-            self.add("table", ["factor", "items", "alpha", "", "alpha if item deleted"], rows, "data")
+                                                     "sense for the construct; marginal gains are not worth an item. "
+                                                     "A two-item factor is judged on the Spearman-Brown coefficient "
+                                                     "2r / (1 + r), which alpha understates for two items.")])
+            self.add("table", ["factor", "items", "reliability", "", "alpha if item deleted"], rows, "data")
         desc = fa.get("descriptives") or {}
         if desc:
             self.add("p", [bold("New factors"), ("", " (created only for factors with an acceptable alpha: the mean of "

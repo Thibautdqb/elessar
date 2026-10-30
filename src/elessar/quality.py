@@ -324,12 +324,14 @@ def check_quality(
     target: str | None = None,
     per_column: dict[str, dict[str, Any]] | None = None,
     exact_duplicates: dict[str, Any] | None = None,
+    exact_rows_many_missing: int | None = None,
 ) -> dict[str, Any]:
     """Run every dataset-level check given precomputed type info and correlations.
 
     ``per_column`` holds :func:`column_quality` results already computed (e.g. in parallel);
     missing columns are checked here. ``exact_duplicates`` (``{count, pct}`` over the full table
-    when ``df`` is a sample) replaces the duplicate count measured on ``df``.
+    when ``df`` is a sample) replaces the duplicate count measured on ``df``, and ``exact_rows_many_missing``
+    the number of rows with at least ``row_missing_pct`` % of missing cells.
     """
     cfg = config or StoneConfig()
     out: dict[str, Any] = {
@@ -371,6 +373,8 @@ def check_quality(
                 out[key][col] = found[key]
         if "dtype_optimization" in found:
             out["dtype_optimizations"].append(found["dtype_optimization"])
+    if exact_rows_many_missing is not None:  # the examples stay those found in the sample
+        out["missing_patterns"]["n_rows_many_missing"] = exact_rows_many_missing
     if exact_duplicates is not None:
         sample = out["duplicate_rows"]
         exact = {**exact_duplicates, "exact_over_all_rows": not exact_duplicates.get("not_counted")}

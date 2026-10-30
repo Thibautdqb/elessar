@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "elessar"
 dynamic = ["version"]
-description = "Automated exploratory data analysis and data-quality profiling for pandas DataFrames"
+description = "Automated exploratory data analysis and data-quality profiling"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -42,7 +42,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7"]
+dev = ["pytest>=7", "ruff>=0.6"]
 
 [project.scripts]
 elessar = "elessar.cli:main"
@@ -60,7 +60,18 @@ path = "src/elessar/__init__.py"
 packages = ["src/elessar"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/elessar", "tests", "examples", "README.md", "CHANGELOG.md", "LICENSE", "pyproject.toml"]
+include = ["src/elessar", "tests", "examples", "README.md", "CHANGELOG.md", "VALIDATION.md", "LICENSE", "pyproject.toml"]
+
+[tool.ruff]
+line-length = 125
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# real errors only: undefined names, bugs, syntax and whitespace; formatting is left to the authors
+select = ["F", "B", "E7", "E9", "W"]
+ignore = ["B905"]  # zip() without strict=: the lengths are equal by construction, and Python 3.10 is supported
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["validation: statistical validation by simulation (slow): python -m pytest -m validation tests/validation"]
+addopts = "-m 'not validation'"

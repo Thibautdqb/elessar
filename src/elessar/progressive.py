@@ -159,7 +159,7 @@ class CsvProbe(Probe):
         if self.header:
             kw["encoding"] = self.kw.get("encoding")
         with quiet():
-            return pd.read_csv(io.BytesIO(self.header + b"".join(self.lines)), **kw)
+            return pd.read_csv(io.BytesIO(self.header + b"".join(self.lines)), **kw, on_bad_lines="skip")  # counted by the full pass
 
 
 class ParquetProbe(Probe):

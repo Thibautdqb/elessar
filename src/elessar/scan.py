@@ -32,6 +32,7 @@ import pandas as pd
 
 from ._utils import dedupe_names, hashable, quiet
 from .config import PLACEHOLDER_STRINGS
+from .readers import BAD_LINE_EXAMPLES, bad_lines
 from .types import NUMERIC_TYPES, as_numeric
 
 KMV_K = 4096
@@ -83,6 +84,9 @@ class ColumnPart:
 @dataclass
 class Part:
     n_rows: int = 0
+    # rows by number of missing cells (index k = k cells missing), over the columns of ``columns``
+    missing_per_row: np.ndarray = field(default_factory=lambda: np.zeros(1, dtype="int64"))
+    bad_lines: dict[str, Any] = field(default_factory=lambda: {"count": 0, "examples": []})  # skipped by the reader
     columns: dict[str, ColumnPart] = field(default_factory=dict)
     sample: pd.DataFrame | None = None  # with the private column _pos = chunk id << 32 | row in chunk
     keys: np.ndarray = field(default_factory=lambda: np.empty(0))
@@ -106,6 +110,17 @@ class FullScan:
     columns: pd.DataFrame
     duplicate_rows: dict[str, Any] | None
     sample: pd.DataFrame
+    missing_per_row: np.ndarray = field(default_factory=lambda: np.zeros(1, dtype="int64"))
+    bad_lines: dict[str, Any] = field(default_factory=lambda: {"count": 0, "examples": []})
+
+    @property
+    def n_rows_with_missing(self) -> int:
+        return int(self.missing_per_row[1:].sum())
+
+    def n_rows_missing_at_least(self, pct: float) -> int:
+        """Rows with at least ``pct`` % of their cells missing."""
+        k = np.arange(len(self.missing_per_row))
+        return int(self.missing_per_row[100.0 * k / max(len(k) - 1, 1) >= pct].sum()) if len(k) > 1 else 0
     n_chunks: int = 0
     engine: str = ""
     violations: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -171,8 +186,9 @@ def reduce_chunk(chunk: pd.DataFrame, chunk_id: int, k: int, seed: int = 42, has
     roughly known, rows with a key far above ``k / n_rows`` cannot be among the ``k`` kept.
     """
     plan = plan or ScanPlan()
-    part = Part(n_rows=len(chunk), chunk_rows={chunk_id: len(chunk)})
+    part = Part(n_rows=len(chunk), chunk_rows={chunk_id: len(chunk)}, bad_lines=bad_lines([chunk]))
     chunk = chunk.set_axis(dedupe_names(list(chunk.columns)), axis=1)
+    part.missing_per_row = np.bincount(chunk.isna().sum(axis=1).to_numpy(dtype="int64"), minlength=chunk.shape[1] + 1)
     if plan.types:
         ids = [c for c in plan.ids if c in chunk.columns]
     else:  # no plan: row identifiers by name and uniqueness within the chunk
@@ -320,7 +336,9 @@ def _merge_column(a: ColumnPart, b: ColumnPart) -> ColumnPart:
 
 def merge(a: Part, b: Part, k: int, max_hashed_rows: int, entity_budget: int = 0) -> Part:
     """Combine two summaries (associative; the order of the chunks does not matter)."""
-    out = Part(n_rows=a.n_rows + b.n_rows, chunk_rows={**a.chunk_rows, **b.chunk_rows})
+    out = Part(n_rows=a.n_rows + b.n_rows, chunk_rows={**a.chunk_rows, **b.chunk_rows},
+               bad_lines={"count": a.bad_lines["count"] + b.bad_lines["count"],
+                          "examples": sorted(a.bad_lines["examples"] + b.bad_lines["examples"])[:BAD_LINE_EXAMPLES]})
     for name in list(a.columns) + [c for c in b.columns if c not in a.columns]:
         ca, cb = a.columns.get(name), b.columns.get(name)
         if ca is None or cb is None:  # a column absent from some chunks counts as missing there
@@ -329,6 +347,12 @@ def merge(a: Part, b: Part, k: int, max_hashed_rows: int, entity_budget: int = 0
             out.columns[name] = _merge_column(only, ColumnPart(n_missing=absent))
         else:
             out.columns[name] = _merge_column(ca, cb)
+    # a column absent from one side is missing on every row of that side: its rows move up by that many cells
+    hist = np.zeros(len(out.columns) + 1, dtype="int64")
+    for p in (a, b):
+        shift = len(out.columns) - len(p.columns)
+        hist[shift:shift + len(p.missing_per_row)] += p.missing_per_row
+    out.missing_per_row = hist
     parts = [(p.sample, p.keys) for p in (a, b) if p.sample is not None and len(p.sample)]
     full = [p.keys.max() for p in (a, b) if len(p.keys) >= k]
     if full:  # a row whose key is above the k-th smallest key seen so far can never be kept
@@ -450,7 +474,8 @@ def finalize(part: Part, n_chunks: int = 0, engine: str = "", plan: ScanPlan | N
         rownum = _row_numbers(part, er["_pos"].to_numpy())
         order = np.argsort(rownum, kind="stable")
         panel_rows = er.drop(columns=["_pos", "_ehash"]).iloc[order].set_axis(pd.Index(rownum[order]), axis=0)
-    return FullScan(n_rows=n, columns=columns, duplicate_rows=dup, sample=sample, n_chunks=n_chunks, engine=engine,
+    return FullScan(n_rows=n, columns=columns, duplicate_rows=dup, sample=sample, missing_per_row=part.missing_per_row, bad_lines=part.bad_lines,
+                    n_chunks=n_chunks, engine=engine,
                     violations=violations, id_duplicates=id_dups, series=series,
                     time_unit=plan.time_unit if plan else None, panel_rows=panel_rows,
                     panel_fraction=part.entity_tau if panel_rows is not None else None)

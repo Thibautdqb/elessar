@@ -89,11 +89,13 @@ _NUMERIC_HEADERS = {"missing", "unique", "mean/top", "std/top%", "min", "max", "
 def _pair_rows(pairs: pd.DataFrame) -> tuple[list[str], list[list[str]]]:
     rows = [
         [r.col_a, r.col_b, r.method, f"{r.value:+.3f}",
-         f"[{r.ci_low:+.3f}, {r.ci_high:+.3f}]" if pd.notna(r.ci_low) else "", f"{r.n:,}", fmt_p(r.p_adjusted),
+         f"[{r.ci_low:+.3f}, {r.ci_high:+.3f}]" if pd.notna(r.ci_low) else "",
+         f"{'spearman' if r.method == 'pearson' else 'pearson'} {r.other_value:+.3f}"
+         if pd.notna(getattr(r, "other_value", np.nan)) else "", f"{r.n:,}", fmt_p(r.p_adjusted),
          "*" if r.significant else ""]
         for r in pairs.itertuples(index=False)
     ]
-    return ["column A", "column B", "method", "value", "95% CI", "n", "p_adj", "sig"], rows
+    return ["column A", "column B", "method", "value", "95% CI", "other", "n", "p_adj", "sig"], rows
 
 
 def _target_rows(assoc: pd.DataFrame) -> tuple[list[str], list[list[str]]]:
@@ -219,8 +221,9 @@ class Vision:
         sel = self.selection
         if not sel:
             return []
-        rows = [("task", f"{sel['task']}, {sel['n_rows']:,} rows, {sel['cv']} CV {sel['scoring']}: "
-                         + ", ".join(f"{m} {v:.3f}" for m, v in sel["scores"].items())),
+        rows = [("task", f"{sel['task']}, {sel['n_rows']:,} rows"),
+                ("scores", f"held-out {sel['scoring']}: " + ", ".join(f"{m} {v:.3f}" for m, v in sel["scores"].items())
+                 + (f" ({sel['validation']})" if sel.get("validation") else "")),
                 ("keep", ", ".join(map(str, sel["keep"])) or "-"),
                 ("borderline", ", ".join(map(str, sel["borderline"])) or "-"),
                 ("drop", ", ".join(map(str, sel["drop"])) or "-")]
@@ -363,7 +366,7 @@ class Vision:
             lines.append("  no pair above the association threshold")
         else:
             headers, rows = _pair_rows(top.head(15))
-            lines += _table(headers, rows, w, drop_order=("95% CI", "n"))
+            lines += _table(headers, rows, w, drop_order=("other", "95% CI", "n"))
             if len(top) > 15:
                 lines.append(f"  … {len(top) - 15} more in report.correlations['top_pairs']")
         vif = c.get("vif")

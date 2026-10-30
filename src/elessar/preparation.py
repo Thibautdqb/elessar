@@ -32,8 +32,8 @@ from .types import CATEGORY_TYPES, DATETIME_TYPES, MULTI_LABEL, NUMERIC_TYPES, a
 
 CLEANING = ("Invalid values", "Wrong formats", "Misspelling", "Duplicates", "Consistency", "Missing data",
             "Remove outliers", "Reassign outliers")
-TRANSFORMATION = ("Bucketing", "Decomposition", "Aggregation", "Combination", "Rescale", "Normalization",
-                  "Transformation", "Encode", "Dimensionality reduction")
+TRANSFORMATION = ("Bucketing", "Decomposition", "Aggregation", "Combination", "Transformation", "Rescale",
+                  "Normalization", "Encode", "Dimensionality reduction")  # power transforms need the unscaled values
 
 
 # ------------------------------------------------------------------------------------------- BK-tree
@@ -175,6 +175,11 @@ def group_categories(s: pd.Series, y: pd.Series, regression: bool, cfg: StoneCon
     return groups if 1 < len(groups) < len(agg) else None
 
 
+_FIT_ON_TRAIN = ("Learnt from the target on every row: for a model, learn it again on the training rows only, "
+                 "or the validation score is optimistic")
+_FIT_COMMENT = "# learnt from the target on all rows: for a model, learn it on the training rows only"
+
+
 def tree_bins(x: pd.Series, y: pd.Series, regression: bool, cfg: StoneConfig) -> list[float] | None:
     """Cut points of a numeric column that best separate the target (supervised bucketing)."""
     from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
@@ -260,6 +265,9 @@ def _safe(fn: Any, *args: Any) -> Any:
 
 def _literal(key: str) -> Any:
     """A placeholder as recorded by the quality checks ('NA' quoted, numbers formatted) back to a value."""
+    if re.fullmatch(r"-?\d{1,3}(,\d{3})+(\.\d+)?", key.strip()):  # 99,999 is a formatted number, not a tuple
+        number = float(key.replace(",", ""))
+        return int(number) if number.is_integer() else number
     try:
         return ast.literal_eval(key)
     except (ValueError, SyntaxError):
@@ -306,6 +314,8 @@ def plan(
         if (d.get("stats") or {}).get("n_inf"):
             steps.append(_step("cleaning", "Invalid values", col, f"{d['stats']['n_inf']:,} infinite values",
                                f"df[{col!r}] = df[{col!r}].replace([np.inf, -np.inf], np.nan)"))
+    for col in q.get("whitespace_columns", {}):
+        steps.append(_step("cleaning", "Wrong formats", col, "leading / trailing spaces", f"df[{col!r}] = df[{col!r}].str.strip()"))
     for col, sugs in q.get("conversion_suggestions", {}).items():
         for sug in sugs:
             steps.append(_step("cleaning", "Wrong formats", col, sug.get("flag", "wrong type") +
@@ -313,8 +323,6 @@ def plan(
     for col, kinds in q.get("mixed_type_columns", {}).items():
         steps.append(_step("cleaning", "Wrong formats", col, f"mixed Python types {kinds}",
                            f"df[{col!r}] = pd.to_numeric(df[{col!r}], errors='coerce')  # or .astype(str)"))
-    for col in q.get("whitespace_columns", {}):
-        steps.append(_step("cleaning", "Wrong formats", col, "leading / trailing spaces", f"df[{col!r}] = df[{col!r}].str.strip()"))
     with quiet():
         for col in df.columns:
             if types.get(col) in CATEGORY_TYPES and types.get(col) != "boolean":
@@ -349,6 +357,7 @@ def plan(
                                        f"{mix['cut']:.3g}, {mix['share_high']:.0f}% above): mixed units or a "
                                        "fraction / percentage mix",
                                        f"big = df[{col!r}] > {mix['cut']:.4g}\ndf.loc[big, {col!r}] /= {mix['ratio']}"))
+    dropped: set[str] = set()  # columns a step removes: no later step may use them
     miss = correlations.get("missingness")
     mnar = set(miss[miss["significant"]]["column"]) if miss is not None and not miss.empty else set()
     for col, d in details.items():
@@ -358,6 +367,7 @@ def plan(
             continue
         stype = types.get(col)
         if pct >= cfg.high_missing_pct:
+            dropped.add(col)
             how, code = "mostly missing: drop it, or keep only a missing indicator", \
                 f"df[{col!r} + '_missing'] = df[{col!r}].isna()\ndf = df.drop(columns=[{col!r}])"
         elif stype in NUMERIC_TYPES:
@@ -368,7 +378,10 @@ def plan(
         elif stype in DATETIME_TYPES:
             how, code = "interpolate in time order, or leave missing", f"df[{col!r}] = df[{col!r}].ffill()"
         else:
-            how, code = "use an explicit 'missing' category", f"df[{col!r}] = df[{col!r}].fillna('missing')"
+            how = "use an explicit 'missing' category"
+            code = (f"if isinstance(df[{col!r}].dtype, pd.CategoricalDtype):\n"
+                    f"    df[{col!r}] = df[{col!r}].cat.add_categories('missing')\n"
+                    f"df[{col!r}] = df[{col!r}].fillna('missing')")
         if col in mnar:
             how += "; missingness depends on other columns (not at random): add a missing indicator"
             code = f"df[{col!r} + '_missing'] = df[{col!r}].isna()\n" + code
@@ -376,13 +389,16 @@ def plan(
     for col, r in ((outliers or {}).get("columns") or {}).items():
         if col == target or r["action"] == "keep":
             continue
+        if any(sg.get("flag") == "mixed-units" for sg in details.get(col, {}).get("suggestions", [])):
+            continue  # values in different units: split value and unit first, outliers mean nothing before
+        x = f"elessar.types.parse_numeric(df[{col!r}])" if types.get(col) == "numeric_string" else f"df[{col!r}]"
         if r["action"] == "remove":
             steps.append(_step("cleaning", "Remove outliers", col, r["why"],
-                               f"med, iqr = df[{col!r}].median(), df[{col!r}].quantile(.75) - df[{col!r}].quantile(.25)\n"
-                               f"df = df[(df[{col!r}] - med).abs() <= 10 * iqr / 1.349]"))
+                               f"x = {x}\nmed, iqr = x.median(), x.quantile(.75) - x.quantile(.25)\n"
+                               f"df = df[(x - med).abs() <= 10 * iqr / 1.349]"))
         else:
             steps.append(_step("cleaning", "Reassign outliers", col, r["why"],
-                               f"df[{col!r}] = df[{col!r}].clip({r['lower_fence']:.6g}, {r['upper_fence']:.6g})"))
+                               f"df[{col!r}] = {x}.clip({r['lower_fence']:.6g}, {r['upper_fence']:.6g})"))
 
     # ---- transformation
     with quiet():
@@ -403,12 +419,12 @@ def plan(
                                    "a date is not a feature: decompose into calendar parts",
                                    f"d = elessar.parse_dates(df[{col!r}])\n"
                                    f"df[{col!r} + '_year'], df[{col!r} + '_month'] = d.dt.year, d.dt.month\n"
-                                   f"df[{col!r} + '_dow'], df[{col!r} + '_hour'] = d.dt.dayofweek, d.dt.hour"))
+                                   f"df[{col!r} + '_dow'], df[{col!r} + '_hour'] = d.dt.day_of_week, d.dt.hour"))
             elif stype == MULTI_LABEL:
                 sep = st.get("separator", ", ")
                 steps.append(_step("transformation", "Decomposition", col, f"{st.get('n_labels', '?')} labels per list: "
                                    "one 0/1 column per label (keep the frequent ones)",
-                                   f"df = df.join(df[{col!r}].str.get_dummies(sep={sep!r}).add_prefix({col!r} + '_'))"))
+                                   f"df = df.join(df[{col!r}].str.get_dummies(sep={sep!r}).add_prefix({col!r} + '='))"))
             elif stype in CATEGORY_TYPES or stype == "text":
                 comp = _safe(composite, df[col])
                 if comp:
@@ -426,7 +442,8 @@ def plan(
                     found["bins"][col] = cuts
                     steps.append(_step("transformation", "Bucketing", col,
                                        f"irregular shape (modes, heaping or heavy skew): {len(cuts) + 1} bins chosen by "
-                                       f"a decision tree on {target!r}",
+                                       f"a decision tree on {target!r}. {_FIT_ON_TRAIN}",
+                                       f"{_FIT_COMMENT}\n"
                                        f"df[{col!r} + '_bin'] = pd.cut(df[{col!r}], {[-np.inf] + [round(c, 6) for c in cuts] + [np.inf]!r})"))
             if stype in CATEGORY_TYPES and stype != "boolean" and target is not None and (st.get("cardinality") or 0) >= 4:
                 groups = _safe(group_categories, df[col], y, regression, cfg)
@@ -437,28 +454,18 @@ def plan(
                                        for g in groups[:4])
                     steps.append(_step("transformation", "Bucketing", col,
                                        f"{st['cardinality']} labels behave as {len(groups)} groups towards {target!r} "
-                                       f"(significance-tested binary tree): {shown}",
+                                       f"(significance-tested binary tree): {shown}. {_FIT_ON_TRAIN}",
+                                       f"{_FIT_COMMENT}\n"
                                        f"df[{col!r} + '_group'] = df[{col!r}].map({dict(list(mapping.items())[:12])!r})"
                                        + ("  # ...truncated" if len(mapping) > 12 else "")))
-    # rescale / normalize / transform
-    numeric_cols = [c for c in df.columns if types.get(c) in NUMERIC_TYPES and c != target and types.get(c) != "boolean"]
+    # transform first (a power transform needs the original, positive values), then put the columns on one scale
+    numeric_cols = [c for c in df.columns if types.get(c) in NUMERIC_TYPES and c != target and types.get(c) != "boolean"
+                    and c not in dropped]
     spreads = {}
     for c in numeric_cols:
         st = details[c].get("stats") or {}
         if st.get("iqr") or st.get("std"):
             spreads[c] = float(st.get("iqr") or st.get("std"))
-    if len(spreads) >= 2:
-        hi, lo = max(spreads.values()), min(v for v in spreads.values() if v > 0) if any(spreads.values()) else 1
-        if lo > 0 and hi / lo >= 10:
-            with_outliers = [c for c in spreads if ((outliers or {}).get("columns", {}).get(c) or {}).get("n_consensus")]
-            steps.append(_step("transformation", "Rescale", None,
-                               f"numeric scales differ by x{hi / lo:,.0f} ({max(spreads, key=spreads.get)} vs "
-                               f"{min(spreads, key=spreads.get)}): distance-based models, regularised models and "
-                               "neural nets need common scales",
-                               "from sklearn.preprocessing import RobustScaler, StandardScaler\n"
-                               f"df[{with_outliers!r}] = RobustScaler().fit_transform(df[{with_outliers!r}])  # outliers\n"
-                               f"others = {[c for c in spreads if c not in with_outliers]!r}\n"
-                               "df[others] = StandardScaler().fit_transform(df[others])"))
     for c in numeric_cols:
         st = details[c].get("stats") or {}
         skew = st.get("skewness")
@@ -480,7 +487,10 @@ def plan(
             tx, lam = res
             after = float(stats.skew(tx))
         if kind == "Box-Cox":
-            name, code = f"Box-Cox (lambda {lam:.2f})", f"from scipy.stats import boxcox\ndf[{c!r}], _ = boxcox(df[{c!r}])"
+            # fit lambda on the observed values, then apply it: boxcox() on a column with NaN returns NaN everywhere
+            name, code = f"Box-Cox (lambda {lam:.2f})", (f"from scipy.stats import boxcox\n"
+                                                        f"_, lam = boxcox(df[{c!r}].dropna())  # fit (on training rows only for a model)\n"
+                                                        f"df[{c!r}] = boxcox(df[{c!r}], lmbda=lam)  # missing values stay missing")
             if abs(lam) < 0.15:
                 name, code = "log", f"df[{c!r}] = np.log(df[{c!r}])"
         else:
@@ -488,8 +498,26 @@ def plan(
                                                            f"df[[{c!r}]] = PowerTransformer().fit_transform(df[[{c!r}]])")
         if np.isfinite(after) and abs(after) < abs(skew) * 0.6:
             steps.append(_step("transformation", "Transformation", c, f"skewness {skew:.2f} → {after:.2f} after {name}", code))
+    rescaled = False
+    if len(spreads) >= 2:
+        hi, lo = max(spreads.values()), min(v for v in spreads.values() if v > 0) if any(spreads.values()) else 1
+        if lo > 0 and hi / lo >= 10:
+            with_outliers = [c for c in spreads if ((outliers or {}).get("columns", {}).get(c) or {}).get("n_consensus")]
+            others = [c for c in spreads if c not in with_outliers]
+            lines = []
+            if with_outliers:
+                lines += ["from sklearn.preprocessing import RobustScaler",
+                          f"df[{with_outliers!r}] = RobustScaler().fit_transform(df[{with_outliers!r}])  # outliers: median and IQR"]
+            if others:
+                lines += ["from sklearn.preprocessing import StandardScaler",
+                          f"df[{others!r}] = StandardScaler().fit_transform(df[{others!r}])"]
+            steps.append(_step("transformation", "Rescale", None,
+                               f"numeric scales differ by x{hi / lo:,.0f} ({max(spreads, key=spreads.get)} vs "
+                               f"{min(spreads, key=spreads.get)}): distance-based models, regularised models and "
+                               "neural nets need common scales", "\n".join(lines)))
+            rescaled = True
     sym = [c for c in numeric_cols if abs((details[c].get("stats") or {}).get("skewness") or 0) < 1]
-    if len(sym) >= 2:
+    if len(sym) >= 2 and not rescaled:  # after a rescale every numeric column is already on a common scale
         steps.append(_step("transformation", "Normalization", None,
                            f"{len(sym)} roughly symmetric columns: z-score them (mean 0, sd 1) for linear and distance "
                            "models", f"cols = {sym[:12]!r}\ndf[cols] = (df[cols] - df[cols].mean()) / df[cols].std()"))
@@ -505,9 +533,11 @@ def plan(
         elif stype in CATEGORY_TYPES and k <= 10:
             why, code = f"{k} labels: one-hot", f"df = pd.get_dummies(df, columns=[{col!r}], dummy_na=True)"
         elif stype in CATEGORY_TYPES:
-            why = f"{k} labels: too many for one-hot; target encoding (cross-fitted) or frequency encoding"
-            code = (f"from sklearn.preprocessing import TargetEncoder\ndf[[{col!r}]] = TargetEncoder().fit_transform("
-                    f"df[[{col!r}]], df[{target!r}])" if target else
+            why = f"{k} labels: too many for one-hot; target encoding (cross-fitted) or frequency encoding" + (
+                f". {_FIT_ON_TRAIN}" if target else "")
+            code = (f"from sklearn.preprocessing import TargetEncoder\n"
+                    f"enc = TargetEncoder()  # fit on the training rows only, then enc.transform() the others\n"
+                    f"df[[{col!r}]] = enc.fit_transform(df[[{col!r}]], df[{target!r}])" if target else
                     f"df[{col!r}] = df[{col!r}].map(df[{col!r}].value_counts(normalize=True))")
         elif stype == "text":
             why, code = "free text: TF-IDF features", (f"from sklearn.feature_extraction.text import TfidfVectorizer\n"
@@ -541,6 +571,7 @@ def plan(
         e = ts["entity"]
         steps.append(_step("transformation", "Aggregation", e, f"panel data: one row per {e} with summary features",
                            f"per_{e} = df.groupby({e!r}).agg(['mean', 'std', 'min', 'max', 'last'])"))
+    steps = [st for st in steps if st["column"] not in dropped or st["action"] == "Missing data"]
     order = {a: i for i, a in enumerate(CLEANING + TRANSFORMATION)}
     steps.sort(key=lambda s: (s["kind"] != "cleaning", order.get(s["action"], 99)))
     return {"steps": steps, **found,

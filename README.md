@@ -9,7 +9,7 @@
   <a href="https://github.com/thibautdqb/elessar/blob/main/LICENSE"><img src="https://img.shields.io/pypi/l/elessar?cacheSeconds=3600" alt="License: MIT"></a>
 </p>
 
-**Automated exploratory data analysis and data-quality profiling for pandas DataFrames.**
+**Automated exploratory data analysis and data-quality profiling.**
 
 One function call (`elessar.see(df)`, or `elessar.see("sales.parquet")`) or one command (`elessar data.csv`) gives
 you the semantic type of every column, full descriptive statistics, the best-fitting distribution, associations
@@ -46,10 +46,12 @@ your terminal and in one HTML page:
 - **full descriptive statistics** adapted to each type, with confidence intervals
 - the **best-fitting statistical distribution** (MLE, ranked by AIC) and four normality tests
 - **associations of every kind with statistical significance**: Pearson, Spearman, Kendall, Cramér's V,
-  correlation ratio, mutual information, AUC, with p-values, Benjamini-Hochberg correction and confidence intervals
+  correlation ratio, mutual information, AUC, with p-values, Benjamini-Hochberg correction and confidence intervals;
+  in a table indexed by time, non-stationary columns are tested on their differences and every test on the
+  effective sample size of autocorrelated rows
 - **target analysis**: feature ranking, **leakage detection**, informative missingness
-- **feature selection** by embedded methods (decision tree, random forest, lasso, ridge) and a filter,
-  cross-validated, with a vote per feature
+- **feature selection** by embedded methods (decision tree, random forest, lasso, ridge) and a filter, each
+  model tuned by cross-validation and scored on held-out rows, a vote per feature against shuffled shadows
 - **multivariate statistics**: whether **PCA** is worth it (Bartlett, KMO, parallel analysis), a **factor
   analysis** run step by step as it is taught (KMO and Bartlett, communalities, number of factors, varimax,
   Cronbach's alpha, scale scores), redundant groups of columns, rows that are outliers on several columns at once
@@ -184,7 +186,7 @@ and paths: a file, a URL, a glob pattern (`logs/2024-*.csv`) or a folder.
 | Parquet, Feather / Arrow, ORC | `.parquet .pq .feather .arrow .orc` | |
 | Excel, OpenDocument | `.xlsx .xlsm .xls .xlsb .ods` | first sheet with data, or `sheet=` |
 | SQLite | `.sqlite .db` | biggest table, or `table=` |
-| SAS, Stata, SPSS, HDF5, pickle, XML | `.sas7bdat .xpt .dta .sav .h5 .pkl .xml` | |
+| SAS, Stata, SPSS, HDF5, pickle, XML | `.sas7bdat .xpt .dta .sav .h5 .pkl .xml` | a pickle runs code when loaded: it is read when named by its local path; from a URL only if it holds nothing but pandas or NumPy objects (else: download it first); never from a folder or a pattern |
 
 Compressed files (`.gz .bz2 .zip .xz .zst`) are read directly; a file without a known extension is recognised by
 its content.
@@ -298,7 +300,8 @@ anyway when you run interactively without `-t`). `--type COL=TYPE` (repeatable) 
 ## How elessar decides
 
 Each tree below is the code's own order of questions; the first *yes* decides. Thresholds are constants in the
-code and fields of `StoneConfig`.
+code and fields of `StoneConfig`. How well these decisions hold against a known truth (type I errors, number of
+factors, trends under autocorrelation, public datasets) is measured in [VALIDATION.md](https://github.com/thibautdqb/elessar/blob/main/VALIDATION.md).
 
 ### 1. The type of a column
 
@@ -389,8 +392,11 @@ columns (never a date of birth).
 
 Then, per series:
 
-- **trend**: Mann-Kendall test with the **Hamed-Rao correction for autocorrelation** (the uncorrected p-value of
-  an autocorrelated series is far too small; the report shows both), Sen's slope;
+- **trend**: Mann-Kendall test **corrected for autocorrelation** (the uncorrected p-value of an autocorrelated
+  series is far too small; the report shows both): the variance is inflated as in Hamed-Rao, by the larger of
+  two autocorrelation models, an AR(1) corrected for its small-sample bias and an AR(p) chosen by AIC (6% false
+  trends at 5% under AR(1) 0.8 noise, at most about 10% on other short-memory noise, against 25% for the
+  textbook Hamed-Rao); Sen's slope;
 - **seasonality**: a period natural to the frequency (7 / 30 / 365 days, 24 / 168 hours, 12 months, 4
   quarters…) is screened on the autocorrelation of the detrended series (a peak, a dip before it, two full
   cycles) and kept when its **seasonal strength** from a classical decomposition reaches 0.25. The decision rests
@@ -438,9 +444,11 @@ the report's checklist, with its question, its answer and a *yes / no / removed*
 3. **Pertinence**: KMO above .50 and Bartlett's test below .05, on all the items and again on the items kept.
 4. **Communalities** (extraction): an item explained below .40 (Costello & Osborne, 2005) is removed and the
    analysis run again, one item at a time, the weakest first.
-5. **Number of factors**: eigenvalue above 1, cumulative variance of at least 60 % and the elbow of the scree
-   plot (the eigenvalue farthest from the line joining the first and the last); the number two criteria agree
-   on, else the scree plot. Then **coherence**: a factor resting on a single item is not a construct, and
+5. **Number of factors**: Horn's parallel analysis decides, keeping the components whose eigenvalue beats the
+   95th percentile of those of random data of the same size. Eigenvalue above 1, cumulative variance of at
+   least 60 % and the elbow of the scree plot are shown beside it: on 300 simulated structures the parallel
+   analysis found the right number in 98 % of them, against 94 % for the rule "two of these three agree, else
+   the scree plot" (Kaiser and the 60 % target overestimate it in most cases). Then **coherence**: a factor resting on a single item is not a construct, and
    several items at fault at once usually mean too many factors rather than bad items, so one factor fewer is
    tried and kept when it leaves fewer items at fault.
 6. **Rotated component matrix**: each item goes to the factor of its highest loading; an item whose highest
@@ -449,8 +457,10 @@ the report's checklist, with its question, its answer and a *yes / no / removed*
    as reversed, and is named after its items.
 7. **Cronbach's alpha per factor**, reversed items flipped, with the alpha if each item is deleted:
    excellent ≥ .90, very good ≥ .80, good ≥ .70, acceptable ≥ .60, poor ≥ .50, else unacceptable. A deletion that
-   would raise alpha by .05 or more is *proposed*, never applied: it must also make sense for the construct.
-8. **New factors**, only for the scales with an acceptable alpha: the mean of their items, with the code for the
+   would raise alpha by .05 or more is *proposed*, never applied: it must also make sense for the construct. A
+   two-item factor is judged on the Spearman-Brown coefficient 2r / (1 + r) instead, which alpha understates
+   for two items (Eisinga, te Grotenhuis & Pelzer, 2013).
+8. **New factors**, only for the scales with an acceptable reliability: the mean of their items, with the code for the
    mean of the answered items and for the version requiring every item (`MEAN.k`).
 9. **Descriptives** of the new factors: mean, median, mode, standard deviation.
 
@@ -468,7 +478,12 @@ factor; aggregated trait scores (TIPI) and unrelated measures are found *not use
 
 Per numeric column, three methods: 3 sigma (|x − mean| > 3 sd), the boxplot fences (Tukey, 1.5 IQR) and the
 modified z-score (Hampel, |0.6745 (x − median) / MAD| > 3.5). Every flagged point is listed with its row, value,
-z and robust z.
+z and robust z. A value is a likely entry or unit error when it lies more than 10 robust standard deviations away,
+measured on the log scale for a positive, right-skewed column, **and** the rest of the column has light tails
+(excess kurtosis below 1 plus three standard errors): the long natural tail of incomes or durations, or the heavy
+tails of a Student distribution, are then not mistaken for errors (removal advised for 0 to 0.7 % of clean
+columns, against 7 to 70 % before 1.1), while a value multiplied by 100 in a light-tailed column still is. In a
+heavy-tailed column such a value is still flagged, with the advice to check it.
 
 <p align="center"><img src="https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/diagrams/7_outliers.png" alt="What to do with an outlier: keep, remove or reassign" width="420"></p>
 
@@ -483,14 +498,21 @@ after the features suspected of leakage are set aside:
 
 | Method | Selected when |
 |---|---|
-| **decision tree** (depth chosen by cross-validation) | impurity importance at least half an equal share |
+| **decision tree** (depth chosen by cross-validation) | impurity importance above that of every shadow |
 | **random forest** | permutation importance on held-out rows (all one-hot columns of a feature shuffled together) above twice its standard deviation |
-| **lasso** (L1; L1 logistic regression for classes; penalty by cross-validation) | coefficient not zero |
-| **ridge** (L2) | standardised coefficient at least 10 % of the largest |
+| **lasso** (L1; L1 logistic regression for classes; penalty by cross-validation) | coefficient above that of every shadow |
+| **ridge** (L2) | standardised coefficient above that of every shadow |
 | **filter** (univariate test) | significant after BH correction |
 
-Selected by 3 methods or more = **keep**, 2 = **borderline**, else **drop**. Scores are R², ROC AUC (binary) or
-balanced accuracy, by 5-fold cross-validation, in time order for a time series.
+A **shadow** is a feature with its rows shuffled: same distribution, no link with the target (as in Boruta).
+The tree, the lasso and ridge are refitted with one shadow per feature, at the setting they tuned, and vote for
+a feature only when it beats every shadow: on pure noise with a binary target, 1.5 % of the features are kept
+(28 % with the former fixed thresholds). Selected by 3 methods or more = **keep**, 2 = **borderline**, else
+**drop**. 20 % of the rows are set aside first; every model is tuned by 5-fold cross-validation on the others,
+with imputation and scaling learnt there too, and scored once on the held-out rows (R², ROC AUC for a binary
+target, balanced accuracy). Rows with dates are sorted in time, the folds cut between two dates and the
+held-out rows are the most recent; when the target is not stationary, its changes are modelled from the changes
+of the other non-stationary columns.
 
 ## What it computes
 
@@ -534,11 +556,13 @@ fits that collapse onto repeated values are rejected. Each candidate has a timeo
 | `cramers_v` + `cramers_v_p` + `cramers_v_n` | bias-corrected Cramér's V with chi-square p-values |
 | `eta` + `eta_p` + `eta_n` | correlation ratio (categorical rows × numeric columns) with Kruskal-Wallis p-values |
 | `association`, `association_p` | one matrix over every column: Spearman, Cramér's V or eta depending on the pair |
-| `pairs`, `top_pairs` | every pair tested (best method, n, test, p, **BH-adjusted p**, significant, **Fisher 95 % CI**), and those above `corr_threshold` |
+| `pairs`, `top_pairs` | every pair tested (method, n, test, p, **BH-adjusted p**, significant, **Fisher 95 % CI**, the other coefficient and why the method was chosen), and those above `corr_threshold`; a numeric pair is tested with Pearson when both columns are roughly symmetric with light tails, with Spearman otherwise |
+| `numeric_shape` | skewness and excess kurtosis of each numeric column, and whether it is shaped for Pearson |
+| `serial`, `n_effective` | for rows indexed by time: the lag-1 autocorrelation of each column, whether it was replaced by its first differences (not shown stationary by ADF and KPSS), and Bartlett's effective sample size n (1 − r₁r₂) / (1 + r₁r₂) used by every test |
 | `vif` | variance inflation factor of each numeric feature (multicollinearity) |
 | `linear_dependencies` | exact linear relations recovered as equations, e.g. `Total = 1·HP + 1·Attack + 1·Defense + …` |
 | `missingness` | does a column go missing more for some values of another column? (Mann-Whitney / chi-square, BH-adjusted: evidence against MCAR) |
-| `target` | each feature vs the target: association, test (Spearman / Kruskal-Wallis / Mann-Whitney / chi-square), p, BH-adjusted p, AUC (binary target), mutual information, leakage flag |
+| `target` | each feature vs the target: association, test (Spearman with a Kruskal-Wallis across deciles, Bonferroni, which also sees U-shaped links / Kruskal-Wallis / Mann-Whitney / chi-square), p, BH-adjusted p, AUC (binary target), mutual information, leakage flag |
 | `missing_target` | is the target different when a feature is missing? (informative missingness) |
 
 Groups of columns with mean |Spearman| ≥ 0.7 are proposed for combination.
@@ -576,8 +600,9 @@ recorded as an error entry and an alert; it never stops the report.
 
 **Real data**: tested on 55 public datasets (Titanic, adult census, California housing, diamonds, Pokémon, Vega
 movies, NYC taxis, penguins, wine quality, Netflix, Olympic athletes, Spotify, Nobel laureates, members of
-Congress, a 62-column MultiIndex brain-network table…), on 17 reference datasets for the factor analysis, on the
-Berka bank data (1 million transactions) and on an 8-million-row file. Things it finds there unprompted: Pokémon
+Congress, a 62-column MultiIndex brain-network table…), on the Berka bank data (1 million transactions) and on an
+8-million-row file; the statistical checks against a known truth (simulations, Holzinger-Swineford, the Big Five
+questionnaire, ten seaborn datasets) are measured in [VALIDATION.md](https://github.com/thibautdqb/elessar/blob/main/VALIDATION.md). Things it finds there unprompted: Pokémon
 `Total = 1·HP + 1·Attack + 1·Defense + 1·Sp. Atk + 1·Sp. Def + 1·Speed`; housing values capped at 500,001 and ages
 at 52; adult capital gain top-coded at 99,999 and 92 % zeros; Titanic survival 30 % vs 67 % depending on whether
 Cabin is missing; taxi tips always 0 when the payment type is missing; movie titles stored as numbers (*300*,
@@ -606,7 +631,7 @@ OVERVIEW
   missing cells   8.1%  (708 rows with at least one)
   target          Survived
 
-ALERTS (14: 1 high, 3 medium, 10 info)
+ALERTS (15: 1 high, 3 medium, 11 info)
 ──────────────────────────────────────
   HIGH    Cabin        77.1% missing -> drop, or impute and add a missing-indicator
   MEDIUM  Age          missingness is informative about 'Survived': Survived=1: 29% when missing vs 41% when present
@@ -628,6 +653,7 @@ ALERTS (14: 1 high, 3 medium, 10 info)
   info    Fare         13.0% outliers by the 1.5xIQR rule (outside [-26.72, 65.63])
   info    PassengerId  identifier-like column -> exclude from modelling and statistics
   info    SibSp        5.2% outliers by the 1.5xIQR rule (outside [-1.5, 2.5])
+  info    Survived     feature selection (5 methods): drop SibSp, Parch; keep 5
   info    Ticket       high cardinality (681 categories) -> group rare levels or use target/frequency encoding
 
 COLUMN SUMMARY
@@ -667,11 +693,11 @@ COLUMN DETAILS
 
 CORRELATIONS
 ────────────
-  28 pairs tested, 24 significant after Benjamini-Hochberg correction (alpha 0.05); strongest shown below
-  column A  column B  method      value  95% CI              n   p_adj  sig
-  ────────  ────────  ─────────  ──────  ────────────────  ───  ──────  ───
-  Pclass    Fare      spearman   -0.688  [-0.725, -0.648]  891  2e-124  *
-  Survived  Sex       cramers_v  +0.543                    891   5e-58  *
+  28 pairs tested, 23 significant after Benjamini-Hochberg correction (alpha 0.05); strongest shown below
+  column A  column B  method      value  95% CI            other             n   p_adj  sig
+  ────────  ────────  ─────────  ──────  ────────────────  ──────────────  ───  ──────  ───
+  Pclass    Fare      spearman   -0.688  [-0.725, -0.648]  pearson -0.549  891  2e-124  *
+  Survived  Sex       cramers_v  +0.543                                    891   5e-58  *
 
   multicollinearity (VIF): Pclass 1.7, Fare 1.6, Age 1.3, SibSp 1.3, Parch 1.2
 
@@ -685,12 +711,12 @@ TARGET ANALYSIS
   feature   type                method     association  test            n   p_adj  sig    AUC     MI  flag
   ────────  ──────────────────  ─────────  ───────────  ────────────  ───  ──────  ───  ─────  ─────  ────
   Sex       categorical         cramers_v       +0.543  chi-square    891   3e-58  *           0.218
-  Pclass    ordinal-candidate   eta             +0.338  mann-whitney  891   1e-23  *    0.319  0.092
-  Fare      numeric_continuous  eta             +0.257  mann-whitney  891   1e-21  *    0.692  0.100
+  Pclass    ordinal-candidate   eta             +0.338  mann-whitney  891   1e-23  *    0.319  0.084
+  Fare      numeric_continuous  eta             +0.257  mann-whitney  891   1e-21  *    0.692  0.101
   Embarked  categorical         cramers_v       +0.166  chi-square    889   3e-06  *           0.021
   Parch     numeric_discrete    eta             +0.082  mann-whitney  891   5e-05  *    0.561  0.024
-  Age       numeric_continuous  eta             +0.077  mann-whitney  714    0.16       0.469  0.023
-  SibSp     numeric_discrete    eta             +0.035  mann-whitney  891  0.0094  *    0.543  0.019
+  Age       numeric_continuous  eta             +0.077  mann-whitney  714    0.16       0.469  0.019
+  SibSp     numeric_discrete    eta             +0.035  mann-whitney  891  0.0094  *    0.543  0.033
   6/7 features significantly associated (BH-adjusted p < 0.05)
 
   is the target different when a feature is missing?
@@ -699,11 +725,12 @@ TARGET ANALYSIS
 
 FEATURE SELECTION
 ─────────────────
-  task            binary classification, 891 rows, 5-fold CV roc_auc: decision tree 0.861, random forest 0.843,
-                  lasso 0.851, ridge 0.852
-  keep            Sex, Pclass, Embarked, Fare, Age, SibSp
-  borderline      Parch
-  drop            -
+  task            binary classification, 891 rows
+  scores          held-out roc_auc: decision tree 0.818, random forest 0.831, lasso 0.843, ridge 0.847 (tuned by
+                  5-fold CV on 712 rows, scored on 179 held-out rows)
+  keep            Sex, Pclass, Embarked, Fare, Age
+  borderline      -
+  drop            SibSp, Parch
 
 MULTIVARIATE
 ────────────
@@ -743,7 +770,8 @@ Files are named `<NN>_<column>_<kind>.png` in the report folder.
   the lasso path
 - **PCA**: scree plot (variance per component, cumulative, parallel-analysis threshold, components kept) beside
   the loadings
-- **factor analysis**: scree plot with the Kaiser (eigenvalue 1) and 60 % lines and the number of factors kept,
+- **factor analysis**: scree plot with the parallel-analysis threshold that sets the number of factors, the
+  Kaiser (eigenvalue 1) and 60 % lines for reference and the number of factors kept,
   beside the rotated component matrix, items grouped by factor; alphas in the subtitle, removed items in the note
 - **outliers**: every numeric column on one robust scale with its boxplot fences, the points flagged by 1 or 2-3
   methods, the most extreme labelled by row; **multivariate outliers**: robust distance of every row against its
@@ -766,7 +794,9 @@ Files are named `<NN>_<column>_<kind>.png` in the report folder.
 ```bash
 git clone https://github.com/thibautdqb/elessar && cd elessar
 pip install -e ".[dev]"
-pytest
+pytest                                        # unit tests
+pytest -m validation tests/validation         # statistical validation by simulation (about 5 minutes)
+ruff check src tests docs examples
 python examples/demo.py
 ```
 
