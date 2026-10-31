@@ -12,12 +12,14 @@ scored as one feature):
 - **filter**: the univariate association with the target and its BH-adjusted p-value.
 
 A feature is **kept** when at least three methods select it, **borderline** with two, **dropped**
-otherwise. About 20% of the rows are reserved without using their targets. Model imputation and scaling
+otherwise. About 80% of the rows train the selector, 10% vote and 10% are a final test; targets do not
+choose these partitions. Model imputation and scaling
 are fitted separately in every tuning fold. Leakage screening, feature vocabulary, the filter and the
 automatic differencing decision use the outer training rows. Dated tables use whole-date splits.
-Scores describe the models before consensus; the holdout is also used for forest importance, so it
-is not an independent evaluation of the final selected subset. This is not a fully nested validation
-of every adaptive screening or stationarity decision.
+``scores`` describe models on voting rows before consensus. ``consensus_evaluation`` refits a predefined
+model on the kept subset using development rows, then scores it once on the separate final test.
+Small/unsupported splits report that assessment as unavailable. Inner adaptive screening and stationarity
+choices are not fully nested; the final test evaluates their combined outcome without selecting them.
 """
 
 from __future__ import annotations
@@ -110,6 +112,30 @@ def _holdout_mask(n: int, codes: np.ndarray, ordered: bool, seed: int) -> np.nda
     return train
 
 
+def _consensus_masks(n: int, codes: np.ndarray, ordered: bool, seed: int) -> tuple[np.ndarray, ...] | None:
+    """Keep the original 80% training allocation; divide reserved rows into voting and final test."""
+    from sklearn.model_selection import train_test_split
+
+    train = _holdout_mask(n, codes, ordered, seed)
+    if train is None or train.sum() < 20 or (~train).sum() < 10:
+        return None
+    held = np.flatnonzero(~train)
+    voting = np.zeros(n, dtype=bool)
+    if ordered:
+        cuts = np.unique(codes[held])[1:]
+        sizes = np.searchsorted(codes[held], cuts)
+        valid = (sizes >= 5) & (len(held) - sizes >= 5)
+        if not valid.any():
+            return None
+        cuts, sizes = cuts[valid], sizes[valid]
+        cut = cuts[np.argmin(np.abs(sizes - len(held) / 2))]
+        voting = (~train) & (codes < cut)
+    else:
+        vote, _ = train_test_split(held, test_size=.5, random_state=seed + 1)
+        voting[vote] = True
+    return train, voting, ~train & ~voting
+
+
 def _cv_pipeline(model: Any, n_numeric: int) -> Any:
     """Every fitted numerical transform lives inside the estimator cross-validated."""
     from sklearn.compose import ColumnTransformer
@@ -126,7 +152,146 @@ def _by_feature(values: np.ndarray, owners: list[str], features: list[str]) -> p
 def feature_selection(
     df: pd.DataFrame, target: str, types: dict[str, str], correlations: dict[str, pd.DataFrame],
     cfg: StoneConfig, time_ordered: bool = False, times: pd.Series | None = None,
+    differences: pd.DataFrame | None = None, *, learn_types: bool = False,
+) -> dict[str, Any] | None:
+    """Select on development rows, then evaluate the final subset once on a separate outer test.
+
+    The original 80% training allocation is retained. The reserved 20% is divided
+    into about 10% voting rows and 10% final test rows. A fixed random forest is
+    refitted on the kept subset using development rows only, or a training-prior
+    dummy model if nothing is kept. The score describes this explicit model and
+    subset, not a model-free property of the variables. Types supplied by callers
+    are fixed annotations; ``learn_types=True`` learns them on training rows
+    and is used by the full report. Supplied ``differences`` cannot be certified
+    as learned independently, so disable the independent score. Small tables or
+    date grids that cannot support both partitions retain diagnostic selection
+    with an explicit unavailable status.
+    """
+    frame = df[df[target].notna()]
+    stamp = None
+    if times is not None:
+        stamp = pd.to_datetime(times, errors="coerce")
+        if getattr(stamp.dt, "tz", None) is not None:
+            stamp = stamp.dt.tz_convert(None)
+        valid = stamp.reindex(frame.index).notna()
+        frame = frame.loc[valid]
+        frame = frame.iloc[np.argsort(stamp.reindex(frame.index).to_numpy(), kind="stable")]
+        time_ordered = True
+    frame = frame.iloc[-_MAX_ROWS:] if time_ordered else sample(frame, _MAX_ROWS, cfg.random_state)
+    when = stamp.reindex(frame.index) if stamp is not None else pd.Series(np.arange(len(frame)), index=frame.index)
+    unavailable = "not enough development rows/dates for selection plus a separate final test"
+    if len(frame) >= 40 and differences is None:
+        codes = pd.factorize(when.to_numpy(), sort=True)[0]
+        partitions = _consensus_masks(len(frame), codes, time_ordered, cfg.random_state)
+        if partitions is not None:
+            training, voting, final_test = partitions
+            development = ~final_test
+            fitted_types = types
+            if learn_types:
+                from .types import infer_type
+
+                fitted_types = {c: infer_type(frame.iloc[np.flatnonzero(training)][c], cfg)["semantic_type"] for c in frame}
+            out = _rank_features(frame, target, fitted_types, {}, cfg, time_ordered,
+                                 when if stamp is not None else None, voting_mask=voting)
+            if out is not None:
+                out["consensus_evaluation"] = _evaluate_consensus(frame, target, fitted_types, development, out, cfg, when)
+                out["type_scope"] = "training rows" if learn_types else "caller-supplied fixed annotations"
+                out["score_scope"] = ("base models before consensus on inner voting holdout; "
+                                      "consensus_evaluation uses a separate final test after the subset is frozen")
+                final = out["consensus_evaluation"]
+                if final["status"] == "ok":
+                    start = when.iloc[np.flatnonzero(final_test)].min()
+                    out["validation"] += (f"; final consensus scored on {final['n_test']:,} separate test "
+                                          + (f"later rows (from {_fmt_time(start)})" if time_ordered else "rows"))
+                else:
+                    out["validation"] += "; independent final evaluation unavailable: " + final["reason"]
+                return out
+    if differences is not None:
+        unavailable = "externally supplied differencing policy cannot be certified independent of the final test"
+    out = _rank_features(df, target, types, correlations, cfg, time_ordered, times, differences)
+    if out is not None:
+        out["consensus_evaluation"] = {"status": "unavailable", "reason": unavailable, "score": np.nan,
+                                       "features": out["keep"], "n_test": 0}
+    return out
+
+
+def _evaluate_consensus(frame: pd.DataFrame, target: str, types: dict[str, str], development: np.ndarray,
+                        selection: dict[str, Any], cfg: StoneConfig, when: pd.Series) -> dict[str, Any]:
+    """A predefined estimator and preprocessing fit; no model/subset choice consults the final outcomes."""
+    from sklearn.dummy import DummyClassifier, DummyRegressor
+    from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+
+    features = selection["keep"]
+    regression = selection["task"] == "regression"
+    out = {"status": "unavailable", "score": np.nan, "baseline_score": np.nan,
+           "features": list(features), "scoring": selection["scoring"], "n_development": int(development.sum()),
+           "n_test_reserved": int((~development).sum()), "n_test": 0, "n_model_fit": 0,
+           "policy": "subset and estimator fixed before final-test outcomes; final test never votes"}
+    data = frame.copy()
+    if selection["on_differences"]:
+        from .timeseries import serial_structure
+
+        # Only apply the already fixed development policy. Differences are causal,
+        # within entities; no ADF/KPSS or other policy is refitted on the test.
+        fixed = serial_structure(data, types, selection["on_differences"])
+        if fixed is None or fixed["differences"] is None:
+            out["reason"] = "fixed differencing policy unavailable on final temporal grid"
+            return out
+        for c in fixed["differences"]:
+            data[c] = fixed["differences"][c]
+    numeric, _ = _roles(data.iloc[np.flatnonzero(development)], types, cfg)
+    if regression:
+        y = _numeric_frame(data, [target], types)[target].to_numpy(dtype=float)
+        labelled = np.isfinite(y)
+    else:
+        labelled = data[target].notna().to_numpy()
+        y = hashable(data[target]).astype("string").to_numpy()
+    train, test = development & labelled, ~development & labelled
+    out.update(n_test=int(test.sum()), n_unusable_development=int((development & ~labelled).sum()),
+               n_unusable_test=int((~development & ~labelled).sum()))
+    if train.sum() < 20 or test.sum() < 5:
+        out["reason"] = "too few usable final fitting/test rows"
+        return out
+    if not regression and not set(y[test]).issubset(set(y[train])):
+        out["reason"] = "a final-test class is absent from development rows"
+        return out
+    if features:
+        design, _ = _design(data.iloc[np.flatnonzero(train)], features, numeric, types)
+        all_design, _ = _design(data, features, numeric, types)
+        raw = all_design.reindex(columns=design.columns, fill_value=0.).to_numpy(dtype=float)
+        x = _standardise(raw, train, sum(c in numeric for c in features))
+    else:
+        x = np.zeros((len(data), 1))
+    scoring = selection["scoring"]
+    with quiet():
+        dummy = (DummyRegressor(strategy="mean") if regression else DummyClassifier(strategy="prior")).fit(x[train], y[train])
+        out["baseline_score"] = _held_out(dummy, x[test], y[test], scoring)
+        if features:
+            cls = RandomForestRegressor if regression else RandomForestClassifier
+            model = cls(n_estimators=100, min_samples_leaf=3, max_features=.5 if regression else "sqrt",
+                        random_state=cfg.random_state, n_jobs=1)
+            # Explicit fixed budget, as in the diagnostic forest; never chosen from test scores.
+            fit_x, fit_y = x[train][-10_000:], y[train][-10_000:]
+            model.fit(fit_x, fit_y)
+            out.update(model="random forest: 100 trees, min_samples_leaf=3, fixed max_features",
+                       n_model_fit=len(fit_y))
+        else:
+            model = dummy
+            out.update(model="training-prior baseline: no feature kept", n_model_fit=int(train.sum()))
+        out["score"] = _held_out(model, x[test], y[test], scoring)
+    if np.isfinite(out["score"]):
+        out["status"] = "ok"
+    else:
+        out["reason"] = "score undefined on final test (for example AUC with only one class)"
+    out["test_from"] = str(when.iloc[np.flatnonzero(~development)].min())
+    return out
+
+
+def _rank_features(
+    df: pd.DataFrame, target: str, types: dict[str, str], correlations: dict[str, pd.DataFrame],
+    cfg: StoneConfig, time_ordered: bool = False, times: pd.Series | None = None,
     differences: pd.DataFrame | None = None,
+    voting_mask: np.ndarray | None = None,
 ) -> dict[str, Any] | None:
     """Rank and select the features of ``target`` with every method; None when there is nothing to model.
 
@@ -170,6 +335,7 @@ def feature_selection(
     train = _holdout_mask(n, codes, ordered, rs)
     if train is None:
         return None
+    voting = (~train) if voting_mask is None else voting_mask.copy()
     # The global EDA may use every row; its target-based decisions must not choose
     # the training design. In particular, infer differencing on the past only.
     serial = None
@@ -189,9 +355,9 @@ def feature_selection(
                 df[c] = differences[c].reindex(df.index)
     numeric_target = _numeric_frame(df, [target], types)[target] if types[target] in NUMERIC_TYPES else None
     ok = np.isfinite(numeric_target.to_numpy()) if numeric_target is not None else df[target].notna().to_numpy()
-    df, when, train = df.iloc[np.flatnonzero(ok)], when.iloc[np.flatnonzero(ok)], train[ok]
+    df, when, train, voting = df.iloc[np.flatnonzero(ok)], when.iloc[np.flatnonzero(ok)], train[ok], voting[ok]
     n = len(df)
-    if train.sum() < 20 or (~train).sum() < 5:
+    if train.sum() < 20 or voting.sum() < 5:
         return None
     training = df.iloc[np.flatnonzero(train)]
     numeric, categorical = _roles(training, types, cfg)
@@ -199,7 +365,7 @@ def feature_selection(
     regression = target in numeric and t_type in NUMERIC_TYPES and training[target].nunique() > 10
     rho = (serial_dependence(training, _numeric_frame(training, numeric, types), categorical, serial)
            if serial is not None else None)
-    assoc = target_associations(training, target, types, cfg, rho)
+    assoc = target_associations(training, target, types, cfg, rho, serial)
     leaks = set(assoc.loc[assoc["leakage_suspect"].astype(bool), "feature"]) if assoc is not None and not assoc.empty else set()
     features = [c for c in numeric + categorical
                 if c != target and c not in leaks and types.get(c) not in ("id", "constant", "empty")]
@@ -228,7 +394,7 @@ def feature_selection(
         return None
     codes = pd.factorize(when.to_numpy(), sort=True)[0]
     xv = _standardise(raw, train, n_numeric)
-    x_tr, y_tr, x_te, y_te = xv[train], y[train], xv[~train], y[~train]
+    x_tr, y_tr, x_te, y_te = xv[train], y[train], xv[voting], y[voting]
     raw_tr = raw[train]
     n_tr = len(x_tr)
 
@@ -251,14 +417,15 @@ def feature_selection(
         return None
     n_cv = len(cv) if isinstance(cv, list) else cv.get_n_splits()
     scoring = "r2" if regression else ("roc_auc" if task.startswith("binary") else "balanced_accuracy")
-    test_from = when[~train].min() if ordered else None
+    test_from = when[voting].min() if ordered else None
     out: dict[str, Any] = {"task": task, "n_rows": n, "n_features": len(features), "n_design_columns": x.shape[1],
                            "excluded_leaks": sorted(map(str, leaks)), "scoring": scoring,
                            "cv": f"time-ordered {n_cv}-fold" if ordered else f"{n_cv}-fold",
                            "n_train": int(n_tr), "n_holdout": int(n - n_tr),
+                           "n_voting": int(voting.sum()), "n_final_test": int((~train & ~voting).sum()),
                            "validation": (f"tree depth and linear penalties tuned by {'time-ordered ' if ordered else ''}"
                                           f"{n_cv}-fold CV on {n_tr:,} rows, "
-                                          f"scored on {n - n_tr:,} held-out "
+                                          f"scored on {voting.sum():,} held-out voting "
                                           + (f"later rows (from {_fmt_time(test_from)})" if ordered else "rows")
                                           + ("; on differences: the target is not stationary, so its changes are "
                                              "modelled from the changes of the other non-stationary columns"

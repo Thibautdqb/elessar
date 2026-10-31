@@ -1,5 +1,9 @@
 # Preliminary v1.2 validation
 
+Historical intermediate record for commit `43857e0`. The subsequent
+[serial inference and final-consensus record](VALIDATION_V12_SERIAL_CONSENSUS.md) supersedes the open
+Kendall/categorical and final-test items below. These intermediate measurements are preserved.
+
 Based on `2262600bc335e535297bfc64b05b646e6172590f` (1.1.0), branch `fix/v1.2-preliminary-validation`. This is a reviewed-evidence candidate, not a release. No merge into main or publication is authorised by these results.
 
 ## Executed checks

@@ -355,9 +355,16 @@ class _Recap:
                       f"features ({sel['n_design_columns']} model columns after one-hot encoding). Held-out "
                       f"{sel['scoring']}: {scores} ({sel.get('validation') or sel['cv'] + ' CV'}).")
         if sel.get("score_scope"):
-            self.add("p", "Scores describe the models before feature consensus. The holdout is also used for "
-                          "forest permutation importance; these are not independent performance estimates of "
-                          "the final selected feature subset.")
+            self.add("p", sel["score_scope"])
+        final = sel.get("consensus_evaluation")
+        if final:
+            if final["status"] == "ok":
+                self.add("p", f"Independent final consensus: {final['scoring']} {final['score']:.3f} "
+                              f"(training-prior baseline {final['baseline_score']:.3f}) on {final['n_test']:,} "
+                              f"separate test rows. {final['model']}, refitted on development rows only after "
+                              "the feature subset was frozen. Final-test outcomes never enter the votes.")
+            else:
+                self.add("p", "Independent final consensus evaluation unavailable: " + final["reason"])
         self.add("p", [bold("Keep: "), ("", ", ".join(map(str, sel["keep"])) or "-"), ("", "  ·  "),
                        bold("Borderline: "), ("", ", ".join(map(str, sel["borderline"])) or "-"), ("", "  ·  "),
                        bold("Drop: "), ("", ", ".join(map(str, sel["drop"])) or "-")])
@@ -606,6 +613,16 @@ class _Recap:
                           f"Benjamini-Hochberg correction (alpha {v.alpha:g}). Two numeric columns are tested "
                           "with Pearson when both are roughly symmetric with light tails, with Spearman otherwise: "
                           "the choice never depends on which coefficient is the larger.")
+        inference = v.correlations.get("serial_inference")
+        if inference is not None and not inference.empty:
+            self.add("p", "Serial Kendall, categorical and mixed tests use conservative truncated time shifts "
+                          "on a fixed central window of original levels. They require at least one entire "
+                          "process to be strictly stationary; automatic stationarity tests cannot certify "
+                          "this. Unsupported grids or missing observations have no p-value. Numeric "
+                          "Pearson/Spearman outputs retain their separate lag-1 approximation.")
+            self.add("table", ["output", "columns", "status", "tested rows", "radius", "p", "condition/limit"],
+                     [[r.output, f"{r.col_a} / {r.col_b}", r.status, str(r.n), str(r.radius), fmt_p(r.p_value), r.detail]
+                      for r in inference.head(50).itertuples(index=False)], "data")
         self.figures(self.charts(("association", "corr_pearson", "corr_spearman", "corr_cramers_v")), grid=True)
         if top is not None and not top.empty:
             self.add("h", 3, "Strongest associations", None)

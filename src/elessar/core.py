@@ -165,11 +165,11 @@ def _advanced_task(name: str) -> Any:
                 return timeseries(frame, types, target, cfg, exact=exact, info=info)
             return timeseries(df, types, target, cfg)
         if name == "selection":
-            info = detect_time(df, types)  # any dated table, sorted or not, is validated on its future
+            info = detect_time(df.drop(columns=[target]), types)  # the target cannot choose the validation time axis
             times = time_columns(df, types).get(info["time_column"]) if info is not None else None
             # Selection learns its differencing decision from its training rows;
             # the full-data EDA must not decide the response seen by its models.
-            return feature_selection(df, target, types, correlations, cfg, times=times)
+            return feature_selection(df, target, types, correlations, cfg, times=times, learn_types=True)
     raise ValueError(name)
 
 

@@ -2,6 +2,14 @@
 
 ## Unreleased — preliminary v1.2 corrections
 
+- Replace serial Kendall/categorical/mixed IID or scalar lag-1 p-values with conservative symmetric
+  truncated time-shift tests on original levels. Return unavailable p-values for unsupported grids or
+  missing observations, and expose tested windows and strict-stationarity conditions. Numeric Pearson/
+  Spearman and numeric-target/missingness limitations remain explicit.
+- Split the original reserved rows into voting and final test, retaining the original 80% training budget.
+  Evaluate the frozen final consensus with a predefined refitted model, or a dummy baseline for no kept
+  features; final-test outcomes never enter votes, type learning or tuning. Small/unsupported cases
+  explicitly report that assessment as unavailable. See `docs/VALIDATION_V12_SERIAL_CONSENSUS.md`.
 - Reserve validation rows before target-dependent screening; derive leakage exclusions, the filter and
   category vocabulary from outer training rows. Infer automatic differencing on those rows rather than
   taking the decision from the full-data EDA.

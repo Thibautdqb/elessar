@@ -99,6 +99,10 @@ class StoneConfig:
     leakage_threshold: float = 0.98
     vif_threshold: float = 10.0
     """Variance inflation factor above which a column is flagged as multicollinear."""
+    serial_shift_radius: int = 99
+    """Maximum TTS radius; the actual radius is min(this, n_time//4), fixed without inspecting associations."""
+    serial_max_points: int = 2_000
+    """Maximum consecutive time points for serial TTS tests; whole entity vectors are retained for panels."""
 
     # quality
     high_missing_pct: float = 50.0

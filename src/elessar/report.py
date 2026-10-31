@@ -230,8 +230,15 @@ class Vision:
         if sel.get("excluded_leaks"):
             rows.append(("set aside", "leakage suspects: " + ", ".join(sel["excluded_leaks"])))
         if sel.get("score_scope"):
-            rows.append(("score scope", "diagnostics of models before feature consensus; the holdout is also used "
-                         "for forest importance, not an independent score of the final selected subset"))
+            rows.append(("score scope", sel["score_scope"]))
+        final = sel.get("consensus_evaluation")
+        if final:
+            if final["status"] == "ok":
+                rows.append(("final consensus", f"independent {final['scoring']} {final['score']:.3f} "
+                             f"(baseline {final['baseline_score']:.3f}) on {final['n_test']:,} separate test rows; "
+                             f"{final['model']} refitted on development rows only"))
+            else:
+                rows.append(("final consensus", "independent evaluation unavailable: " + final["reason"]))
         return self._wrap(rows, w)
 
     def _timeseries_lines(self, w: int) -> list[str]:

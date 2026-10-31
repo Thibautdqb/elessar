@@ -48,7 +48,8 @@ your terminal and in one HTML page:
 - **associations of every kind with statistical significance**: Pearson, Spearman, Kendall, Cramér's V,
   correlation ratio, mutual information, AUC, with p-values, Benjamini-Hochberg correction and confidence intervals;
   in a table indexed by time, non-stationary columns are tested on their differences and numeric
-  Pearson/Spearman tests use a lag-1 effective sample size; other serial p-values carry explicit limits
+  Pearson/Spearman tests use a lag-1 effective sample size; serial Kendall/categorical/mixed tests use
+  conservative truncated time shifts with explicit stationarity conditions
 - **target analysis**: feature ranking, **leakage detection**, informative missingness
 - **feature selection** by embedded methods (decision tree, random forest, lasso, ridge) and a filter, with
   tree depth and linear penalties tuned by cross-validation, model scores on held-out rows, and a vote
@@ -511,8 +512,8 @@ after the features suspected of leakage are set aside:
 A **shadow** is a feature with its rows shuffled: same distribution, no link with the target (as in Boruta).
 The tree, the lasso and ridge are refitted with one shadow per feature, at the setting they tuned, and vote for
 a feature only when it beats every shadow. Selected by 3 methods or more = **keep**, 2 = **borderline**, else
-**drop**. About 20 % of the rows are reserved before target-dependent screening, without consulting their
-targets. Leakage exclusions, the univariate filter and category vocabulary use the outer training rows.
+**drop**. About 80 % of rows train the selector, 10 % vote and 10 % form a separate final test. Partitions
+are fixed without consulting target values. Leakage exclusions, the filter and category vocabulary use training rows.
 During tuning, imputation and scaling are fitted inside each fold; the forest uses fixed settings.
 Lasso uses a fixed alpha grid from
 1e-6 to 1e6; ridge and logistic regularisation also use explicit grids. These finite grids can miss an
@@ -523,11 +524,22 @@ holdout fraction and number of folds can change when necessary, and selection is
 split cannot be formed. Automatic differencing is decided on outer training rows, then applied causally
 within each entity. Scores are R², ROC AUC for a binary target, or balanced accuracy.
 
-**Score scope:** these are diagnostics of fitted models before the final feature consensus. The holdout
-is also used for forest permutation importance, so these scores are not independent performance estimates
-of the selected subset. Screening and stationarity decisions are not all refitted inside every inner fold:
-this is not a fully nested validation of the entire adaptive workflow. See the
-[preliminary validation record](docs/VALIDATION_V12_PRELIM.md) for current checks and open limits.
+**Score scope:** `scores` diagnose the base models on voting rows, which also determine forest importance.
+`consensus_evaluation` separately assesses the final kept subset with a predefined random forest (100 trees,
+leaf size 3, fixed feature-sampling rule), refitted on training + voting rows and scored once on the final
+test. An empty subset uses a training-prior dummy model. The final test never votes or tunes a model.
+`n_holdout` remains the total reserved from tuning, now divided into `n_voting` and `n_final_test`.
+The full report learns selection types on training rows; callers supplying types directly must fix them
+independently of final outcomes. Small tables, impossible temporal cuts, externally supplied difference
+policies or undefined metrics report the independent assessment as unavailable, with a reason.
+The existing leakage-suspect threshold can also set aside a legitimate predictor with a near-deterministic
+link to the target. Association alone does not establish leakage: inspect provenance and availability at
+prediction time. The validation record includes this policy boundary rather than treating it as signal recovery.
+
+Screening/stationarity choices are not all refitted inside every inner fold. The unused final test measures
+the outcome of that complete adaptive procedure; it does not make the internal CV fully nested. A chronological
+test estimates future-block performance without assuming its rows are IID. See the
+[serial and consensus validation record](docs/VALIDATION_V12_SERIAL_CONSENSUS.md) for executed checks and limits.
 
 ## What it computes
 
@@ -572,17 +584,34 @@ take precedence in a modelling analysis.
 | Key | Content |
 |---|---|
 | `pearson`, `spearman`, `kendall` + `*_p`, `n_numeric` | num-num matrices, their p-value matrices and pairwise-complete counts |
-| `cramers_v` + `cramers_v_p` + `cramers_v_n` | bias-corrected Cramér's V with chi-square p-values |
-| `eta` + `eta_p` + `eta_n` | correlation ratio (categorical rows × numeric columns) with Kruskal-Wallis p-values |
+| `kendall_n` | tested central-window row counts for serial Kendall (distinct from full `n_numeric`) |
+| `cramers_v` + `cramers_v_p` + `cramers_v_n` | bias-corrected Cramér's V; IID chi-square or serial TTS p-values |
+| `eta` + `eta_p` + `eta_n` | correlation ratio (categorical rows × numeric columns); IID Kruskal-Wallis or serial TTS p-values |
 | `association`, `association_p` | one matrix over every column: Spearman, Cramér's V or eta depending on the pair |
 | `pairs`, `top_pairs` | every pair tested (method, n, test, p, **BH-adjusted p**, significant, **Fisher 95 % CI**, the other coefficient and why the method was chosen), and those above `corr_threshold`; a numeric pair is tested with Pearson when both columns are roughly symmetric with light tails, with Spearman otherwise |
 | `numeric_shape` | skewness and excess kurtosis of each numeric column, and whether it is shaped for Pearson |
 | `serial`, `n_effective` | for rows indexed by time: lag-1 autocorrelations, differencing status, and Bartlett's effective sample size n (1 − r₁r₂) / (1 + r₁r₂) used for Pearson/Spearman; a limited model-based approximation |
-| `inference_limits` | serial outputs with unvalidated p-values: Kendall and missingness use IID tests; categorical/mixed corrections remain heuristic. The full report raises a visible alert. |
+| `serial_inference` | serial TTS per-pair effects, row/time counts, radius, exceedances, p-value, conditions and unsupported-input reasons |
+| `inference_limits` | TTS stationarity conditions and remaining IID/heuristic serial outputs, including missingness and the numeric target shape test; surfaced as an alert |
 | `vif` | variance inflation factor of each numeric feature (multicollinearity) |
 | `linear_dependencies` | exact linear relations recovered as equations, e.g. `Total = 1·HP + 1·Attack + 1·Defense + …` |
 | `missingness` | does a column go missing more for some values of another column? (Mann-Whitney / chi-square, BH-adjusted: evidence against MCAR) |
 | `target` | each feature vs the target: association, test (Spearman with a Kruskal-Wallis across deciles, Bonferroni, which also sees U-shaped links / Kruskal-Wallis / Mann-Whitney / chi-square), p, BH-adjusted p, AUC (binary target), mutual information, leakage flag |
+
+For serial Kendall/categorical/mixed associations, effects and tests use the same fixed central window of
+**original levels**. There is no adaptive stationarity/differencing pretest for TTS. The method tests
+independence of the entire processes, requires at least one to be strictly stationary and assumes a fixed
+statistic/type policy. Automatic typing or ADF/KPSS cannot certify these conditions. It is not a general
+test for two nonstationary processes or for conditional/causal dependence.
+
+The conservative rule is `min(1, max(B_forward, B_reverse)/(r+1))`, including ties and zero shift. Radius
+`r=min(serial_shift_radius, n_time//4)` depends only on length. Defaults are 99 and at most 2,000 consecutive
+time points (`serial_max_points`), within the row sampling budget. No circular wrapping or random temporal
+thinning is used. Balanced panels shift whole entity vectors synchronously, preserving cross-entity
+dependence. Missing observations, irregular grids and unbalanced panels return unavailable p-values
+instead of an IID fallback. With radius 99 the smallest p-value is 0.01: multiplicity can substantially
+limit power. Choose larger fixed budgets before analysing results when necessary. See
+[Yuan & Shou (2024)](https://doi.org/10.1371/journal.pbio.3002758).
 | `missing_target` | is the target different when a feature is missing? (informative missingness) |
 
 Groups of columns with mean |Spearman| ≥ 0.7 are proposed for combination.

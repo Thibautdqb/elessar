@@ -2,7 +2,8 @@
 
 **Historical baseline:** the numerical tables below describe the published 1.1 validation run. Preliminary
 v1.2 changes and their separate verification record are documented in
-[`docs/VALIDATION_V12_PRELIM.md`](docs/VALIDATION_V12_PRELIM.md). The historical measures are not overwritten
+[`docs/VALIDATION_V12_PRELIM.md`](docs/VALIDATION_V12_PRELIM.md), followed by the
+[serial and final-consensus record](docs/VALIDATION_V12_SERIAL_CONSENSUS.md). The historical measures are not overwritten
 by that work. The three new 500-case stress checks verify structural properties, not nominal p-value levels.
 
 How far elessar's statistics can be trusted, measured against a known truth: simulations whose answer is
@@ -74,9 +75,11 @@ and 9.5% of log-normal ones were rejected at 5%.
 In a table indexed by time (a series or a panel, whatever the order of the file), the columns that ADF and
 KPSS do not show stationary are replaced by their first differences (within each entity). The numeric
 Pearson/Spearman tests measured here use Bartlett's lag-1 effective sample size
-n (1 − r₁r₂) / (1 + r₁r₂). This design does not validate every serial output: Kendall and missingness remain
-IID tests, and categorical/mixed lag-1 corrections are not generally calibrated. These limits are now
-reported explicitly. Design: 120 tables of three independent columns of 300 dates, rows shuffled in the file.
+n (1 − r₁r₂) / (1 + r₁r₂). That historical design did not validate every serial output: Kendall and missingness
+used IID tests, and categorical/mixed lag-1 corrections were not generally calibrated.
+Current serial Kendall/categorical/mixed outputs instead use conditional conservative TTS on original
+levels; the separate record gives assumptions and calibration. Missingness and numeric target shape
+limits remain explicit. Design: 120 tables of three independent columns of 300 dates, rows shuffled in the file.
 
 | Columns | Before 1.1 (rows as if independent) | elessar 1.1 |
 |---|---:|---:|
@@ -148,7 +151,9 @@ three votes. The tree, the lasso and ridge vote only for features that beat ever
 features (shadows); the random forest uses permutation importance on held-out rows, the filter the
 Benjamini-Hochberg-adjusted link with the target. Tree depth and linear penalties are tuned by CV on 80%
 of the rows; the forest has fixed settings. Models are scored on the other 20%; dated rows are sorted and
-validated on their most recent part.
+validated on their most recent part. This paragraph describes the historical protocol for the tables below;
+the current implementation divides the reserved 20% into voting and separate final-test rows, and records
+an independent score of the kept subset with a predefined model. See the current record linked above.
 
 ### Pure noise
 
