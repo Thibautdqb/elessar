@@ -22,7 +22,7 @@ rng = np.random.default_rng(645001)
 df = pd.DataFrame({"x": rng.normal(size=80), "z": rng.normal(size=80)})
 df["y"] = df.x + .5 * rng.normal(size=len(df))
 with tempfile.TemporaryDirectory() as folder:
-    report = elessar.see(df, target="y", plots=False, verbose=False, open_report=False,
+    report = elessar.see(df, target="y", plots=True, verbose=False, open_report=False,
                          config=elessar.StoneConfig(n_jobs=1, candidates_continuous=("norm",)), out_dir=folder)
     assert report.selection is not None
     assert (Path(folder) / "report.html").is_file()
