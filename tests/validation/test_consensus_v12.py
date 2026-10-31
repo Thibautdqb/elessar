@@ -59,12 +59,17 @@ def test_final_consensus_recovers_a_predeclared_signal(record):
     assert np.mean(retained) > .95 and np.mean(scores) > .8
 
 
-def test_existing_leakage_guard_can_exclude_a_legitimate_near_deterministic_signal(record):
-    rng = np.random.default_rng(635000)
-    df = pd.DataFrame(rng.normal(size=(400, 4)), columns=["signal", "n0", "n1", "n2"])
-    df["y"] = 3 * df.signal + .25 * rng.normal(size=len(df))
-    out = feature_selection(df, "y", dict.fromkeys(df.columns, "numeric_continuous"), {}, CFG)
-    record(seed=635000, truth="legitimate near-deterministic signal, population correlation .9965",
-           excluded_leaks=out["excluded_leaks"], final_features=out["consensus_evaluation"]["features"],
-           limitation="association threshold alone cannot establish data leakage; existing exclusion policy retained")
-    assert "signal" in out["excluded_leaks"] and "signal" not in out["consensus_evaluation"]["features"]
+def test_near_deterministic_signal_is_flagged_but_retained(record):
+    scores, kept, flagged = [], [], []
+    for r in range(30):
+        rng = np.random.default_rng(635000 + r)
+        df = pd.DataFrame(rng.normal(size=(400, 4)), columns=["signal", "n0", "n1", "n2"])
+        df["y"] = 3 * df.signal + .25 * rng.normal(size=len(df))
+        out = feature_selection(df, "y", dict.fromkeys(df.columns, "numeric_continuous"), {}, CFG)
+        assert "signal" not in out["excluded_leaks"]
+        kept.append("signal" in out["keep"])
+        flagged.append("signal" in out["leakage_suspects"])
+        scores.append(out["consensus_evaluation"]["score"])
+    record(runs=30, first_seed=635000, truth="legitimate near-deterministic signal, population correlation .9965",
+           retained=float(np.mean(kept)), flagged=float(np.mean(flagged)), mean_final_r2=float(np.mean(scores)))
+    assert np.mean(kept) > .95 and np.mean(flagged) > .95 and np.mean(scores) > .9

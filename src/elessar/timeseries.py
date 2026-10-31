@@ -287,6 +287,8 @@ def mann_kendall(y: np.ndarray, alpha: float = 0.05, max_n: int = 5_000) -> dict
     p = float(2 * stats.norm.sf(abs(z)))
     tau = s / (n * (n - 1) / 2)
     return {"n": n, "tau": float(tau), "s": float(s), "slope": slope, "z": float(z), "p_value": p,
+            "inference_status": "short-memory model approximation",
+            "inference_note": "AR variance-inflation model must be adequate; long-memory calibration is not guaranteed",
             "p_value_naive": float(2 * stats.norm.sf(abs(z_naive))), "variance_inflation": float(factor),
             "trend": "increasing" if p < alpha and s > 0 else "decreasing" if p < alpha and s < 0 else "none"}
 

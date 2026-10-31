@@ -228,7 +228,9 @@ class Vision:
                 ("borderline", ", ".join(map(str, sel["borderline"])) or "-"),
                 ("drop", ", ".join(map(str, sel["drop"])) or "-")]
         if sel.get("excluded_leaks"):
-            rows.append(("set aside", "leakage suspects: " + ", ".join(sel["excluded_leaks"])))
+            rows.append(("set aside", "explicit exclusions / observed target aliases: " + ", ".join(sel["excluded_leaks"])))
+        if sel.get("leakage_suspects"):
+            rows.append(("check provenance", ", ".join(sel["leakage_suspects"]) + "; association alone does not establish leakage"))
         if sel.get("score_scope"):
             rows.append(("score scope", sel["score_scope"]))
         final = sel.get("consensus_evaluation")
@@ -535,7 +537,7 @@ def _detail_parts(d: dict[str, Any]) -> list[list[str]]:
     if fit.get("fits"):
         lines.append([f"shape: {fit['description']}"])
         lines.append([
-            f"#{i + 1} {f['distribution']}({_fmt_params(f['params'])}) AIC {fmt_num(f['aic'], 6)} KS p {fmt_p(f['ks_pvalue'])}"
+            f"#{i + 1} {f['distribution']}({_fmt_params(f['params'])}) AIC {fmt_num(f['aic'], 6)} CDF gap {fmt_num(f['ks_stat'])}; calibrated GoF p unavailable"
             + (f" [{f['note']}]" if f["note"] else "")
             for i, f in enumerate(fit["fits"])
         ])

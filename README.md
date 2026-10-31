@@ -11,6 +11,10 @@
 
 **Automated exploratory data analysis and data-quality profiling.**
 
+**1.2 review candidate:** the development branch prepares `1.2.0rc1`. Its conditional guarantees and
+release gates are in the [scientific contract](docs/SCIENTIFIC_CONTRACT.md) and
+[release review record](docs/RELEASE_1_2.md); this does not publish a release.
+
 One function call (`elessar.see(df)`, or `elessar.see("sales.parquet")`) or one command (`elessar data.csv`) gives
 you the semantic type of every column, full descriptive statistics, the best-fitting distribution, associations
 between all columns with significance tests, target and leakage analysis, feature selection, PCA and factor
@@ -44,7 +48,7 @@ your terminal and in one HTML page:
   certainty of each decision
 - **dates of birth** told apart from event dates, and turned into ages
 - **full descriptive statistics** adapted to each type, with confidence intervals
-- the **best-fitting statistical distribution** (MLE, ranked by AIC) and four normality tests
+- **likelihood-based numerical distribution candidates**, ranked by AIC, and four normality diagnostics
 - **associations of every kind with statistical significance**: Pearson, Spearman, Kendall, Cramér's V,
   correlation ratio, mutual information, AUC, with p-values, Benjamini-Hochberg correction and confidence intervals;
   in a table indexed by time, non-stationary columns are tested on their differences and numeric
@@ -65,7 +69,7 @@ your terminal and in one HTML page:
   consistency, missing data, outliers) and transformation (bucketing, decomposition, aggregation, combination,
   rescaling, normalisation, transformation, encoding, dimensionality reduction), each with its reason and its code
 - **data quality** checks and **actionable alerts** (with the code to fix them): placeholders, duplicates,
-  multicollinearity, values missing not at random, sorted rows…
+  multicollinearity, missingness associated with observed columns (evidence against MCAR), sorted rows…
 - a set of **plots that actually carry information**, saved as PNG files, and **one HTML page** with everything
 - **any input, any size**: CSV, Parquet, Excel, JSON, SQLite, SAS, Stata… or polars, pyarrow, dask, NumPy
   objects; files bigger than memory are **typed progressively and streamed in parallel**, with exact counts over
@@ -532,9 +536,11 @@ test. An empty subset uses a training-prior dummy model. The final test never vo
 The full report learns selection types on training rows; callers supplying types directly must fix them
 independently of final outcomes. Small tables, impossible temporal cuts, externally supplied difference
 policies or undefined metrics report the independent assessment as unavailable, with a reason.
-The existing leakage-suspect threshold can also set aside a legitimate predictor with a near-deterministic
-link to the target. Association alone does not establish leakage: inspect provenance and availability at
-prediction time. The validation record includes this policy boundary rather than treating it as signal recovery.
+High target association raises a provenance warning and retains near-deterministic predictors. Known
+post-outcome variables can be named in `StoneConfig(exclude_features=("column",))`. Observed exact affine or
+low-cardinality bijective target aliases are quarantined by default on training rows; this explicit policy
+can be overridden with `exclude_target_aliases=False` when pre-outcome availability is established.
+Association alone does not establish leakage: inspect provenance and availability at prediction time.
 
 Screening/stationarity choices are not all refitted inside every inner fold. The unused final test measures
 the outcome of that complete adaptive procedure; it does not make the internal CV fully nested. A chronological
@@ -566,12 +572,14 @@ weekdays, quarters, 1-5 integer scales, ordered categoricals), `datetime`, `date
 - *text*: length and word counts, empty / whitespace-only strings, share of digits / uppercase / punctuation, most
   common tokens
 
-**Distributions**: Shapiro-Wilk, D'Agostino K², Jarque-Bera and Anderson-Darling with a majority verdict; MLE fits
+**Distributions**: Shapiro-Wilk, D'Agostino K², Jarque-Bera and Anderson-Darling with an exploratory majority
+verdict (not a combined calibrated test); likelihood-based numerical fits
 of `norm, lognorm, expon, gamma, weibull_min, beta, uniform, logistic, t, laplace, pareto, chi2, cauchy`
 (continuous) or `poisson, nbinom, geom, binom` (discrete), with support handling (shifted / rescaled fits), ranked
-by AIC, with ΔAIC, Akaike weights, BIC and the KS statistic / p-value (KS p-values are optimistic when the
-parameters are estimated from the same data: that is reported too). Integer data get a proper goodness of fit
-(gap on the integer support, chi-square test) instead of KS, which ties inflate. A value holding 30 % or more of a
+by AIC, with ΔAIC, Akaike weights, BIC and CDF-gap diagnostics. Calibrated fitted-model `ks_pvalue` is
+unavailable: the same-data approximation is retained only as `diagnostic_pvalue`, with its fitting/selection
+limitations. Integer data use both sides of jumps on the integer support and a grouped chi-square
+diagnostic. These are not refitting-aware calibrated goodness-of-fit tests. A value holding 30 % or more of a
 continuous column (rain: 57 % exact zeros) is reported as a point mass and the candidates are fitted to the rest;
 fits that collapse onto repeated values are rejected. Each candidate has a timeout.
 The binomial candidate profiles its likelihood over integer trial counts up to 100,000, with p=mean/n.
@@ -592,11 +600,12 @@ take precedence in a modelling analysis.
 | `numeric_shape` | skewness and excess kurtosis of each numeric column, and whether it is shaped for Pearson |
 | `serial`, `n_effective` | for rows indexed by time: lag-1 autocorrelations, differencing status, and Bartlett's effective sample size n (1 − r₁r₂) / (1 + r₁r₂) used for Pearson/Spearman; a limited model-based approximation |
 | `serial_inference` | serial TTS per-pair effects, row/time counts, radius, exceedances, p-value, conditions and unsupported-input reasons |
-| `inference_limits` | TTS stationarity conditions and remaining IID/heuristic serial outputs, including missingness and the numeric target shape test; surfaced as an alert |
+| `inference_limits` | TTS stationarity conditions, Bartlett numeric-pair approximations and IID moment intervals; surfaced as an alert |
 | `vif` | variance inflation factor of each numeric feature (multicollinearity) |
 | `linear_dependencies` | exact linear relations recovered as equations, e.g. `Total = 1·HP + 1·Attack + 1·Defense + …` |
-| `missingness` | does a column go missing more for some values of another column? (Mann-Whitney / chi-square, BH-adjusted: evidence against MCAR) |
-| `target` | each feature vs the target: association, test (Spearman with a Kruskal-Wallis across deciles, Bonferroni, which also sees U-shaped links / Kruskal-Wallis / Mann-Whitney / chi-square), p, BH-adjusted p, AUC (binary target), mutual information, leakage flag |
+| `missingness` | missing-indicator associations: IID Mann-Whitney / chi-square or serial TTS of centred AUC / V, BH-adjusted; evidence against MCAR |
+| `target` | each feature vs the target: IID association tests or serial TTS; numeric serial targets use a fixed Spearman/rank-decile eta omnibus that also sees U-shaped links; p, BH-adjusted p, AUC, mutual information and provenance warning |
+| `missing_target` | is the target different when a feature is missing? IID or serial missing-indicator test with the same assumptions as `missingness` |
 
 For serial Kendall/categorical/mixed associations, effects and tests use the same fixed central window of
 **original levels**. There is no adaptive stationarity/differencing pretest for TTS. The method tests
@@ -611,8 +620,9 @@ thinning is used. Balanced panels shift whole entity vectors synchronously, pres
 dependence. Missing observations, irregular grids and unbalanced panels return unavailable p-values
 instead of an IID fallback. With radius 99 the smallest p-value is 0.01: multiplicity can substantially
 limit power. Choose larger fixed budgets before analysing results when necessary. See
-[Yuan & Shou (2024)](https://doi.org/10.1371/journal.pbio.3002758).
-| `missing_target` | is the target different when a feature is missing? (informative missingness) |
+[Yuan & Shou (2024)](https://doi.org/10.1371/journal.pbio.3002758). For missingness, the complete indicator
+is tested; gaps in its comparator still make inference unavailable. Numeric-target omnibus statistics
+are recomputed for every surrogate. The signed Spearman coefficient remains a descriptive effect.
 
 Groups of columns with mean |Spearman| ≥ 0.7 are proposed for combination.
 

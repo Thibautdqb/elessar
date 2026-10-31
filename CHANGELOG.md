@@ -1,6 +1,22 @@
 # Changelog
 
-## Unreleased — preliminary v1.2 corrections
+## 1.2.0rc1 — review candidate (not published)
+
+- Calibrate serial numeric-target shape and missingness tests with conservative TTS, including complete
+  missing indicators and explicit unavailable comparator/grid cases.
+- Retain near-deterministic predictors after an association warning; exclude only explicit provenance
+  exclusions and configured observed exact aliases. Quarantine remains an overridable policy.
+- Replace the median interval approximation with exact binomial ranks. Stabilise moments at extreme
+  scales/offsets and harmonic means with subnormal positive values; identify unrepresentable outputs.
+- Correct discrete CDF gaps before observed jumps. Preserve fitted-model p approximations as diagnostics
+  while returning unavailable calibrated GoF p-values; numerical fit/global-optimum limits are explicit.
+- Add repeated compatibility/statistical/package gates. The sdist includes scientific records and CI
+  reproduction constraints. See `docs/RELEASE_1_2.md` and `docs/SCIENTIFIC_CONTRACT.md`.
+
+## Earlier v1.2 implementation stages — historical scope
+
+The bullets below record the preliminary stages; remaining limitations mentioned there are superseded
+where explicitly addressed by the 1.2.0rc1 section and the current scientific contract.
 
 - Replace serial Kendall/categorical/mixed IID or scalar lag-1 p-values with conservative symmetric
   truncated time-shift tests on original levels. Return unavailable p-values for unsupported grids or

@@ -391,8 +391,8 @@ def target_associations(
     """Association of every feature with ``target``: effect size, test, adjusted p, AUC, mutual information.
 
     ``rho``: for rows in time order, the lag-1 autocorrelation of each column (see :func:`serial_dependence`):
-    numeric target tests use a lag-1 effective-size approximation. Serial categorical/mixed tests need
-    the actual ``serial`` time grid for TTS; with ``rho`` alone their p-value is unavailable."""
+    serial target tests need the actual ``serial`` time grid for TTS; with ``rho`` alone their p-value is
+    unavailable. Numeric targets use a prescribed monotone/rank-decile omnibus statistic."""
     cfg = config or StoneConfig()
     numeric, categorical = _roles(df, types, cfg)
     if serial is not None and rho is None:
@@ -421,10 +421,6 @@ def target_associations(
                 # (Kruskal-Wallis), which sees a U shape; two tests fixed in advance, so Bonferroni keeps the 5%
                 bins = _discretize(pair.iloc[:, 0], True)
                 _, p_shape, _ = correlation_ratio_test(bins, pair.iloc[:, 1])
-                if rho is not None:
-                    infl = serial_inflation(rho.get(col), rho.get(target))
-                    p_mono = corr_pvalue(value, len(pair) / infl)
-                    p_shape = deflate_chi2(p_shape, bins.nunique() - 1, infl)
                 p = min(1.0, 2 * min(p_mono, p_shape)) if np.isfinite(p_shape) else p_mono
                 method, test, n = "spearman", "spearman + kruskal-wallis by deciles (Bonferroni)", len(pair)
             elif f_numeric:
@@ -441,7 +437,7 @@ def target_associations(
                 method, test = "cramers_v", "chi-square"
             if not np.isfinite(value):
                 continue
-            if rho is not None and not (f_numeric and t_numeric):
+            if rho is not None:
                 p = np.nan
                 test = "serial test unavailable without the time grid"
             mi = mutual_information(x, y, f_numeric, t_numeric)
@@ -463,7 +459,8 @@ def _fmt_level(v: Any) -> str:
 
 
 def missing_vs_target(
-    df: pd.DataFrame, target: str, types: dict[str, str], config: StoneConfig | None = None
+    df: pd.DataFrame, target: str, types: dict[str, str], config: StoneConfig | None = None,
+    serial: dict[str, Any] | None = None,
 ) -> pd.DataFrame:
     """Is the target different when a feature is missing? (informative missingness)"""
     cfg = config or StoneConfig()
@@ -497,6 +494,8 @@ def missing_vs_target(
     out = pd.DataFrame(rows, columns=["feature", "pct_missing", "test", "effect", "p_value", "detail"])
     out["p_adjusted"] = bh_adjust(out["p_value"])
     out["significant"] = out["p_adjusted"] < cfg.alpha
+    if serial is not None:
+        _serial_adjustments({"missing_target": out}, df, types, target, cfg, serial)
     return out[MISSING_TARGET_COLUMNS].sort_values("p_value", ignore_index=True)
 
 
@@ -543,7 +542,8 @@ def _missingness_frame(df: pd.DataFrame, rows: list[list[Any]], cfg: StoneConfig
 
 
 def missingness_dependence(
-    df: pd.DataFrame, types: dict[str, str], config: StoneConfig | None = None
+    df: pd.DataFrame, types: dict[str, str], config: StoneConfig | None = None,
+    serial: dict[str, Any] | None = None,
 ) -> pd.DataFrame:
     """Does a column go missing more often for some values of other columns? (evidence against MCAR)
 
@@ -552,11 +552,15 @@ def missingness_dependence(
     Effects: AUC for numeric (0.5 = no dependence), Cramér's V for categorical.
     """
     cfg = config or StoneConfig()
+    raw = df
     df = sample(df, cfg.sample_size, cfg.random_state)
     numeric, categorical = _roles(df, types, cfg)
     num = _numeric_frame(df, numeric, types)
     rows = [row for col in df.columns for row in _missingness_rows(df, col, numeric, categorical, num)]
-    return _missingness_frame(df, rows, cfg)
+    out = _missingness_frame(df, rows, cfg)
+    if serial is not None:
+        _serial_adjustments({"missingness": out}, raw, types, None, cfg, serial)
+    return out
 
 
 # --------------------------------------------------------------------------- entry points
@@ -627,14 +631,18 @@ def _serial_adjustments(out: dict[str, pd.DataFrame], raw: pd.DataFrame, types: 
     layout = serial_layout(raw, serial, cfg)
     numeric_roles = set(_roles(raw, types, cfg)[0])
     records = []
+    cache: dict[tuple[str, str, str, bool], dict[str, Any]] = {}
 
     def numeric(c: str) -> pd.Series:
         return _numeric_frame(raw, [c], types)[c]
 
-    def test(a: str, b: str, kind: str, output: str) -> dict[str, Any]:
-        x = numeric(a) if kind == "kendall" else raw[a]
-        y = raw[b] if kind == "cramers_v" else numeric(b)
-        result = serial_test(layout, x, y, kind, cfg)
+    def test(a: str, b: str, kind: str, output: str, indicator: bool = False) -> dict[str, Any]:
+        key = (a, b, kind, indicator)
+        if key not in cache:
+            x = raw[a].isna() if indicator else numeric(a) if kind in ("kendall", "target_numeric") else raw[a]
+            y = raw[b] if kind == "cramers_v" else numeric(b)
+            cache[key] = serial_test(layout, x, y, kind, cfg)
+        result = cache[key]
         records.append({"output": output, "col_a": a, "col_b": b, **result})
         return result
 
@@ -668,17 +676,18 @@ def _serial_adjustments(out: dict[str, pd.DataFrame], raw: pd.DataFrame, types: 
     if target is not None and targets is not None:
         for i, row in targets.iterrows():
             kind, feature = row["method"], row["feature"]
-            if kind not in ("cramers_v", "eta"):
+            if kind not in ("cramers_v", "eta", "spearman"):
                 continue
+            kind = "target_numeric" if kind == "spearman" else kind
             a, b = (target, feature) if kind == "eta" and feature in numeric_roles else (feature, target)
             result = test(a, b, kind, "target")
             targets.loc[i, "p_value"] = result["p_value"]
-            targets.loc[i, "test"] = result["test"] + " on levels"
+            targets.loc[i, "test"] = ("spearman + rank-decile eta omnibus / " if kind == "target_numeric" else "") + result["test"] + " on levels"
             if result["status"] == "conditional":
                 targets.loc[i, "association"], targets.loc[i, "n"] = result["value"], result["n"]
                 center = layout["order"][result["radius"]:layout["n_time"] - result["radius"]].ravel()
-                fnum = kind == "eta" and a == target
-                tnum = kind == "eta" and a == feature
+                fnum = kind == "target_numeric" or (kind == "eta" and a == target)
+                tnum = kind == "target_numeric" or (kind == "eta" and a == feature)
                 xx = numeric(feature).iloc[center] if fnum else raw.iloc[center][feature]
                 yy = numeric(target).iloc[center] if tnum else raw.iloc[center][target]
                 if fnum and _labels(yy).nunique() == 2:
@@ -689,6 +698,23 @@ def _serial_adjustments(out: dict[str, pd.DataFrame], raw: pd.DataFrame, types: 
                                                      (np.isfinite(auc) and abs(auc - .5) >= cfg.leakage_threshold / 2))
         targets["p_adjusted"] = bh_adjust(targets["p_value"])
         targets["significant"] = targets["p_adjusted"] < cfg.alpha
+    for output in ("missingness", "missing_target"):
+        frame = out.get(output)
+        if frame is None:
+            continue
+        for i, row in frame.iterrows():
+            a = row["column"] if output == "missingness" else row["feature"]
+            b = row["depends_on"] if output == "missingness" else target
+            kind = "auc" if b in numeric_roles else "cramers_v"
+            result = test(a, b, kind, output, indicator=True)
+            frame.loc[i, "p_value"] = result["p_value"]
+            frame.loc[i, "test"] = ("mann-whitney AUC statistic / " if kind == "auc" else "Cramer's V statistic / ") + result["test"]
+            if result["status"] == "conditional":
+                frame.loc[i, "effect"] = result["value"]
+                frame.loc[i, "detail"] = (f"TTS central window ({result['n']} rows): missing indicator vs '{b}'; "
+                                          "see serial_inference for stationarity conditions")
+        frame["p_adjusted"] = bh_adjust(frame["p_value"])
+        frame["significant"] = frame["p_adjusted"] < cfg.alpha
     if records:
         out["serial_inference"] = pd.DataFrame(records)
 
@@ -768,6 +794,9 @@ def compute_correlations(
             out["eta"], out["eta_p"], out["eta_n"] = frames
         if target is not None:
             out["target"] = results[("target",)]
+            out["missing_target"] = results[("missing_target",)]
+        rows = [row for col in df.columns for row in results[("missing", col)]]
+        out["missingness"] = _missingness_frame(df, rows, cfg)
         if serial is not None:
             _serial_adjustments(out, raw, types, target, cfg, serial)
         pairs = _pairs(out, cfg)
@@ -779,11 +808,8 @@ def compute_correlations(
         out["top_pairs"] = pairs[pairs["abs_value"] >= cfg.corr_threshold].reset_index(drop=True)
         if len(numeric) + len(categorical) >= 2:
             out.update(_association_matrix(out, pairs, numeric + categorical))
-        rows = [row for col in df.columns for row in results[("missing", col)]]
-        out["missingness"] = _missingness_frame(df, rows, cfg)
         if target is not None:
             out["target"] = out["target"].sort_values("association", key=lambda x: x.abs(), ascending=False).reset_index(drop=True)
-            out["missing_target"] = results[("missing_target",)]
         if rho is not None:
             limits = []
             tested = out.get("serial_inference")
@@ -798,15 +824,11 @@ def compute_correlations(
                                               "no stationarity pretest certifies this"
                                               if conditional else "unsupported temporal grid or missing observations")
                                    + ("; some pairs unavailable (see serial_inference)" if unavailable else "")})
-            for output, detail in (
-                ("missingness", "missingness tests use IID p-values under serial dependence"),
-                ("missing_target", "missingness/target tests use IID p-values under serial dependence"),
-            ):
-                if output in out and not out[output].empty:
-                    limits.append({"output": output, "status": "unvalidated for serial rows", "detail": detail})
-            if target is not None and (out["target"]["method"] == "spearman").any():
-                limits.append({"output": "target", "status": "unvalidated for serial rows",
-                               "detail": "numeric target shape test still uses a heuristic lag-1 correction"})
+            if "pearson" in out:
+                limits.append({"output": "pearson_p, spearman_p, numeric pair intervals",
+                               "status": "lag-1 model approximation",
+                               "detail": "Bartlett effective-size and Fisher intervals assume the lag-1 model is adequate; "
+                                         "not a general serial calibration. Column-moment intervals separately require IID sampling."})
             if limits:
                 out["inference_limits"] = pd.DataFrame(limits)
     return out

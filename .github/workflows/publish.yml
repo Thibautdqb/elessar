@@ -8,7 +8,12 @@ on:
   workflow_dispatch:
 
 jobs:
+  ordinary-and-packaging:
+    uses: ./.github/workflows/ci.yml
+  statistical-validation:
+    uses: ./.github/workflows/validation.yml
   build:
+    needs: [ordinary-and-packaging, statistical-validation]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

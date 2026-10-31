@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 import numpy as np
 import pandas as pd
-from scipy import signal, stats
+from scipy import signal, special, stats
 
 from ._utils import hashable, prepare, quiet, sample, sample_array
 from .config import StoneConfig
@@ -128,14 +128,15 @@ def _pile_up(v: np.ndarray, at: float, side: str) -> dict[str, Any]:
 
 
 def _median_ci(v: np.ndarray, alpha: float = 0.05) -> tuple[float | None, float | None]:
-    """Distribution-free CI of the median from order statistics."""
+    """Exact conservative order-statistic interval for an IID population median."""
     n = len(v)
     if n < 6:
         return None, None
-    z = stats.norm.ppf(1 - alpha / 2)
-    lo, hi = int(np.floor(n / 2 - z * np.sqrt(n) / 2)), int(np.ceil(n / 2 + z * np.sqrt(n) / 2))
+    k = int(stats.binom.ppf(alpha / 2, n, .5))
+    if k < 1:
+        return None, None  # no finite two-sided interval can reach the requested coverage
     srt = np.sort(v)
-    return float(srt[max(lo - 1, 0)]), float(srt[min(hi - 1, n - 1)])
+    return float(srt[k - 1]), float(srt[n - k])
 
 
 def _autocorr(v: np.ndarray) -> tuple[float | None, float | None]:
@@ -175,17 +176,37 @@ def numeric_stats(x: pd.Series, config: StoneConfig | None = None) -> dict[str, 
     if n == 0:
         return out
     with quiet():
-        mean, std = float(np.mean(v)), float(np.std(v, ddof=1)) if n > 1 else float("nan")
-        q = np.percentile(v, QUANTILES)
-        iqr = q[5] - q[3]
+        # Location/shape calculations are invariant to a common positive scale.
+        # Bound magnitudes before powers/sums, then restore units only at the end.
+        magnitude = float(np.abs(v).max()) or 1.
+        shifted = v - v[0]
+        origin = float(v[0]) if np.isfinite(shifted).all() else 0.
+        scale = (float(np.abs(shifted).max()) or 1.) if origin else magnitude
+        w = shifted / scale if origin else v / scale
+        mean_w = float(w.mean())
+        std_w = float(w.std(ddof=1)) if n > 1 else float("nan")
+        std = float(np.float64(std_w) * scale)
+        try:
+            total = math.fsum(v)
+            mean = total / n
+        except OverflowError:
+            scaled_sum = math.fsum(v / magnitude)
+            total = float(scaled_sum * np.float64(magnitude))
+            mean = float((scaled_sum / n) * np.float64(magnitude))
+        q_w = np.percentile(w, QUANTILES)
+        q = origin + q_w * scale
+        iqr_w = q_w[5] - q_w[3]
+        iqr = float(iqr_w * scale)
         sem = std / math.sqrt(n) if n > 1 else float("nan")
-        skew = float(stats.skew(v, bias=False)) if n > 2 else float("nan")
-        kurt = float(stats.kurtosis(v, bias=False)) if n > 3 else float("nan")
-        mad = float(stats.median_abs_deviation(v))
-        z = (v - mean) / std if std and std > 0 else np.zeros_like(v)
-        mz = 0.6745 * (v - q[4]) / mad if mad > 0 else np.zeros_like(v)
-        lo_iqr, hi_iqr = q[3] - 1.5 * iqr, q[5] + 1.5 * iqr
-        n_iqr = int(np.sum((v < lo_iqr) | (v > hi_iqr)))
+        skew = float(stats.skew(w, bias=False)) if n > 2 else float("nan")
+        kurt = float(stats.kurtosis(w, bias=False)) if n > 3 else float("nan")
+        mad_w = float(stats.median_abs_deviation(w))
+        mad = float(np.float64(mad_w) * scale)
+        z = (w - mean_w) / std_w if std_w > 0 else np.zeros_like(w)
+        mz = 0.6745 * (w - q_w[4]) / mad_w if mad_w > 0 else np.zeros_like(w)
+        lo_w, hi_w = q_w[3] - 1.5 * iqr_w, q_w[5] + 1.5 * iqr_w
+        lo_iqr, hi_iqr = origin + lo_w * scale, origin + hi_w * scale
+        n_iqr = int(np.sum((w < lo_w) | (w > hi_w)))
         n_z, n_mz = int(np.sum(np.abs(z) > 3)), int(np.sum(np.abs(mz) > 3.5))
         positive = bool(np.all(v > 0))
         t_crit = stats.t.ppf(0.975, n - 1) if n > 1 else float("nan")
@@ -197,20 +218,20 @@ def numeric_stats(x: pd.Series, config: StoneConfig | None = None) -> dict[str, 
         out.update({
             "mean": mean,
             "std": std,
-            "var": std**2,
+            "var": float(np.float64(std) * std),
             "sem": sem,
-            "cv": std / abs(mean) if mean else None,
+            "cv": float(np.float64(std_w) / abs(np.float64(mean) / scale)) if mean else None,
             "min": float(v.min()),
             "max": float(v.max()),
-            "range": float(v.max() - v.min()),
-            "sum": float(v.sum()),
+            "range": float((w.max() - w.min()) * scale),
+            "sum": total,
             **{f"p{p}": float(val) for p, val in zip(QUANTILES, q)},
             "median": float(q[4]),
             "iqr": float(iqr),
             "mad": mad,
-            "trimmed_mean": float(stats.trim_mean(v, cfg.trim_fraction)),
+            "trimmed_mean": float(origin + stats.trim_mean(w, cfg.trim_fraction) * scale),
             "geometric_mean": float(stats.gmean(v)) if positive else None,
-            "harmonic_mean": float(stats.hmean(v)) if positive else None,
+            "harmonic_mean": float(np.exp(np.log(n) - special.logsumexp(-np.log(v)))) if positive else None,
             "skewness": skew,
             "kurtosis": kurt,
             "n_zeros": int(np.sum(v == 0)),
@@ -236,7 +257,15 @@ def numeric_stats(x: pd.Series, config: StoneConfig | None = None) -> dict[str, 
         if np.unique(v).size > 10:
             out.update(_pile_up(v, out["max"], "max"))
             out.update(_pile_up(v, out["min"], "min"))
-        out["autocorr_lag1"], out["autocorr_lag1_p"] = _autocorr(v)
+        out["autocorr_lag1"], out["autocorr_lag1_p"] = _autocorr(w)
+        out["inference_note"] = ("Mean/median confidence intervals require IID sampling; mean t intervals also "
+                                 "require a normal population or an adequate large-sample approximation. "
+                                 "Lag-1 p-values are white-noise diagnostics, not general serial tests.")
+        overflow = [k for k in ("var", "sum", "range", "std") if out[k] is not None and np.isinf(out[k])]
+        if overflow:
+            out["numeric_range_note"] = "outside float64 range: " + ", ".join(overflow)
+        elif std > 0 and out["var"] == 0:
+            out["numeric_range_note"] = "variance below the representable float64 range; std remains nonzero"
     return out
 
 

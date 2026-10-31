@@ -149,6 +149,37 @@ def _by_feature(values: np.ndarray, owners: list[str], features: list[str]) -> p
     return pd.Series(values, index=owners).groupby(level=0).sum().reindex(features).fillna(0.0)
 
 
+def _target_aliases(training: pd.DataFrame, target: str, numeric: list[str], features: list[str],
+                    types: dict[str, str], regression: bool, cfg: StoneConfig) -> set[str]:
+    """Observed aliases, not proof of causality/provenance; fit the quarantine policy on training only."""
+    aliases = set()
+    y = _numeric_frame(training, [target], types)[target] if regression else hashable(training[target]).astype("string")
+    for col in features:
+        if col == target:
+            continue
+        if regression and col in numeric:
+            pair = pd.concat([_numeric_frame(training, [col], types)[col], y], axis=1).dropna()
+            if len(pair) < 20:
+                continue
+            x, v = pair.iloc[:, 0].to_numpy(dtype=float), pair.iloc[:, 1].to_numpy(dtype=float)
+            x, v = x / (np.abs(x).max() or 1.), v / (np.abs(v).max() or 1.)
+            x, v = x - x.mean(), v - v.mean()
+            den = x @ x
+            if den > 0 and np.ptp(v) > 0:
+                residual = v - x * ((x @ v) / den)
+                if np.abs(residual).max() <= 128 * np.finfo(float).eps * np.abs(v).max():
+                    aliases.add(col)
+        elif not regression:
+            x = hashable(training[col]).astype("string")
+            ok = x.notna() & y.notna()
+            k = y[ok].nunique()
+            if len(x[ok]) >= 20 and 2 <= k <= cfg.max_categories and x[ok].nunique() == k:
+                table = pd.crosstab(x[ok], y[ok]).gt(0)
+                if table.sum(axis=0).eq(1).all() and table.sum(axis=1).eq(1).all():
+                    aliases.add(col)
+    return aliases
+
+
 def feature_selection(
     df: pd.DataFrame, target: str, types: dict[str, str], correlations: dict[str, pd.DataFrame],
     cfg: StoneConfig, time_ordered: bool = False, times: pd.Series | None = None,
@@ -167,6 +198,9 @@ def feature_selection(
     date grids that cannot support both partitions retain diagnostic selection
     with an explicit unavailable status.
     """
+    unknown = set(cfg.exclude_features) - set(df.columns)
+    if unknown or target in cfg.exclude_features:
+        raise ValueError("exclude_features must name existing predictors, never the target: " + str(sorted(unknown)))
     frame = df[df[target].notna()]
     stamp = None
     if times is not None:
@@ -366,7 +400,9 @@ def _rank_features(
     rho = (serial_dependence(training, _numeric_frame(training, numeric, types), categorical, serial)
            if serial is not None else None)
     assoc = target_associations(training, target, types, cfg, rho, serial)
-    leaks = set(assoc.loc[assoc["leakage_suspect"].astype(bool), "feature"]) if assoc is not None and not assoc.empty else set()
+    suspects = set(assoc.loc[assoc["leakage_suspect"].astype(bool), "feature"]) if assoc is not None and not assoc.empty else set()
+    aliases = _target_aliases(training, target, numeric, numeric + categorical, types, regression, cfg)
+    leaks = set(cfg.exclude_features) | (aliases if cfg.exclude_target_aliases else set())
     features = [c for c in numeric + categorical
                 if c != target and c not in leaks and types.get(c) not in ("id", "constant", "empty")]
     if not features or len(df) < 30:
@@ -420,6 +456,8 @@ def _rank_features(
     test_from = when[voting].min() if ordered else None
     out: dict[str, Any] = {"task": task, "n_rows": n, "n_features": len(features), "n_design_columns": x.shape[1],
                            "excluded_leaks": sorted(map(str, leaks)), "scoring": scoring,
+                           "leakage_suspects": sorted(map(str, suspects)), "target_aliases": sorted(map(str, aliases)),
+                           "exclusion_policy": "explicit provenance exclusions and configured exact-alias quarantine; association alone does not exclude",
                            "cv": f"time-ordered {n_cv}-fold" if ordered else f"{n_cv}-fold",
                            "n_train": int(n_tr), "n_holdout": int(n - n_tr),
                            "n_voting": int(voting.sum()), "n_final_test": int((~train & ~voting).sum()),

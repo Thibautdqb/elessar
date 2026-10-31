@@ -369,9 +369,11 @@ class _Recap:
                        bold("Borderline: "), ("", ", ".join(map(str, sel["borderline"])) or "-"), ("", "  ·  "),
                        bold("Drop: "), ("", ", ".join(map(str, sel["drop"])) or "-")])
         if sel.get("excluded_leaks"):
-            self.add("callout", [bold("Left out as leakage suspects: "), ("", ", ".join(sel["excluded_leaks"])),
-                                 ("", " (they predict the target almost perfectly, probably because they are derived "
-                                      "from it).")])
+            self.add("callout", [bold("Explicit exclusions / observed target aliases: "), ("", ", ".join(sel["excluded_leaks"])),
+                                 ("", ". Quarantine is a declared policy; provenance and availability must be checked.")])
+        if sel.get("leakage_suspects"):
+            self.add("p", "Check provenance: " + ", ".join(sel["leakage_suspects"])
+                          + ". A high association alone does not establish leakage and does not automatically exclude the feature.")
         methods = [m for m in ("decision tree", "random forest", "lasso", "ridge", "filter") if m in sel["table"].columns]
         votes = sel["votes"]
         rows = []
@@ -730,13 +732,13 @@ class _Recap:
         self.add("h", 2, SECTIONS["distributions"], "distributions")
         self.add("p", "Normality is tested four ways (Shapiro-Wilk on up to 5,000 values, D'Agostino K², Jarque-Bera, "
                       "Anderson-Darling); the verdict is 'not normal' when at least half of them reject at "
-                      f"alpha {v.alpha:g}. Every candidate distribution is fitted by maximum likelihood and ranked by AIC; "
+                      f"alpha {v.alpha:g}. Candidate distributions use likelihood-based numerical fits ranked by AIC; "
                       "the Akaike weight is its relative support among the candidates.")
-        self.add("p", [("i", "With thousands of values every test rejects even a good fit, so read KS D (the largest gap "
-                              "between the fitted and the observed cumulative distribution) as the size of the misfit: "
-                              "below 0.03 close, below 0.08 fair, above poor. KS p-values are optimistic since the "
-                              "parameters come from the same data. For integer columns the gap is measured on the "
-                              "integer support and the p-value comes from a chi-square goodness-of-fit test.")])
+        self.add("p", [("i", "CDF gaps describe mismatch to a fitted candidate. Parameters and family selection use "
+                              "the same data, so no calibrated goodness-of-fit p-value is reported. Unadjusted "
+                              "diagnostic approximations remain available separately in the API. AIC weights "
+                              "describe relative support within the candidate set; global optima and model truth "
+                              "are not certified.")])
         rows = []
         for i, name in enumerate(v.columns):
             d = v.columns[name]
@@ -757,7 +759,7 @@ class _Recap:
                 (fit.get("description") or "").split(", best fit")[0],
             ])
         self.add("table", ["column", "n", "normality", "tests rejecting", "best fit", "parameters", "weight",
-                           "ΔAIC to 2nd", "KS D", "KS p", "shape"], rows, "data")
+                           "ΔAIC to 2nd", "CDF gap", "calibrated GoF p", "shape"], rows, "data")
         self.figures(self.charts(("dist",), any_column=True), grid=True)
 
     def column_section(self) -> None:
@@ -823,7 +825,7 @@ class _Recap:
             n_tried = fit.get("n_candidates_fitted", len(fit["fits"]))
             body += [("h", 4, f"Best fits ({fit.get('kind', '')}, {n_tried} candidates fitted on "
                               f"{fit.get('n_used', 0):,} values)", None),
-                     ("table", ["#", "distribution", "parameters", "AIC", "ΔAIC", "weight", "BIC", "KS D", "KS p"],
+                     ("table", ["#", "distribution", "parameters", "AIC", "ΔAIC", "weight", "BIC", "CDF gap", "calibrated GoF p"],
                       frows, "data")]
         top = st.get("top_values") or []
         if top and (st.get("pct_unique") or 0) <= 90 and d.get("semantic_type") not in ("numeric_continuous", "text"):

@@ -1,5 +1,9 @@
 # Statistical validation
 
+**Current 1.2 candidate:** see the [scientific contract](docs/SCIENTIFIC_CONTRACT.md) and
+[release gates](docs/RELEASE_1_2.md). Current CI executes both ordinary repetitions and two statistical
+seed streams; a configured job is not evidence of success until its recorded execution passes.
+
 **Historical baseline:** the numerical tables below describe the published 1.1 validation run. Preliminary
 v1.2 changes and their separate verification record are documented in
 [`docs/VALIDATION_V12_PRELIM.md`](docs/VALIDATION_V12_PRELIM.md), followed by the
@@ -14,16 +18,17 @@ from [`docs/validation-results.json`](docs/validation-results.json), written by 
 
 ```bash
 python -m pip install -e ".[dev]"
-python -m pytest -m validation tests/validation          # 69 baseline checks plus new stress checks
+python -m pytest -m validation tests/validation          # complete current validation suite
 ELESSAR_VALIDATION_OUT=results.json python -m pytest -m validation tests/validation   # with the measures
 ```
 
-The suite also runs once a month and on demand on GitHub (`.github/workflows/validation.yml`), the measures
+The suite also runs on pull requests, once a month and on demand on GitHub (`.github/workflows/validation.yml`), the measures
 kept as an artifact. It is left out of the ordinary test run (`python -m pytest`), which stays fast.
 
-**Run of reference**: elessar 1.1.0, Python 3.12, pandas 3.1, NumPy 2.5, SciPy 1.18, scikit-learn 1.9,
-2026-10-30. The suite also passes on Python 3.10 with the oldest supported versions (pandas 2.2.0, NumPy 1.26,
-SciPy 1.11, scikit-learn 1.3).
+**Historical run of reference, as recorded in the 1.1 repository:** elessar 1.1.0, Python 3.12,
+pandas 3.1, NumPy 2.5, SciPy 1.18, scikit-learn 1.9, 2026-10-30. The historical document also reported
+a Python 3.10 minimum-version run. Those inherited statements are not independent verification of the
+1.2 candidate; its dependency versions and actual compatibility results are recorded separately.
 
 ## How the checks are built
 

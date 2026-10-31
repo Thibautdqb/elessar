@@ -61,6 +61,24 @@ def serial_layout(df: pd.DataFrame, serial: dict[str, Any], cfg: StoneConfig) ->
 def _measure(a: np.ndarray, b: np.ndarray, kind: str, n_b: int) -> float:
     if kind == "kendall":
         return float(stats.kendalltau(a, b, method="asymptotic").statistic)
+    if kind == "auc":
+        present = a == 1  # positive class is the missing indicator, fixed independently of class frequency
+        n1, n0 = int(present.sum()), int((~present).sum())
+        if not n1 or not n0:
+            return float("nan")
+        u = stats.rankdata(b)[present].sum() - n1 * (n1 + 1) / 2
+        return float(2 * u / (n1 * n0) - 1)  # centred strength; two-sided via abs in the TTS rule
+    if kind == "target_numeric":
+        ra, rb = stats.rankdata(a), stats.rankdata(b)
+        ca, cb = ra - ra.mean(), rb - rb.mean()
+        denominator = np.sqrt((ca @ ca) * (cb @ cb))
+        mono = abs(float((ca @ cb) / denominator)) if denominator > 0 else np.nan
+        # Recompute the prescribed rank-decile rule for every surrogate. Ties share a bin.
+        edges = np.unique(np.quantile(ra, np.linspace(0., 1., 11)))[1:-1]
+        groups = np.searchsorted(edges, ra, side="left")
+        shape = _measure(groups, b, "eta", 0)
+        available = [v for v in (mono, shape) if np.isfinite(v)]
+        return max(available) if available else float("nan")
     if kind == "cramers_v":
         table = np.bincount(a * n_b + b, minlength=(int(a.max()) + 1) * n_b).reshape(-1, n_b)
         table = table[table.sum(axis=1) > 0][:, table.sum(axis=0) > 0].astype(float)
@@ -73,6 +91,7 @@ def _measure(a: np.ndarray, b: np.ndarray, kind: str, n_b: int) -> float:
         denominator = min(k - 1 - (k - 1) ** 2 / (n - 1), r - 1 - (r - 1) ** 2 / (n - 1))
         return float(np.sqrt(max(0., chi2 / n - (k - 1) * (r - 1) / (n - 1)) / denominator)) if denominator > 0 else float("nan")
     # eta: a is categorical, b numeric. Scaling b first prevents squared-moment overflow.
+    b = b / (float(np.abs(b).max()) or 1.)
     counts = np.bincount(a)
     sums = np.bincount(a, weights=b)
     mean = b.mean()
@@ -97,7 +116,7 @@ def serial_test(layout: dict[str, Any], a: pd.Series, b: pd.Series, kind: str, c
     if pd.isna(x).any() or pd.isna(y).any():
         result["detail"] = "missing observations: do not compress the temporal grid; no IID fallback"
         return result
-    if kind == "kendall":
+    if kind in ("kendall", "target_numeric"):
         x, y = x.astype(float), y.astype(float)
     elif kind == "cramers_v":
         x = pd.factorize(hashable(pd.Series(x.ravel())).astype("string"), sort=True)[0].reshape(x.shape)
@@ -105,13 +124,15 @@ def serial_test(layout: dict[str, Any], a: pd.Series, b: pd.Series, kind: str, c
     elif kind == "eta":
         x = pd.factorize(hashable(pd.Series(x.ravel())).astype("string"), sort=True)[0].reshape(x.shape)
         y = y.astype(float)
+    elif kind == "auc":
+        if not np.isin(x, [0, 1]).all():
+            raise ValueError("serial AUC requires a fixed binary 0/1 indicator")
+        x, y = x.astype(np.int64), y.astype(float)
     else:
         raise ValueError(f"unknown serial statistic {kind!r}")
-    if (kind == "kendall" and not np.isfinite(x).all()) or (kind != "cramers_v" and not np.isfinite(y).all()):
+    if (kind in ("kendall", "target_numeric") and not np.isfinite(x).all()) or (kind != "cramers_v" and not np.isfinite(y).all()):
         result["detail"] = "non-finite observations; no IID fallback"
         return result
-    if kind == "eta":
-        y = y / max(float(np.abs(y).max()), 1.)
     n = len(x)
     radius = min(cfg.serial_shift_radius, n // 4)
     center = slice(radius, n - radius)
@@ -131,7 +152,15 @@ def serial_test(layout: dict[str, Any], a: pd.Series, b: pd.Series, kind: str, c
         for j, v in enumerate((measure(x[center], y[window]), measure(x[window], y[center]))):
             surrogate = abs(v) if np.isfinite(v) else 0.
             counts[j] += int(surrogate >= strength - tolerance)
-    result.update(status="conditional", value=value, p_value=min(1., max(counts) / (radius + 1)),
+    descriptive = value
+    if kind == "auc":
+        descriptive = (value + 1) / 2
+    elif kind == "target_numeric":
+        descriptive = float(stats.spearmanr(x[center].ravel(), y[center].ravel()).statistic)
+    result.update(status="conditional", value=descriptive, statistic=value,
+                  statistic_name=("max(abs(Spearman), eta across feature rank deciles)" if kind == "target_numeric" else
+                                  "2*AUC(missing indicator)-1" if kind == "auc" else kind),
+                  p_value=min(1., max(counts) / (radius + 1)),
                   n=(n - 2 * radius) * layout["n_entities"], radius=radius,
                   B_forward=counts[0], B_reverse=counts[1], minimum_p=1 / (radius + 1),
                   detail="process-independence null; at least one process must be strictly stationary; "

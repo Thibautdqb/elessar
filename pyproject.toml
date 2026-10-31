@@ -60,7 +60,7 @@ path = "src/elessar/__init__.py"
 packages = ["src/elessar"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/elessar", "tests", "examples", "README.md", "CHANGELOG.md", "VALIDATION.md", "LICENSE", "pyproject.toml"]
+include = ["src/elessar", "tests", "examples", "docs", "ci", "README.md", "CHANGELOG.md", "VALIDATION.md", "LICENSE", "pyproject.toml"]
 
 [tool.ruff]
 line-length = 125

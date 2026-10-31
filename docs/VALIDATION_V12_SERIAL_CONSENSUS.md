@@ -1,5 +1,11 @@
 # Serial inference and independent final consensus — v1.2 candidate
 
+**Historical intermediate record (`dbf79ec`):** its numerical results and open limitations describe that
+commit. The [current contract](SCIENTIFIC_CONTRACT.md) and [1.2 candidate gates](RELEASE_1_2.md) supersede
+the numeric-target/missingness limitations and the near-deterministic exclusion policy below. The
+corresponding old policy assertion is deliberately replaced by a recovery check on the same 30 seeds;
+it is not counted as an unchanged regression assertion. Historical numbers remain intact.
+
 Base `43857e0b7dc15892084fcf80f16f01dc276ff382`. Review branch `fix/v1.2-serial-consensus-validation`. This record supersedes the open serial Kendall/categorical and final-consensus items in the preliminary record; historical measures remain intact.
 
 ## Changes and scientific basis

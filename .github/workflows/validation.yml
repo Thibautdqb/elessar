@@ -1,8 +1,9 @@
 name: Statistical validation
 
-# The simulations of tests/validation (a few minutes): on demand and once a month, with the measures kept
-# as an artifact. VALIDATION.md documents them.
+# Each seed stream replays the full fixed benchmark suite and independently seeds the new release designs.
 on:
+  pull_request:
+  workflow_call:
   workflow_dispatch:
   schedule:
     - cron: "23 4 1 * *"
@@ -10,10 +11,20 @@ on:
 jobs:
   validation:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        seed-stream: [0, 1]
+    permissions:
+      contents: read
+    env:
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      PYTHONHASHSEED: "0"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: "3.12"
       - name: Install
@@ -23,9 +34,16 @@ jobs:
       - name: Validate
         env:
           ELESSAR_VALIDATION_OUT: validation-results.json
-        run: python -m pytest -m validation tests/validation
-      - uses: actions/upload-artifact@v4
+          ELESSAR_VALIDATION_SEED_OFFSET: ${{ matrix.seed-stream }}
+          ELESSAR_VALIDATION_DATA: .validation-cache
+        run: python -m pytest -q -m validation tests/validation --junitxml=statistical.xml
+      - run: python -m pip freeze > validation-environment.txt
+        if: always()
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: validation-results
-          path: validation-results.json
+          name: validation-seed-${{ matrix.seed-stream }}
+          path: |
+            validation-results.json
+            statistical.xml
+            validation-environment.txt
