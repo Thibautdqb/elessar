@@ -1,6 +1,29 @@
 # Changelog
 
+## Unreleased — preliminary v1.2 corrections
+
+- Reserve validation rows before target-dependent screening; derive leakage exclusions, the filter and
+  category vocabulary from outer training rows. Infer automatic differencing on those rows rather than
+  taking the decision from the full-data EDA.
+- Fit numerical imputation and scaling inside model-tuning folds, with magnitude rescaling to avoid
+  overflow on extreme finite inputs. Keep whole dates on one side of each temporal split, reducing the
+  number of folds or returning no selection when a valid split is impossible.
+- Preserve missing booleans as nullable 0/1; make supervised bin edges executable; generate deterministic,
+  explicitly typed target encoding, including multiclass one-vs-rest on supported older scikit-learn.
+- Generate panel differences within each entity; apply outlier advice with the detection policy's actual
+  positional masks; associate the unified Spearman matrix with its corresponding p-values.
+- Use regression observation counts and full cubic MacKinnon critical-value surfaces for ADF. Profile
+  binomial likelihood over a documented finite domain instead of fixing trials to the sample maximum.
+- Expose unvalidated serial inference in metadata and report alerts. These warnings do not repair the
+  Kendall or categorical serial tests. Clarify that scores precede feature consensus and do not
+  independently validate the final selected subset.
+- Add reproduced regressions, reference comparisons and three 500-case structural stress checks.
+  See `docs/VALIDATION_V12_PRELIM.md` for executed checks and remaining limits; this is not a release.
+
 ## 1.1.0 (2026-10-30)
+
+Historical release notes follow. Claims below about every model being tuned or every serial test
+being corrected are superseded by the preliminary validation record above and its explicit limits.
 
 ### Statistical fixes
 

@@ -25,7 +25,7 @@ from .types import NUMERIC_TYPES, as_numeric
 METHODS = ("3 sigma", "boxplot", "modified z")
 
 
-def column_outliers(x: pd.Series, cfg: StoneConfig) -> dict[str, Any] | None:
+def column_outliers(x: pd.Series, cfg: StoneConfig | None = None) -> dict[str, Any] | None:
     """Flags of the three methods for one numeric column, with the listed points."""
     v = x.replace([np.inf, -np.inf], np.nan).dropna()
     if len(v) < 8 or v.nunique() < 3:
@@ -82,12 +82,19 @@ def column_outliers(x: pd.Series, cfg: StoneConfig) -> dict[str, Any] | None:
     else:
         action, why = "reassign", (f"{n_cons} consensus outliers form a real but influential tail: cap them at the "
                                    "boxplot fences (winsorize) or use robust models")
+    # Positional masks retain missing rows and work even when row labels repeat.
+    present = x.replace([np.inf, -np.inf], np.nan).notna().to_numpy()
+    consensus_mask, remove_mask = np.zeros(len(x), dtype=bool), np.zeros(len(x), dtype=bool)
+    consensus_mask[present] = consensus.to_numpy()
+    if action == "remove":
+        remove_mask[present] = far.to_numpy()
     return {
         "n": len(v), "mean": mean, "std": std, "median": med, "q1": q1, "q3": q3, "lower_fence": lo, "upper_fence": hi,
         "sigma_low": mean - 3 * std, "sigma_high": mean + 3 * std,
         "counts": {m: int(flags[m].sum()) for m in METHODS}, "n_consensus": n_cons,
         "pct_consensus": 100.0 * n_cons / len(v), "n_extreme": extreme, "action": action, "why": why,
         "points": points, "robust": robust, "consensus": consensus,
+        "consensus_mask": consensus_mask, "remove_mask": remove_mask,
     }
 
 

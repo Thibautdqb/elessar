@@ -39,7 +39,10 @@ _PANDAS_FREQ = {"second": "s", "minute": "min", "hour": "h", "day": "D", "week":
                 "year": "YS"}
 SEASONAL_STRENGTH_MIN = 0.25
 """Seasonal strength 1 - var(remainder) / var(seasonal + remainder) needed to report a seasonality."""
-_ADF_CRIT = {"1%": (-3.43035, -6.5393, -16.786), "5%": (-2.86154, -2.8903, -4.234), "10%": (-2.56677, -1.5384, -2.809)}
+# MacKinnon (2010), N=1 response surfaces, including the cubic finite-sample term.
+# Checked against statsmodels.tsa.adfvalues.mackinnoncrit (BSD-licensed reference).
+_ADF_CRIT = {"1%": (-3.43035, -6.5393, -16.786, -79.433),
+             "5%": (-2.86154, -2.8903, -4.234, -40.04), "10%": (-2.56677, -1.5384, -2.809, 0.0)}
 
 
 def _unit(seconds: float) -> tuple[str, float]:
@@ -139,7 +142,8 @@ def detect(df: pd.DataFrame, types: dict[str, str]) -> dict[str, Any] | None:
 
 
 # ------------------------------------------------------------------------------------------- statistics
-_ADF_CRIT_TREND = {"1%": (-3.95877, -9.0531, -28.428), "5%": (-3.41049, -4.3904, -9.036), "10%": (-3.12705, -2.5856, -3.925)}
+_ADF_CRIT_TREND = {"1%": (-3.95877, -9.0531, -28.428, -134.155),
+                   "5%": (-3.41049, -4.3904, -9.036, -45.374), "10%": (-3.12705, -2.5856, -3.925, -22.38)}
 _KPSS_CRIT = {"c": {0.10: 0.347, 0.05: 0.463, 0.025: 0.574, 0.01: 0.739},
               "ct": {0.10: 0.119, 0.05: 0.146, 0.025: 0.176, 0.01: 0.216}}
 
@@ -175,9 +179,10 @@ def adf_test(y: np.ndarray, max_lag: int | None = None, trend: bool = False) -> 
     if best is None or not np.isfinite(best[1]):
         return {"verdict": "insufficient data"}
     table = _ADF_CRIT_TREND if trend else _ADF_CRIT
-    crit = {k: b + b1 / n + b2 / n**2 for k, (b, b1, b2) in table.items()}
+    crit = {k: b + b1 / rows + b2 / rows**2 + b3 / rows**3 for k, (b, b1, b2, b3) in table.items()}
     reject = best[1] < crit["5%"]
-    return {"statistic": best[1], "lag": best[2], "critical": crit, "reject_unit_root": bool(reject), "trend": trend}
+    return {"statistic": best[1], "lag": best[2], "nobs": rows, "critical": crit,
+            "reject_unit_root": bool(reject), "trend": trend}
 
 
 def kpss_test(y: np.ndarray, trend: bool = False) -> dict[str, Any]:
@@ -521,11 +526,12 @@ def treatment(info: dict[str, Any], main: dict[str, Any], n_steps: int, value: s
                                                  "never across them",
                       "code": f"df = df.sort_values([{e!r}, {t!r}])\n"
                               f"df['lag_1'] = df.groupby({e!r})[{value!r}].shift(1)"})
+    diff_value = f"df.groupby({info['entity']!r})[{value!r}]" if info["kind"] == "panel" else v
     verdict = (main.get("stationarity") or {}).get("verdict")
     if verdict == "unit root":
         steps.append({"step": "Stationarity", "advice": "unit root (ADF does not reject it, KPSS rejects stationarity): "
                                                         "model the first differences",
-                      "code": f"{frame}[{value + '_diff'!r}] = {v}.diff()"})
+                      "code": f"{frame}[{value + '_diff'!r}] = {diff_value}.diff()"})
     elif verdict == "trend-stationary":
         steps.append({"step": "Stationarity", "advice": "stationary around a linear trend (ADF and KPSS with a trend "
                                                         "agree): remove the trend, do not difference (that would add "
@@ -536,12 +542,12 @@ def treatment(info: dict[str, Any], main: dict[str, Any], n_steps: int, value: s
         steps.append({"step": "Stationarity", "advice": "ADF and KPSS disagree (both reject, or neither): a structural "
                                                         "break, changing variance or long memory; compare models on "
                                                         "levels and on differences",
-                      "code": f"{frame}[{value + '_diff'!r}] = {v}.diff()  # try both versions in validation"})
+                      "code": f"{frame}[{value + '_diff'!r}] = {diff_value}.diff()  # try both versions in validation"})
     if period and main.get("seasonal_strength", 0) >= 0.3:
         steps.append({"step": "Seasonality", "advice": f"{main['seasonality']} seasonality of period {period} "
                                                        f"(strength {main['seasonal_strength']:.2f}): seasonal "
                                                        "differencing, or calendar / Fourier features",
-                      "code": f"{frame}[{value + '_sdiff'!r}] = {v}.diff({period})\n"
+                      "code": f"{frame}[{value + '_sdiff'!r}] = {diff_value}.diff({period})\n"
                               f"k = np.arange(len({frame}))\n{frame}['sin_{period}'] = np.sin(2 * np.pi * k / {period})\n"
                               f"{frame}['cos_{period}'] = np.cos(2 * np.pi * k / {period})"})
     windows = sorted({w for w in (period, 2 * period if period else None, 3, 7 if freq == "day" else None,

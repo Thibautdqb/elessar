@@ -1,14 +1,19 @@
 # Statistical validation
 
+**Historical baseline:** the numerical tables below describe the published 1.1 validation run. Preliminary
+v1.2 changes and their separate verification record are documented in
+[`docs/VALIDATION_V12_PRELIM.md`](docs/VALIDATION_V12_PRELIM.md). The historical measures are not overwritten
+by that work. The three new 500-case stress checks verify structural properties, not nominal p-value levels.
+
 How far elessar's statistics can be trusted, measured against a known truth: simulations whose answer is
-known in advance, and public datasets whose content is documented. Every figure of the current version comes
+known in advance, and public datasets whose content is documented. Every figure of the 1.1 baseline comes
 from [`docs/validation-results.json`](docs/validation-results.json), written by the suite in
 [`tests/validation`](tests/validation). The "before 1.1" figures come from the audit runs made while preparing
 1.1, with the same designs.
 
 ```bash
 python -m pip install -e ".[dev]"
-python -m pytest -m validation tests/validation          # 69 checks, about 5 minutes
+python -m pytest -m validation tests/validation          # 69 baseline checks plus new stress checks
 ELESSAR_VALIDATION_OUT=results.json python -m pytest -m validation tests/validation   # with the measures
 ```
 
@@ -36,7 +41,7 @@ SciPy 1.11, scikit-learn 1.3).
 
 | Area | Checks | What is measured |
 |---|---:|---|
-| Associations between columns | 23 | type I error of every test, in independent and in time-ordered rows, false discovery rate, interval coverage, mutual information, power, U-shaped links |
+| Associations between columns | 23 | type I error of the covered tests, including numeric time-ordered pairs, false discovery rate, interval coverage, mutual information, power, U-shaped links |
 | Feature selection | 4 | scores and kept features on noise, recovery of known signals, dated and non-stationary rows |
 | Factor analysis | 4 | number of factors on 300 structures, three reference datasets |
 | Outliers | 10 | advice on five clean distributions, planted errors in five kinds of columns |
@@ -67,9 +72,11 @@ and 9.5% of log-normal ones were rejected at 5%.
 ### Rows in time order
 
 In a table indexed by time (a series or a panel, whatever the order of the file), the columns that ADF and
-KPSS do not show stationary are replaced by their first differences (within each entity), and every test
-uses Bartlett's effective sample size n (1 − r₁r₂) / (1 + r₁r₂) from the lag-1 autocorrelations of the two
-columns. Design: 120 tables of three independent columns of 300 dates, rows shuffled in the file.
+KPSS do not show stationary are replaced by their first differences (within each entity). The numeric
+Pearson/Spearman tests measured here use Bartlett's lag-1 effective sample size
+n (1 − r₁r₂) / (1 + r₁r₂). This design does not validate every serial output: Kendall and missingness remain
+IID tests, and categorical/mixed lag-1 corrections are not generally calibrated. These limits are now
+reported explicitly. Design: 120 tables of three independent columns of 300 dates, rows shuffled in the file.
 
 | Columns | Before 1.1 (rows as if independent) | elessar 1.1 |
 |---|---:|---:|
@@ -138,9 +145,10 @@ power), a monotone link between log-normal columns in 91% (Spearman's power, whe
 
 Five methods vote (decision tree, random forest, lasso, ridge, univariate filter); a feature is kept with
 three votes. The tree, the lasso and ridge vote only for features that beat every shuffled copy of the
-features (shadows); the random forest uses a permutation test on held-out rows, the filter the
-Benjamini-Hochberg-adjusted link with the target. Every model is tuned by cross-validation on 80% of the
-rows and scored once on the other 20%; dated rows are sorted and validated on their most recent part.
+features (shadows); the random forest uses permutation importance on held-out rows, the filter the
+Benjamini-Hochberg-adjusted link with the target. Tree depth and linear penalties are tuned by CV on 80%
+of the rows; the forest has fixed settings. Models are scored on the other 20%; dated rows are sorted and
+validated on their most recent part.
 
 ### Pure noise
 
@@ -324,8 +332,8 @@ Known facts found:
 
 What elessar cannot do better, measured above:
 
-1. **Trend under strongly persistent noise.** AR(2) noise (0.5, 0.3) gives 11% of false trends at 5%, at most
-   twice the nominal level; long memory (Hurst 0.8) 27%. On 200 points a trend and long memory are hardly
+1. **Trend under strongly persistent noise.** AR(2) noise (0.5, 0.3) gives 11.3% of false trends at 5%,
+   about 2.3 times the nominal level; long memory (Hurst 0.8) 27%. On 200 points a trend and long memory are hardly
    distinguishable, and no correction built on short memory removes it.
 2. **Errors in heavy-tailed columns.** An entry error in a Student or exponential column cannot be told from a
    genuine extreme value: it is flagged, and removal is not advised.

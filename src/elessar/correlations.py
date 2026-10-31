@@ -2,6 +2,8 @@
 
 Every association comes with a test p-value, a Benjamini-Hochberg adjusted p-value (false
 discovery rate over all the pairs tested together) and a ``significant`` flag at ``alpha``.
+False-discovery guarantees require valid input p-values and the procedure's dependence assumptions.
+Serial limitations are returned in ``inference_limits`` and surfaced by the full report.
 """
 
 from __future__ import annotations
@@ -357,22 +359,25 @@ def _association_matrix(out: dict[str, pd.DataFrame], pairs: pd.DataFrame, cols:
     """Unified matrix over numeric + categorical columns (Spearman / Cramér's V / eta) and the raw test p-values."""
     assoc = pd.DataFrame(np.eye(len(cols)), index=cols, columns=cols)
     padj = pd.DataFrame(np.zeros((len(cols), len(cols))), index=cols, columns=cols)
-    adjusted = {(r.col_a, r.col_b): r.p_value for r in pairs.itertuples(index=False)}
-    adjusted.update({(b, a): p for (a, b), p in adjusted.items()})
     for i, a in enumerate(cols):
         for b in cols[i + 1:]:
             if "spearman" in out and a in out["spearman"].index and b in out["spearman"].index:
                 v = out["spearman"].loc[a, b]
+                p = out["spearman_p"].loc[a, b]
             elif "cramers_v" in out and a in out["cramers_v"].index and b in out["cramers_v"].index:
                 v = out["cramers_v"].loc[a, b]
+                p = out["cramers_v_p"].loc[a, b]
             elif "eta" in out and a in out["eta"].index and b in out["eta"].columns:
                 v = out["eta"].loc[a, b]
+                p = out["eta_p"].loc[a, b]
             elif "eta" in out and b in out["eta"].index and a in out["eta"].columns:
                 v = out["eta"].loc[b, a]
+                p = out["eta_p"].loc[b, a]
             else:
                 v = np.nan
+                p = np.nan
             assoc.loc[a, b] = assoc.loc[b, a] = v
-            padj.loc[a, b] = padj.loc[b, a] = adjusted.get((a, b), np.nan)
+            padj.loc[a, b] = padj.loc[b, a] = p
     return {"association": assoc, "association_p": padj}
 
 
@@ -384,7 +389,8 @@ def target_associations(
     """Association of every feature with ``target``: effect size, test, adjusted p, AUC, mutual information.
 
     ``rho``: for rows in time order, the lag-1 autocorrelation of each column (see :func:`serial_dependence`):
-    every p-value is then computed on Bartlett's effective sample size."""
+    numeric target tests use a lag-1 effective-size approximation; categorical/mixed corrections remain
+    heuristic and are not a general guarantee under serial dependence."""
     cfg = config or StoneConfig()
     numeric, categorical = _roles(df, types, cfg)
     t_type = types[target]
@@ -624,8 +630,9 @@ def compute_correlations(
 
     ``serial`` (rows indexed by time, see :func:`elessar.timeseries.serial_structure`): the columns with a unit
     root are replaced by their first differences (two random walks look associated whatever they are), and
-    every test uses Bartlett's effective sample size n (1 - r_a r_b) / (1 + r_a r_b) from the lag-1
-    autocorrelations of the two columns: autocorrelated rows carry less information than independent ones.
+    Pearson/Spearman tests use Bartlett's lag-1 effective sample size n (1 - r_a r_b) / (1 + r_a r_b).
+    This is a model-based approximation, not a general serial correction. Categorical/mixed corrections
+    remain heuristic, while Kendall and missingness p-values remain IID; see ``inference_limits``.
     """
     cfg = config or StoneConfig()
     if serial is not None and serial["differences"] is not None:
@@ -693,6 +700,21 @@ def compute_correlations(
         if target is not None:
             out["target"] = results[("target",)]
             out["missing_target"] = results[("missing_target",)]
+        if rho is not None:
+            # Keep legacy estimates available, but do not present unvalidated
+            # serial p-values as if a generally calibrated correction existed.
+            limits = []
+            for output, detail in (
+                ("kendall_p", "IID p-values: serial dependence is not corrected"),
+                ("cramers_v_p", "scalar lag-1 correction is not generally calibrated for categorical time dependence"),
+                ("eta_p", "scalar lag-1 correction is heuristic under serial dependence"),
+                ("missingness", "missingness tests use IID p-values under serial dependence"),
+                ("missing_target", "missingness/target tests use IID p-values under serial dependence"),
+            ):
+                if output in out and not out[output].empty:
+                    limits.append({"output": output, "status": "unvalidated for serial rows", "detail": detail})
+            if limits:
+                out["inference_limits"] = pd.DataFrame(limits)
     return out
 
 
@@ -714,8 +736,10 @@ def see_corr(
       when both columns are roughly symmetric with light tails (``numeric_shape``), with Spearman
       otherwise; ``other_value`` holds the other coefficient and ``method_reason`` the reason
     - for rows indexed by time, ``serial``: the lag-1 autocorrelation of each column and whether it was
-      replaced by its first differences (not shown stationary); every test then uses Bartlett's effective
-      sample size (``n_effective`` for the numeric pairs)
+      replaced by its first differences (not shown stationary); numeric Pearson/Spearman pairs use
+      Bartlett's lag-1 effective size (``n_effective``)
+    - ``inference_limits``: serial outputs with IID or heuristic p-values whose nominal levels have not
+      been generally validated; the full report raises an alert for these outputs
     - ``missingness``: which columns' missingness depends on other columns
     - with ``target``: ``target`` (feature ranking with tests, AUC, mutual information, leakage) and
       ``missing_target`` (is the target different when a feature is missing?)

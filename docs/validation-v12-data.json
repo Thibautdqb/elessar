@@ -1,0 +1,134 @@
+[
+  {
+    "filename": "psych_bfi.csv",
+    "size_bytes": 175772,
+    "sha256": "68ae71a96c2157b0c49b8d8f8ccaee1292f5e92adce9a3f202fdc7efac883dc9",
+    "git_blob_sha1": "8bc0e5ed94c7e399acfec48b1ebc50f16054b4af",
+    "retrieved_source": "https://vincentarelbundock.github.io/Rdatasets/csv/psych/bfi.csv",
+    "commit": "1dcc2bf5f955cc1224a3e1307256e1fe86b68dae",
+    "immutable_url": "https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/1dcc2bf5f955cc1224a3e1307256e1fe86b68dae/csv/psych/bfi.csv",
+    "git_blob_matches_pinned_revision": true,
+    "pinned_cache_filename": "1dcc2bf5f955_psych_bfi.csv"
+  },
+  {
+    "filename": "seaborn_diamonds.csv",
+    "size_bytes": 2772143,
+    "sha256": "9574730b03aba241d899c4a97511c5061b19358fab89510774fb6c24168345c4",
+    "git_blob_sha1": "92259b40dbeea3165759a8f2cb576896612828ac",
+    "retrieved_source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/diamonds.csv",
+    "commit": "71e2436a092d714350de0fc409ca8a8714e7e78f",
+    "immutable_url": "https://raw.githubusercontent.com/mwaskom/seaborn-data/71e2436a092d714350de0fc409ca8a8714e7e78f/diamonds.csv",
+    "git_blob_matches_pinned_revision": true,
+    "pinned_cache_filename": "seaborn_71e2436a092d_diamonds.csv"
+  },
+  {
+    "filename": "seaborn_flights.csv",
+    "size_bytes": 2350,
+    "sha256": "237d834127d9c6355630d8f443a7a2377b5925923010009b59809ba0b67f4fac",
+    "git_blob_sha1": "831265b40b19695dd9bd4f7c5bf4baa43c7b54b1",
+    "retrieved_source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/flights.csv",
+    "commit": "71e2436a092d714350de0fc409ca8a8714e7e78f",
+    "immutable_url": "https://raw.githubusercontent.com/mwaskom/seaborn-data/71e2436a092d714350de0fc409ca8a8714e7e78f/flights.csv",
+    "git_blob_matches_pinned_revision": true,
+    "pinned_cache_filename": "seaborn_71e2436a092d_flights.csv"
+  },
+  {
+    "filename": "seaborn_healthexp.csv",
+    "size_bytes": 7222,
+    "sha256": "ba4178979b7b0c0f0f793fe7999b3e2303cd6e47a545b1957a2501cbc2ca2b62",
+    "git_blob_sha1": "a0602d1b18e82fb3bb44ddc79c8d9b53458544d5",
+    "retrieved_source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/healthexp.csv",
+    "commit": "71e2436a092d714350de0fc409ca8a8714e7e78f",
+    "immutable_url": "https://raw.githubusercontent.com/mwaskom/seaborn-data/71e2436a092d714350de0fc409ca8a8714e7e78f/healthexp.csv",
+    "git_blob_matches_pinned_revision": true,
+    "pinned_cache_filename": "seaborn_71e2436a092d_healthexp.csv"
+  },
+  {
+    "filename": "seaborn_iris.csv",
+    "size_bytes": 3858,
+    "sha256": "9cc1c345c71bcc9b486b74cbf6063fa66f4bb5e0f603a4b3c3471ec2e5e8e355",
+    "git_blob_sha1": "20bd6ee57729baea0cc8b05397cc34eb4af8b452",
+    "retrieved_source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/iris.csv",
+    "commit": "71e2436a092d714350de0fc409ca8a8714e7e78f",
+    "immutable_url": "https://raw.githubusercontent.com/mwaskom/seaborn-data/71e2436a092d714350de0fc409ca8a8714e7e78f/iris.csv",
+    "git_blob_matches_pinned_revision": true,
+    "pinned_cache_filename": "seaborn_71e2436a092d_iris.csv"
+  },
+  {
+    "filename": "seaborn_mpg.csv",
+    "size_bytes": 21222,
+    "sha256": "c14b8b855ea7ee86cb9736bf8caaf281c4685ca08826f3eb2acaccaaf40f0d5a",
+    "git_blob_sha1": "4013b0f0d4ac5bfb40381819ad76f926962192f1",
+    "retrieved_source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/mpg.csv",
+    "commit": "71e2436a092d714350de0fc409ca8a8714e7e78f",
+    "immutable_url": "https://raw.githubusercontent.com/mwaskom/seaborn-data/71e2436a092d714350de0fc409ca8a8714e7e78f/mpg.csv",
+    "git_blob_matches_pinned_revision": true,
+    "pinned_cache_filename": "seaborn_71e2436a092d_mpg.csv"
+  },
+  {
+    "filename": "seaborn_penguins.csv",
+    "size_bytes": 13478,
+    "sha256": "e07636bd8af74260099ea2f8678e2eabbf35def579940cc76f67061ee16c06c1",
+    "git_blob_sha1": "51fd0fe50c4e01e6f42e54063925571c004ef25a",
+    "retrieved_source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/penguins.csv",
+    "commit": "71e2436a092d714350de0fc409ca8a8714e7e78f",
+    "immutable_url": "https://raw.githubusercontent.com/mwaskom/seaborn-data/71e2436a092d714350de0fc409ca8a8714e7e78f/penguins.csv",
+    "git_blob_matches_pinned_revision": true,
+    "pinned_cache_filename": "seaborn_71e2436a092d_penguins.csv"
+  },
+  {
+    "filename": "seaborn_planets.csv",
+    "size_bytes": 36263,
+    "sha256": "a6d10044887e17396974525a366f5fa2e4b34df70f491e64eb9943de0e3d3825",
+    "git_blob_sha1": "337318354770d42471fd5ee21acd3deb40956f7c",
+    "retrieved_source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/planets.csv",
+    "commit": "71e2436a092d714350de0fc409ca8a8714e7e78f",
+    "immutable_url": "https://raw.githubusercontent.com/mwaskom/seaborn-data/71e2436a092d714350de0fc409ca8a8714e7e78f/planets.csv",
+    "git_blob_matches_pinned_revision": true,
+    "pinned_cache_filename": "seaborn_71e2436a092d_planets.csv"
+  },
+  {
+    "filename": "seaborn_taxis.csv",
+    "size_bytes": 869349,
+    "sha256": "08d6d71784dbaa2651fee37fc03389754194c05d72d2d19cbc2c799dea6ac09d",
+    "git_blob_sha1": "ded045b462d361b8a0e5ddcdd6c3361cce4ddab4",
+    "retrieved_source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/taxis.csv",
+    "commit": "71e2436a092d714350de0fc409ca8a8714e7e78f",
+    "immutable_url": "https://raw.githubusercontent.com/mwaskom/seaborn-data/71e2436a092d714350de0fc409ca8a8714e7e78f/taxis.csv",
+    "git_blob_matches_pinned_revision": true,
+    "pinned_cache_filename": "seaborn_71e2436a092d_taxis.csv"
+  },
+  {
+    "filename": "seaborn_tips.csv",
+    "size_bytes": 9729,
+    "sha256": "e54cc4d2ce1bff65d32ca60b3e4b802e06bde1d7e7caf6f796f6bf7370e863b0",
+    "git_blob_sha1": "1280a10886c1f858b29c1be1740619cdef3d6be1",
+    "retrieved_source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/tips.csv",
+    "commit": "71e2436a092d714350de0fc409ca8a8714e7e78f",
+    "immutable_url": "https://raw.githubusercontent.com/mwaskom/seaborn-data/71e2436a092d714350de0fc409ca8a8714e7e78f/tips.csv",
+    "git_blob_matches_pinned_revision": true,
+    "pinned_cache_filename": "seaborn_71e2436a092d_tips.csv"
+  },
+  {
+    "filename": "seaborn_titanic.csv",
+    "size_bytes": 57018,
+    "sha256": "81787d320d7f7b03df935e91de8bd19e11d45c5bbcab86ef4d4a76dc91b7d4f2",
+    "git_blob_sha1": "5ca531f5d70ce01e61bd7cf8b9f02b016dad4cd0",
+    "retrieved_source": "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/titanic.csv",
+    "commit": "71e2436a092d714350de0fc409ca8a8714e7e78f",
+    "immutable_url": "https://raw.githubusercontent.com/mwaskom/seaborn-data/71e2436a092d714350de0fc409ca8a8714e7e78f/titanic.csv",
+    "git_blob_matches_pinned_revision": true,
+    "pinned_cache_filename": "seaborn_71e2436a092d_titanic.csv"
+  },
+  {
+    "filename": "sem_HS.data.csv",
+    "size_bytes": 32529,
+    "sha256": "8bfa14d52131ccddde6b13d9a40adbebd6f2702de0cca9ee43ecb3d6a7335a64",
+    "git_blob_sha1": "eb20d14bf0a9e75ba1fe03c731512f31965d8418",
+    "retrieved_source": "https://vincentarelbundock.github.io/Rdatasets/csv/sem/HS.data.csv",
+    "commit": "1dcc2bf5f955cc1224a3e1307256e1fe86b68dae",
+    "immutable_url": "https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/1dcc2bf5f955cc1224a3e1307256e1fe86b68dae/csv/sem/HS.data.csv",
+    "git_blob_matches_pinned_revision": true,
+    "pinned_cache_filename": "1dcc2bf5f955_sem_HS.data.csv"
+  }
+]

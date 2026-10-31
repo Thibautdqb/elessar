@@ -47,11 +47,12 @@ your terminal and in one HTML page:
 - the **best-fitting statistical distribution** (MLE, ranked by AIC) and four normality tests
 - **associations of every kind with statistical significance**: Pearson, Spearman, Kendall, Cramér's V,
   correlation ratio, mutual information, AUC, with p-values, Benjamini-Hochberg correction and confidence intervals;
-  in a table indexed by time, non-stationary columns are tested on their differences and every test on the
-  effective sample size of autocorrelated rows
+  in a table indexed by time, non-stationary columns are tested on their differences and numeric
+  Pearson/Spearman tests use a lag-1 effective sample size; other serial p-values carry explicit limits
 - **target analysis**: feature ranking, **leakage detection**, informative missingness
-- **feature selection** by embedded methods (decision tree, random forest, lasso, ridge) and a filter, each
-  model tuned by cross-validation and scored on held-out rows, a vote per feature against shuffled shadows
+- **feature selection** by embedded methods (decision tree, random forest, lasso, ridge) and a filter, with
+  tree depth and linear penalties tuned by cross-validation, model scores on held-out rows, and a vote
+  per feature against shuffled shadows
 - **multivariate statistics**: whether **PCA** is worth it (Bartlett, KMO, parallel analysis), a **factor
   analysis** run step by step as it is taught (KMO and Bartlett, communalities, number of factors, varimax,
   Cronbach's alpha, scale scores), redundant groups of columns, rows that are outliers on several columns at once
@@ -232,6 +233,9 @@ On macOS and Windows, where a process cannot be forked safely (Windows has no fo
 numerical libraries), the chunks of a big file are read and summarised by fresh processes on every core instead
 (they are self-contained: a byte range or a row group), even from a script without an
 `if __name__ == "__main__":` guard; the other steps run in one process. Results are the same everywhere.
+
+Historical 1.1 timings, not remeasured for the preliminary changes. They are not performance claims for
+the new tuning pipeline.
 
 | Table (full run: every analysis, every chart, the report) | Time (14 cores) |
 |---|---|
@@ -506,13 +510,24 @@ after the features suspected of leakage are set aside:
 
 A **shadow** is a feature with its rows shuffled: same distribution, no link with the target (as in Boruta).
 The tree, the lasso and ridge are refitted with one shadow per feature, at the setting they tuned, and vote for
-a feature only when it beats every shadow: on pure noise with a binary target, 1.5 % of the features are kept
-(28 % with the former fixed thresholds). Selected by 3 methods or more = **keep**, 2 = **borderline**, else
-**drop**. 20 % of the rows are set aside first; every model is tuned by 5-fold cross-validation on the others,
-with imputation and scaling learnt there too, and scored once on the held-out rows (R², ROC AUC for a binary
-target, balanced accuracy). Rows with dates are sorted in time, the folds cut between two dates and the
-held-out rows are the most recent; when the target is not stationary, its changes are modelled from the changes
-of the other non-stationary columns.
+a feature only when it beats every shadow. Selected by 3 methods or more = **keep**, 2 = **borderline**, else
+**drop**. About 20 % of the rows are reserved before target-dependent screening, without consulting their
+targets. Leakage exclusions, the univariate filter and category vocabulary use the outer training rows.
+During tuning, imputation and scaling are fitted inside each fold; the forest uses fixed settings.
+Lasso uses a fixed alpha grid from
+1e-6 to 1e6; ridge and logistic regularisation also use explicit grids. These finite grids can miss an
+appropriate setting for unusual scales or difficult tasks.
+
+Rows with dates are sorted in time. Dates remain indivisible in both the holdout and internal folds; the
+holdout fraction and number of folds can change when necessary, and selection is unavailable when a valid
+split cannot be formed. Automatic differencing is decided on outer training rows, then applied causally
+within each entity. Scores are R², ROC AUC for a binary target, or balanced accuracy.
+
+**Score scope:** these are diagnostics of fitted models before the final feature consensus. The holdout
+is also used for forest permutation importance, so these scores are not independent performance estimates
+of the selected subset. Screening and stationarity decisions are not all refitted inside every inner fold:
+this is not a fully nested validation of the entire adaptive workflow. See the
+[preliminary validation record](docs/VALIDATION_V12_PRELIM.md) for current checks and open limits.
 
 ## What it computes
 
@@ -547,6 +562,10 @@ parameters are estimated from the same data: that is reported too). Integer data
 (gap on the integer support, chi-square test) instead of KS, which ties inflate. A value holding 30 % or more of a
 continuous column (rain: 57 % exact zeros) is reported as a point mass and the candidates are fitted to the rest;
 fits that collapse onto repeated values are rejected. Each candidate has a timeout.
+The binomial candidate profiles its likelihood over integer trial counts up to 100,000, with p=mean/n.
+The search domain is reported with the fit; a maximum at the upper search limit is rejected. This is not
+a claim of an unconstrained maximum over all integers, and a scientifically known trial count should
+take precedence in a modelling analysis.
 
 **Associations and significance** (`see_corr` keys)
 
@@ -558,7 +577,8 @@ fits that collapse onto repeated values are rejected. Each candidate has a timeo
 | `association`, `association_p` | one matrix over every column: Spearman, Cramér's V or eta depending on the pair |
 | `pairs`, `top_pairs` | every pair tested (method, n, test, p, **BH-adjusted p**, significant, **Fisher 95 % CI**, the other coefficient and why the method was chosen), and those above `corr_threshold`; a numeric pair is tested with Pearson when both columns are roughly symmetric with light tails, with Spearman otherwise |
 | `numeric_shape` | skewness and excess kurtosis of each numeric column, and whether it is shaped for Pearson |
-| `serial`, `n_effective` | for rows indexed by time: the lag-1 autocorrelation of each column, whether it was replaced by its first differences (not shown stationary by ADF and KPSS), and Bartlett's effective sample size n (1 − r₁r₂) / (1 + r₁r₂) used by every test |
+| `serial`, `n_effective` | for rows indexed by time: lag-1 autocorrelations, differencing status, and Bartlett's effective sample size n (1 − r₁r₂) / (1 + r₁r₂) used for Pearson/Spearman; a limited model-based approximation |
+| `inference_limits` | serial outputs with unvalidated p-values: Kendall and missingness use IID tests; categorical/mixed corrections remain heuristic. The full report raises a visible alert. |
 | `vif` | variance inflation factor of each numeric feature (multicollinearity) |
 | `linear_dependencies` | exact linear relations recovered as equations, e.g. `Total = 1·HP + 1·Attack + 1·Defense + …` |
 | `missingness` | does a column go missing more for some values of another column? (Mann-Whitney / chi-square, BH-adjusted: evidence against MCAR) |
@@ -611,7 +631,8 @@ the five personality factors of the Big Five questionnaire; files sorted by pric
 
 ## Sample terminal output
 
-The Kaggle Titanic training set (`elessar train.csv --target Survived`), excerpt:
+Historical 1.1 excerpt from the Kaggle Titanic training set (`elessar train.csv --target Survived`).
+These illustrative numbers are not validation results for the preliminary changes above:
 
 ```
 ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════

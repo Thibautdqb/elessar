@@ -375,6 +375,10 @@ def plan(
             stat = "median" if skewed or st.get("pct_outliers_iqr", 0) > 5 else "mean"
             how = f"impute with the {stat}" + (" (skewed or outliers)" if stat == "median" else "")
             code = f"df[{col!r}] = df[{col!r}].fillna(df[{col!r}].{stat}())"
+        elif stype == "boolean":
+            how = "preserve unknown values as nullable 0/1, rather than treating them as True"
+            code = ("from elessar.types import as_boolean\n"
+                    f"df[{col!r}] = as_boolean(df[{col!r}]).astype('Int64')")
         elif stype in DATETIME_TYPES:
             how, code = "interpolate in time order, or leave missing", f"df[{col!r}] = df[{col!r}].ffill()"
         else:
@@ -394,11 +398,17 @@ def plan(
         x = f"elessar.types.parse_numeric(df[{col!r}])" if types.get(col) == "numeric_string" else f"df[{col!r}]"
         if r["action"] == "remove":
             steps.append(_step("cleaning", "Remove outliers", col, r["why"],
-                               f"x = {x}\nmed, iqr = x.median(), x.quantile(.75) - x.quantile(.25)\n"
-                               f"df = df[(x - med).abs() <= 10 * iqr / 1.349]"))
+                               "from elessar.outliers import column_outliers\n"
+                               f"x = {x}\ncheck = column_outliers(x)\n"
+                               "if check is not None and check['action'] == 'remove':\n"
+                               "    df = df.loc[~check['remove_mask']].copy()"))
         else:
             steps.append(_step("cleaning", "Reassign outliers", col, r["why"],
-                               f"df[{col!r}] = {x}.clip({r['lower_fence']:.6g}, {r['upper_fence']:.6g})"))
+                               "from elessar.outliers import column_outliers\n"
+                               f"x = {x}\ncheck = column_outliers(x)\n"
+                               "if check is not None:\n"
+                               f"    df[{col!r}] = x.where(~check['consensus_mask'], "
+                               "x.clip(check['lower_fence'], check['upper_fence']))"))
 
     # ---- transformation
     with quiet():
@@ -440,11 +450,12 @@ def plan(
                     st.get("heaping_index") or (st.get("n_modes_kde") or 1) > 1 or abs(st.get("skewness") or 0) > 2) else None
                 if cuts:
                     found["bins"][col] = cuts
+                    edges = ", ".join(["-np.inf", *(repr(round(c, 6)) for c in cuts), "np.inf"])
                     steps.append(_step("transformation", "Bucketing", col,
                                        f"irregular shape (modes, heaping or heavy skew): {len(cuts) + 1} bins chosen by "
                                        f"a decision tree on {target!r}. {_FIT_ON_TRAIN}",
                                        f"{_FIT_COMMENT}\n"
-                                       f"df[{col!r} + '_bin'] = pd.cut(df[{col!r}], {[-np.inf] + [round(c, 6) for c in cuts] + [np.inf]!r})"))
+                                       f"df[{col!r} + '_bin'] = pd.cut(df[{col!r}], [{edges}])"))
             if stype in CATEGORY_TYPES and stype != "boolean" and target is not None and (st.get("cardinality") or 0) >= 4:
                 groups = _safe(group_categories, df[col], y, regression, cfg)
                 if groups:
@@ -527,7 +538,9 @@ def plan(
         stype, st = types.get(col), d.get("stats") or {}
         k = st.get("cardinality") or st.get("n_unique") or 0
         if stype == "boolean":
-            code, why = f"df[{col!r}] = df[{col!r}].astype(bool).astype(int)", "boolean: 0/1"
+            code = ("from elessar.types import as_boolean\n"
+                    f"df[{col!r}] = as_boolean(df[{col!r}]).astype('Int64')")
+            why = "boolean: nullable 0/1; unknown values remain missing"
         elif stype == "ordinal-candidate":
             why, code = "ordered levels: map them to ranks", f"order = [...]  # low to high\ndf[{col!r}] = df[{col!r}].map({{v: i for i, v in enumerate(order)}})"
         elif stype in CATEGORY_TYPES and k <= 10:
@@ -535,10 +548,35 @@ def plan(
         elif stype in CATEGORY_TYPES:
             why = f"{k} labels: too many for one-hot; target encoding (cross-fitted) or frequency encoding" + (
                 f". {_FIT_ON_TRAIN}" if target else "")
-            code = (f"from sklearn.preprocessing import TargetEncoder\n"
-                    f"enc = TargetEncoder()  # fit on the training rows only, then enc.transform() the others\n"
-                    f"df[[{col!r}]] = enc.fit_transform(df[[{col!r}]], df[{target!r}])" if target else
-                    f"df[{col!r}] = df[{col!r}].map(df[{col!r}].value_counts(normalize=True))")
+            if target:
+                # Binary encoders also support multiclass one-vs-rest on sklearn 1.3.
+                # Explicit target types avoid treating integer regression targets as classes.
+                multi = not regression and hashable(df[target].dropna()).nunique() > 2
+                start = ("from sklearn.preprocessing import TargetEncoder\n"
+                         "# fit on labelled training rows only; transform validation/test separately\n"
+                         f"known = df[{target!r}].notna()\n")
+                if multi:
+                    code = (start + "encoded = pd.DataFrame(index=df.index)\n"
+                            f"classes = sorted(df.loc[known, {target!r}].unique(), key=str)\n"
+                            "for i, label in enumerate(classes):\n"
+                            f"    enc = TargetEncoder(target_type='binary', random_state={cfg.random_state})\n"
+                            "    values = np.full((len(df), 1), np.nan)\n"
+                            f"    values[known] = enc.fit_transform(df.loc[known, [{col!r}]], "
+                            f"df.loc[known, {target!r}].eq(label).astype(int))\n"
+                            "    if (~known).any():\n"
+                            f"        values[~known] = enc.transform(df.loc[~known, [{col!r}]])\n"
+                            f"    encoded[{col!r} + '__target_' + str(i)] = values[:, 0]\n"
+                            f"df = pd.concat([df.drop(columns=[{col!r}]), encoded], axis=1)")
+                else:
+                    kind = "continuous" if regression else "binary"
+                    code = (start + f"enc = TargetEncoder(target_type={kind!r}, random_state={cfg.random_state})\n"
+                            "values = np.full((len(df), 1), np.nan)\n"
+                            f"values[known] = enc.fit_transform(df.loc[known, [{col!r}]], df.loc[known, {target!r}])\n"
+                            "if (~known).any():\n"
+                            f"    values[~known] = enc.transform(df.loc[~known, [{col!r}]])\n"
+                            f"df[[{col!r}]] = values")
+            else:
+                code = f"df[{col!r}] = df[{col!r}].map(df[{col!r}].value_counts(normalize=True))"
         elif stype == "text":
             why, code = "free text: TF-IDF features", (f"from sklearn.feature_extraction.text import TfidfVectorizer\n"
                                                      f"tfidf = TfidfVectorizer(min_df=5).fit_transform(df[{col!r}].fillna(''))")

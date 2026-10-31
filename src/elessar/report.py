@@ -229,6 +229,9 @@ class Vision:
                 ("drop", ", ".join(map(str, sel["drop"])) or "-")]
         if sel.get("excluded_leaks"):
             rows.append(("set aside", "leakage suspects: " + ", ".join(sel["excluded_leaks"])))
+        if sel.get("score_scope"):
+            rows.append(("score scope", "diagnostics of models before feature consensus; the holdout is also used "
+                         "for forest importance, not an independent score of the final selected subset"))
         return self._wrap(rows, w)
 
     def _timeseries_lines(self, w: int) -> list[str]:

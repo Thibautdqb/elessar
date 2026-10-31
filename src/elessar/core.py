@@ -167,10 +167,9 @@ def _advanced_task(name: str) -> Any:
         if name == "selection":
             info = detect_time(df, types)  # any dated table, sorted or not, is validated on its future
             times = time_columns(df, types).get(info["time_column"]) if info is not None else None
-            ser = correlations.get("serial")
-            diffed = list(ser.loc[ser["differenced"].astype(bool), "column"]) if ser is not None else []
-            differences = (serial_structure(df, types, diffed)["differences"] if target in diffed else None)
-            return feature_selection(df, target, types, correlations, cfg, times=times, differences=differences)
+            # Selection learns its differencing decision from its training rows;
+            # the full-data EDA must not decide the response seen by its models.
+            return feature_selection(df, target, types, correlations, cfg, times=times)
     raise ValueError(name)
 
 

@@ -17,12 +17,13 @@ from .sim import factor_data, lower
 
 pytestmark = pytest.mark.validation
 CFG = StoneConfig()
-RDATASETS = "https://vincentarelbundock.github.io/Rdatasets/csv/"
+SOURCE_COMMIT = "1dcc2bf5f955cc1224a3e1307256e1fe86b68dae"
+RDATASETS = f"https://raw.githubusercontent.com/vincentarelbundock/Rdatasets/{SOURCE_COMMIT}/csv/"
 CACHE = Path(os.environ.get("ELESSAR_VALIDATION_DATA", Path.home() / ".cache" / "elessar-validation"))
 
 
 def _dataset(path: str) -> pd.DataFrame:
-    local = CACHE / path.replace("/", "_")
+    local = CACHE / (SOURCE_COMMIT[:12] + "_" + path.replace("/", "_"))
     if not local.exists():
         try:
             local.parent.mkdir(parents=True, exist_ok=True)

@@ -576,6 +576,11 @@ def correlation_alerts(
     """
     cfg = config or StoneConfig()
     out = []
+    limits = correlations.get("inference_limits")
+    if limits is not None and not limits.empty:
+        outputs = ", ".join(limits["output"])
+        out.append(alert("high", None, "serial inference is unvalidated for " + outputs
+                         + ": these p-values must not be read as calibrated significance levels", "serial_inference_limit"))
     vif = correlations.get("vif")
     deps = correlations.get("linear_dependencies")
     explained: set[str] = set()

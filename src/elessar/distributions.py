@@ -40,6 +40,8 @@ KS_NOTE = ("KS p-values are optimistic: the parameters were estimated from the s
 POINT_MASS_SHARE = 0.3
 """A single value holding this share of a continuous column is reported apart and left out of the fit."""
 _POSITIVE_SUPPORT = frozenset({"lognorm", "gamma", "weibull_min", "chi2", "pareto"})
+BINOM_MAX_TRIALS = 100_000
+"""Finite search domain for a binomial profile MLE; a maximum at the upper bound is not accepted."""
 
 
 class FitTimeout(Exception):
@@ -150,10 +152,28 @@ def _fit_discrete(name: str, x: np.ndarray) -> tuple[tuple[float, ...], int, str
         r = math.exp(optimize.minimize_scalar(nll, bounds=(-6, 12), method="bounded").x)
         return (r, r / (r + mean)), 2, ""
     if name == "binom":
-        n = int(x.max())
-        if n < 1:
+        lower = int(x.max())
+        if lower < 1:
             raise ValueError("needs a positive upper bound")
-        return (float(n), mean / n), 2, f"n fixed to max = {n}"
+        if x.min() < 0 or not np.all(x == np.floor(x)):
+            raise ValueError("binomial data must be non-negative integers")
+        if lower >= BINOM_MAX_TRIALS:
+            raise ValueError(f"binomial support exceeds the search limit {BINOM_MAX_TRIALS}")
+        # At every admissible integer n, p_hat = mean/n exactly. Compress repeated
+        # observations, and examine the whole declared range rather than assuming
+        # that the sample maximum is the distribution's upper support bound.
+        values, counts = np.unique(x, return_counts=True)
+        best_n, best_ll = lower, -np.inf
+        for start in range(lower, BINOM_MAX_TRIALS + 1, 2_048):
+            ns = np.arange(start, min(start + 2_048, BINOM_MAX_TRIALS + 1))
+            likelihood = counts @ stats.binom.logpmf(values[:, None], ns, mean / ns)
+            i = int(np.argmax(likelihood))
+            if likelihood[i] > best_ll:
+                best_n, best_ll = int(ns[i]), float(likelihood[i])
+        if best_n == BINOM_MAX_TRIALS:
+            raise ValueError("binomial profile maximum is at the search limit; use the Poisson candidate "
+                             "or supply a scientifically justified trial count")
+        return (float(best_n), mean / best_n), 2, f"profile MLE over n in [{lower}, {BINOM_MAX_TRIALS}]"
     raise ValueError(f"unknown discrete candidate {name!r}")
 
 

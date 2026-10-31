@@ -354,6 +354,10 @@ class _Recap:
         self.add("p", f"{sel['task'].capitalize()} of {v.target} on {sel['n_rows']:,} rows and {sel['n_features']} "
                       f"features ({sel['n_design_columns']} model columns after one-hot encoding). Held-out "
                       f"{sel['scoring']}: {scores} ({sel.get('validation') or sel['cv'] + ' CV'}).")
+        if sel.get("score_scope"):
+            self.add("p", "Scores describe the models before feature consensus. The holdout is also used for "
+                          "forest permutation importance; these are not independent performance estimates of "
+                          "the final selected feature subset.")
         self.add("p", [bold("Keep: "), ("", ", ".join(map(str, sel["keep"])) or "-"), ("", "  ·  "),
                        bold("Borderline: "), ("", ", ".join(map(str, sel["borderline"])) or "-"), ("", "  ·  "),
                        bold("Drop: "), ("", ", ".join(map(str, sel["drop"])) or "-")])
