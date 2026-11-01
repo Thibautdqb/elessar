@@ -1,3 +1,7 @@
+# Elessar — automated exploratory data analysis in Python
+
+[Documentation](https://elessar-python.fizzyknoll28.chatgpt.site/) · [Quickstart](https://elessar-python.fizzyknoll28.chatgpt.site/quickstart/) · [Python API](https://elessar-python.fizzyknoll28.chatgpt.site/api/) · [PyPI](https://pypi.org/project/elessar/)
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/logo.png" alt="elessar logo: a marble statue of a bearded god codes on a laptop in a neon jungle temple, under a floating emerald crystal, with the word elessar in neon letters" width="100%">
 </p>
