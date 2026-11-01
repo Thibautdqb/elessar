@@ -1,0 +1,109 @@
+name: Elessar website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "website/**"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "website/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+    inputs:
+      notify_indexnow:
+        description: "Notify IndexNow after deployment (receipt does not guarantee indexing)"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "pages-${{ github.ref }}"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
+    outputs:
+      base_url: ${{ steps.site_url.outputs.base_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Read the configured Pages URL
+        if: github.event_name != 'pull_request'
+        id: pages
+        uses: actions/configure-pages@v5
+      - name: Resolve the site URL
+        id: site_url
+        env:
+          CONFIGURED_PAGES_URL: ${{ steps.pages.outputs.base_url }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          config = json.loads(Path("website/site.json").read_text())
+          base_url = os.environ.get("CONFIGURED_PAGES_URL") or config["base_url"]
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              print("base_url=" + base_url.rstrip("/") + "/", file=output)
+          PY
+      - name: Build the HTML
+        env:
+          SITE_BASE_URL: ${{ steps.site_url.outputs.base_url }}
+        run: python website/build.py --base-url "$SITE_BASE_URL"
+      - name: Check links, canonical URLs and metadata
+        env:
+          SITE_BASE_URL: ${{ steps.site_url.outputs.base_url }}
+        run: python website/check_site.py website/dist --base-url "$SITE_BASE_URL"
+      - name: Upload the website artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: website/dist
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Report the deployed URL
+        env:
+          DEPLOYED_SITE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          printf 'Published: %s\n' "$DEPLOYED_SITE_URL" >> "$GITHUB_STEP_SUMMARY"
+      - name: Checkout the optional IndexNow helper
+        if: github.event_name == 'workflow_dispatch' && inputs.notify_indexnow
+        uses: actions/checkout@v4
+      - name: Set up Python for the optional notification
+        if: github.event_name == 'workflow_dispatch' && inputs.notify_indexnow
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Notify IndexNow when explicitly selected
+        if: github.event_name == 'workflow_dispatch' && inputs.notify_indexnow
+        continue-on-error: true
+        env:
+          DEPLOYED_SITE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          python website/build.py --base-url "$DEPLOYED_SITE_URL"
+          python website/notify_indexnow.py --base-url "$DEPLOYED_SITE_URL" --submit

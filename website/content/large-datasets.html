@@ -1,0 +1,39 @@
+<p class="eyebrow">Guide / Inputs and sampling</p>
+<h1>Profile files and understand what is sampled.</h1>
+<p class="lede"><code>elessar.see()</code> and <code>elessar.load()</code> accept file paths and tabular objects. Large-data support combines progressive typing, streaming summaries and sampled statistical analyses.</p>
+<h2>Supported inputs</h2>
+<div class="table-wrap"><table><thead><tr><th>Input</th><th>Examples</th></tr></thead><tbody>
+<tr><td>In-memory objects</td><td>pandas DataFrame/Series, Polars DataFrame/LazyFrame, PyArrow Table, Dask DataFrame, NumPy array, dicts and lists of records.</td></tr>
+<tr><td>Delimited text</td><td>CSV, TSV and other delimited files, with delimiter and encoding inference.</td></tr>
+<tr><td>Columnar formats</td><td>Parquet, Feather/Arrow and ORC.</td></tr>
+<tr><td>Spreadsheets</td><td>Excel and OpenDocument; select a sheet with <code>sheet=</code>.</td></tr>
+<tr><td>Other formats</td><td>JSON/JSONL, SQLite, SAS, Stata, SPSS, HDF5, XML and supported local pickle files. Some formats may need an additional format-specific dependency.</td></tr>
+<tr><td>Collections and remote sources</td><td>Glob patterns, folders and URLs. Use supported files and review loading options for the format.</td></tr>
+</tbody></table></div>
+<h2>Read a file without running the analysis</h2>
+<div class="code-block"><pre><code>import elessar
+
+source = elessar.load("export.xlsx", sheet="2024")
+print(source.df.head())
+print(source.origin)</code></pre></div>
+<p><code>source.df</code> holds the loaded rows, or the profile sample for a large source. <code>source.full</code> holds full-pass summaries when that loading mode applies.</p>
+<h2>Control the work on a large CSV</h2>
+<div class="code-block"><pre><code>config = elessar.StoneConfig(
+    max_rows=100_000,
+    sample_size=20_000,
+    fit_sample_size=10_000,
+    random_state=42,
+)
+
+report = elessar.see(
+    "large.csv",
+    config=config,
+    engine="pandas",
+    open_report=False,
+)
+print(report.overview)</code></pre></div>
+<p><code>engine="pandas"</code> selects single-process streaming for supported streamed inputs. The default <code>engine="auto"</code> can use Dask for large text files. Streaming strategy depends on the source format and available memory; a compressed or spreadsheet source does not necessarily behave like a plain CSV.</p>
+<h2>Separate full-pass counts from sample estimates</h2>
+<ul><li><code>max_rows</code> limits rows used for the large-table profile; its default is 1,000,000.</li><li><code>sample_size</code> limits costly analyses such as correlations and pairwise tests; its default is 100,000.</li><li><code>fit_sample_size</code> limits distribution fitting and normality tests; its default is 20,000.</li><li>In streamed mode, full-pass summaries provide counts and supported descriptive figures over every row. Consult <code>report.overview</code> and <code>report.full</code> for the actual run.</li><li>Exact duplicate counting can be skipped when its memory budget is exceeded; the report records this. Treat any omitted statistic as unavailable.</li><li>Sampling is deterministic for a fixed <code>random_state</code>. Time-series handling preserves time structure rather than treating scattered rows as a complete series.</li></ul>
+<div class="note"><p>Large-data support is not a claim that every statistic is exact or that arbitrary file sizes fit in memory. Check the run details, the sampled row count and any recorded errors before using results.</p></div>
+<p>For a deliberate first-rows preview, <code>nrows=</code> limits the rows read; those results describe the limited input. For format-specific details, see the <a href="{{REPO}}#any-input-any-size">package README</a>.</p>
