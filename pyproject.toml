@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "elessar"
 dynamic = ["version"]
-description = "Automated exploratory data analysis (EDA) and data-quality profiling for Python"
+description = "Automated exploratory data analysis and data-quality profiling"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -22,7 +22,7 @@ dependencies = [
     "openpyxl>=3.1",
     "python-calamine>=0.2",
 ]
-keywords = ["exploratory-data-analysis", "pandas", "eda", "data-profiling", "statistics", "data-quality", "dask", "parquet", "feature-selection", "pca", "time-series", "outliers"]
+keywords = ["pandas", "eda", "data-profiling", "statistics", "data-quality", "dask", "parquet", "feature-selection", "pca", "time-series", "outliers"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
@@ -48,8 +48,7 @@ dev = ["pytest>=7", "ruff>=0.6"]
 elessar = "elessar.cli:main"
 
 [project.urls]
-Homepage = "https://elessar-python.fizzyknoll28.chatgpt.site/"
-Documentation = "https://elessar-python.fizzyknoll28.chatgpt.site/"
+Homepage = "https://github.com/thibautdqb/elessar"
 Repository = "https://github.com/thibautdqb/elessar"
 Issues = "https://github.com/thibautdqb/elessar/issues"
 Changelog = "https://github.com/thibautdqb/elessar/blob/main/CHANGELOG.md"
