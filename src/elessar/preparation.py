@@ -127,9 +127,10 @@ def group_categories(s: pd.Series, y: pd.Series, regression: bool, cfg: StoneCon
     """Merge labels that behave alike towards the target with a small binary tree.
 
     Labels are ordered on an independent design half, with Welch tests performed on confirmation rows.
-    The tree splits that order in two where the two sides differ most (Welch t-test), and only
-    if the difference is significant after a Bonferroni correction for the cut points tried;
-    each side then splits again, at most three levels deep. The leaves are the groups.
+    At each node the candidate split is chosen using the design rows, then evaluated by
+    a Welch test on the untouched confirmation rows. The alpha/7 limit covers at
+    most seven candidate nodes across depths 0 to 2, under IID sampling and the
+    prespecified response type; target-driven grouping must be refitted for predictive use.
     """
     frame = pd.DataFrame({"x": hashable(s).astype("string"), "y": y}).dropna()
     if regression:
