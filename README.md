@@ -507,7 +507,7 @@ confirmed by an isolation forest; flagged as indicative when more than 15 % of r
 ### 7. Which features to keep
 
 With a target, the features (numeric, and categorical one-hot encoded but scored as one) go through five methods,
-after the features suspected of leakage are set aside:
+after configured provenance exclusions and observed exact target aliases are quarantined on training rows (a strong association alone does not imply leakage):
 
 | Method | Selected when |
 |---|---|
