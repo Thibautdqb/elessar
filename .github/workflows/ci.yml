@@ -58,7 +58,7 @@ jobs:
       - name: Demo
         shell: bash
         run: python examples/demo.py > /dev/null
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: always()
         with:
           name: ordinary-${{ matrix.os }}-${{ matrix.python-version }}
@@ -77,7 +77,7 @@ jobs:
       - run: python -m pip install -c ci/constraints-min.txt -e ".[dev]"
       - run: python -m pip freeze > minimum-environment.txt
       - run: python -m pytest -q --junitxml=minimum.xml
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: always()
         with:
           name: declared-minimum-dependencies
@@ -105,7 +105,7 @@ jobs:
             "$clean_env/bin/python" -m pip install "$archive"
             "$clean_env/bin/python" -I ci/smoke.py
           done
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: release-candidate-distributions
           path: dist/
