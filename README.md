@@ -16,8 +16,8 @@ release gates are in the [scientific contract](docs/SCIENTIFIC_CONTRACT.md) and
 [release review record](docs/RELEASE_1_2.md); this does not publish a release.
 
 One function call (`elessar.see(df)`, or `elessar.see("sales.parquet")`) or one command (`elessar data.csv`) gives
-you the semantic type of every column, full descriptive statistics, the best-fitting distribution, associations
-between all columns with significance tests, target associations and leakage-provenance warnings, feature selection, PCA and factor
+you semantic types, descriptive statistics, the best-ranked candidate distribution, supported associations
+with conditional or approximate significance where statistically justified, target associations and leakage-provenance warnings, feature selection, PCA and factor
 analysis, outliers, time series, data-quality alerts and a preparation plan with the code to apply it, and
 report-ready charts.
 
@@ -27,14 +27,13 @@ report-ready charts.
   <img src="https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/terminal.svg" alt="elessar installed and run on the Titanic dataset in a terminal, then its HTML report opening in a browser and scrolling (key findings, overall statistics, target analysis, feature selection, distributions, outliers)" width="900">
 </p>
 
-Every decision elessar takes (a column's type, whether a table is a time series, whether a date is a date of
-birth, whether PCA or a factor analysis is worth it, what to do with an outlier) is an **explicit decision tree**
-of named yes / no questions with stated thresholds, and the report shows the path each decision took. They are
-all drawn in [How elessar decides](#how-elessar-decides).
+Elessar reports an **explicit decision path for semantic column typing**. Other analyses use statistical tests,
+optimisation, fitted models and documented diagnostic rules; not all their results are yes/no decision trees.
+Their methods and limits are explained in [How elessar decides](#how-elessar-decides).
 
 **Contents**: [What you get](#what-you-get) · [Install](#install) · [Quickstart](#quickstart) ·
 [Any input, any size](#any-input-any-size) · [API](#api) · [How elessar decides](#how-elessar-decides) ·
-[What it computes](#what-it-computes) · [Sample terminal output](#sample-terminal-output) · [Plots](#plots) ·
+[What it computes](#what-it-computes) · [Sample terminal output](#terminal-output) · [Plots](#plots) ·
 [Development](#development)
 
 ## What you get
@@ -49,7 +48,7 @@ your terminal and in one HTML page:
 - **dates of birth** told apart from event dates, and turned into ages
 - **full descriptive statistics** adapted to each type, with confidence intervals
 - **likelihood-based numerical distribution candidates**, ranked by AIC, and four normality diagnostics
-- **associations of every kind with statistical significance**: Pearson, Spearman, Kendall, Cramér's V,
+- **supported associations with inference under documented assumptions**: Pearson, Spearman, Kendall, Cramér's V,
   correlation ratio, mutual information, AUC, with p-values, Benjamini-Hochberg correction and confidence intervals;
   in a table indexed by time, non-stationary columns are tested on their differences and numeric
   Pearson/Spearman tests use a lag-1 effective sample size; serial Kendall/categorical/mixed tests use
@@ -72,7 +71,7 @@ domain review because an extreme measurement is not necessarily erroneous
 - **data quality** checks and **actionable alerts** (with the code to fix them): placeholders, duplicates,
   multicollinearity, missingness associated with observed columns (evidence against MCAR), sorted rows…
 - a set of **plots that actually carry information**, saved as PNG files, and **one HTML page** with everything
-- **any input, any size**: CSV, Parquet, Excel, JSON, SQLite, SAS, Stata… or polars, pyarrow, dask, NumPy
+- **many tabular input formats, with resource-dependent limits**: CSV, Parquet, Excel, JSON, SQLite, SAS, Stata… or polars, pyarrow, dask, NumPy
   objects; files bigger than memory are **typed progressively and streamed in parallel**, with exact
   row and missing-value counts over the full table (high-cardinality distinct counts are approximate)
 
@@ -435,7 +434,7 @@ The report also gives Kaiser's rule and the components needed for 80 / 90 / 95 %
 
 ### 5. PCA-based exploratory factor extraction, step by step
 
-The factor analysis follows the method as it is taught and reported in SPSS-style studies. Each step is a line of
+PCA-based exploratory component extraction with varimax is not a fitted common-factor model or a proof of construct validity. Each step is a line of
 the report's checklist, with its question, its answer and a *yes / no / removed* mark.
 
 <p align="center"><img src="https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/diagrams/6_factor_analysis.png" alt="Factor analysis in nine steps, with the loops that remove items and reduce the number of factors" width="620"></p>
@@ -859,7 +858,7 @@ Files are named `<NN>_<column>_<kind>.png` in the report folder.
 git clone https://github.com/thibautdqb/elessar && cd elessar
 pip install -e ".[dev]"
 pytest                                        # unit tests
-pytest -m validation tests/validation         # statistical validation by simulation (about 5 minutes)
+pytest -m validation tests/validation         # statistical validation by simulation (potentially tens of minutes)
 ruff check src tests docs examples
 python examples/demo.py
 ```
