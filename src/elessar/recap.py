@@ -355,7 +355,8 @@ class _Recap:
                       f"features ({sel['n_design_columns']} model columns after one-hot encoding). Held-out "
                       f"{sel['scoring']}: {scores} ({sel.get('validation') or sel['cv'] + ' CV'}).")
         if sel.get("score_scope"):
-            self.add("p", sel["score_scope"])
+            self.add("p", sel["score_scope"] + ". Held-out scores are descriptive estimates from small samples; "
+                                      "a value of 1.000 does not establish perfect future accuracy.")
         final = sel.get("consensus_evaluation")
         if final:
             if final["status"] == "ok":
@@ -387,9 +388,11 @@ class _Recap:
         self.add("table", ["feature"] + methods + ["votes", "decision"], rows, "data")
         self.add("p", [("i", "Importances scaled to the strongest feature (1); ✓ = selected by that method. Decision "
                               f"tree depth {sel.get('tree_depth')} chosen by cross-validation; random forest: permutation "
-                              "importance on held-out rows (all one-hot columns of a feature shuffled together); lasso: "
-                              "non-zero coefficient at the penalty chosen by cross-validation; ridge: |coefficient| at "
-                              "least 10% of the largest; filter: significant univariate association.")])
+                              "importance on voting rows (one-hot columns shuffled together), above twice its permutation "
+                              "standard deviation; L1 logistic/Lasso and L2 logistic/Ridge: coefficients must beat "
+                              "all shuffled shadow-feature coefficients at the tuned penalty; filter: BH-significant "
+                              "univariate association on training rows. Numeric importance and binary votes are "
+                              "different quantities; the final-test outcomes never determine votes.")])
         self.figures(self.charts(("selection", "lasso_path"), v.target), grid=False)
 
     def timeseries_section(self) -> None:
@@ -466,7 +469,8 @@ class _Recap:
     def outlier_section(self) -> None:
         v, out = self.v, self.v.outliers
         self.add("h", 2, SECTIONS["outliers"], "outliers")
-        self.add("p", "Three methods per numeric column: 3 sigma (|value - mean| > 3 standard deviations), boxplot "
+        self.add("p", "Three exploratory methods per numeric column (a flag does not prove measurement error): "
+                      "3 sigma (|value - mean| > 3 standard deviations), boxplot "
                       "(outside the Tukey fences Q1 - 1.5 IQR, Q3 + 1.5 IQR) and modified z (Hampel: |0.6745 (value "
                       "- median) / MAD| > 3.5). A consensus outlier is flagged by at least two.")
         summary = out["summary"]
@@ -508,6 +512,10 @@ class _Recap:
             self.add("p", "Nothing to clean or transform.")
             return
         counts = prep.get("counts", {})
+        self.add("p", "Preparation recipes are exploratory suggestions, not automatic corrections. Check "
+                      "provenance, preserve valid tails, and fit all data-dependent transformations inside the "
+                      "actual training/CV split before predictive use. The target-driven grouping and binning "
+                      "shown here use the analysed table and MUST be refitted without validation/test labels.")
         self.add("p", "Cleaning: " + ", ".join(f"{a.lower()} {counts[a]}" for a in CLEANING if counts.get(a)) +
                  ".  Transformation: " + ", ".join(f"{a.lower()} {counts[a]}" for a in TRANSFORMATION if counts.get(a)) + ".")
         for kind, title in (("cleaning", "Cleaning"), ("transformation", "Transformation")):
@@ -566,6 +574,9 @@ class _Recap:
         v = self.v
         self.add("h", 2, SECTIONS["target"], "target")
         self.add("p", [("", "Target: "), code(v.target), ("", f" ({v.columns[v.target]['semantic_type']})")])
+        self.add("p", "Effect sizes and significance tests are distinct: eta (correlation ratio) is non-negative, "
+                      "and its displayed significance may come from Kruskal-Wallis/Mann-Whitney on ranks. "
+                      "Neither a positive sign nor a causal direction can be inferred from eta.")
         self.figures(self.charts(("target_ranking",), v.target))
         assoc = v.correlations.get("target")
         if assoc is not None and not assoc.empty:
@@ -680,7 +691,8 @@ class _Recap:
         if not fa.get("steps"):
             return
         self.add("h", 3, "Factor analysis", None)
-        self.add("p", "Principal components of the correlation matrix, varimax rotation, then Cronbach's alpha per "
+        self.add("p", "PCA-based component extraction (not a fitted common-factor model): principal components "
+                      "of the correlation matrix, varimax rotation, then Cronbach's alpha per "
                       "factor; items are examined and removed one at a time (communality < .40, highest loading "
                       "< .40 or cross-loading), and the analysis is run again after each removal.")
         chip = {True: ("cert-certain", "yes"), False: ("cert-uncertain", "no"), None: ("sev-info", "done"),
@@ -719,11 +731,12 @@ class _Recap:
             self.add("table", ["factor", "items", "reliability", "", "alpha if item deleted"], rows, "data")
         desc = fa.get("descriptives") or {}
         if desc:
-            self.add("p", [bold("New factors"), ("", " (created only for factors with an acceptable alpha: the mean of "
-                                                      "their items)")])
+            self.add("p", [bold("Exploratory component scores"), ("", " (created for components passing an "
+                          "internal-consistency threshold; they are means of selected items, not independently "
+                          "validated psychometric constructs or common-factor model estimates)")])
             self.add("table", ["factor", "items", "n", "mean", "median", "mode", "std"],
                      [[[code(k)], ", ".join(map(str, d["items"])), f"{d['n']:,}", f"{d['mean']:.2f}", f"{d['median']:.2f}",
-                       f"{d['mode']:.2f}", f"{d['std']:.2f}"] for k, d in desc.items()], "data")
+                       f"{d['mode']:.2f}" if np.isfinite(d["mode"]) else "n/a", f"{d['std']:.2f}"] for k, d in desc.items()], "data")
         if fa.get("code"):
             self.add("code", fa["code"])
 
