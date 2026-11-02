@@ -61,8 +61,8 @@ your terminal and in one HTML page:
 - **multivariate statistics**: whether **PCA** is worth it (Bartlett, KMO, parallel analysis), a **factor
   analysis** run step by step as it is taught (KMO and Bartlett, communalities, number of factors, varimax,
   Cronbach's alpha, scale scores), redundant groups of columns, rows that are outliers on several columns at once
-- **outliers** found three ways (3 sigma, boxplot, modified z) and listed point by point, with whether to keep,
-  remove or reassign them
+- **outliers** flagged three ways (3 sigma, boxplot, modified z); optional cleaning recommendations require
+domain review because an extreme measurement is not necessarily erroneous
 - **time series** recognised on their own (single series, panel, event log): trend, stationarity, seasonality,
   decomposition, windows, validation folds on the real dates, augmentation recipes
 - a **preparation plan**: every cleaning step (invalid values, wrong formats, misspellings, duplicates,
@@ -431,7 +431,7 @@ replaced by the median):
 
 The report also gives Kaiser's rule and the components needed for 80 / 90 / 95 % of the variance.
 
-### 5. Factor analysis, step by step
+### 5. PCA-based exploratory factor extraction, step by step
 
 The factor analysis follows the method as it is taught and reported in SPSS-style studies. Each step is a line of
 the report's checklist, with its question, its answer and a *yes / no / removed* mark.
@@ -471,9 +471,10 @@ the report's checklist, with its question, its answer and a *yes / no / removed*
    for two items (Eisinga, te Grotenhuis & Pelzer, 2013).
 8. **New factors**, only for the scales with an acceptable reliability: the mean of their items, with the code for the
    mean of the answered items and for the version requiring every item (`MEAN.k`).
-9. **Descriptives** of the new factors: mean, median, mode, standard deviation.
+9. **Descriptives** of the component scores: mean, median, mode when uniquely meaningful, standard deviation.
 
-The verdict is *recommended* when the factors pass every step and at least one reliable scale is created,
+The exploratory verdict is *recommended* when components pass the heuristics and internal-consistency checks;
+reliability alone does not establish unidimensionality or construct validity.
 *indicative* when the sample is small, *not useful* when KMO or Bartlett fail or no scale is reliable.
 
 Checked on reference data sets whose structure is known: the 25 Big Five items of `psych::bfi` give the five
@@ -631,8 +632,8 @@ Groups of columns with mean |Spearman| ≥ 0.7 are proposed for combination.
 spaces, and 1-2 typos found with a **BK-tree** on the edit distance), duplicates (also ignoring identifier
 columns), consistency (mixed units, values on two scales ~100× or 1000× apart), missing data (strategy by type and
 by missingness mechanism), outliers to remove or reassign. *Transformation*: bucketing (numeric cut points from a
-decision tree on the target; labels merged by a **binary tree that only splits where the target differs
-significantly**, Bonferroni-corrected), decomposition (dates into calendar parts, dates of birth into ages, lists
+decision tree on the target; labels merged by an adaptive binary tree whose ordering and cuts are selected on one half of the rows and
+confirmed on independent rows (at most seven tests with a Bonferroni familywise bound under IID assumptions), decomposition (dates into calendar parts, dates of birth into ages, lists
 into 0/1 columns, cells holding several data items such as `"Paris, France"` or `"1920x1080"` split), aggregation
 (time series, panels), combination (redundant groups, exact linear relations, factor scores), rescaling,
 normalisation, transformation of skewed columns (Box-Cox / log / Yeo-Johnson, with the skewness before and after),
@@ -668,7 +669,7 @@ Cabin is missing; taxi tips always 0 when the payment type is missing; movie tit
 *1776*); Nobel laureates' and congressmen's birth dates, with their ages at the award or at the start of the term;
 the five personality factors of the Big Five questionnaire; files sorted by price or year.
 
-## Sample terminal output
+## Historical sample terminal output (v1.1; not a current v1.2 validation trace)
 
 Historical 1.1 excerpt from the Kaggle Titanic training set (`elessar train.csv --target Survived`).
 These illustrative numbers are not validation results for the preliminary changes above:
@@ -771,12 +772,12 @@ TARGET ANALYSIS
   feature   type                method     association  test            n   p_adj  sig    AUC     MI  flag
   ────────  ──────────────────  ─────────  ───────────  ────────────  ───  ──────  ───  ─────  ─────  ────
   Sex       categorical         cramers_v       +0.543  chi-square    891   3e-58  *           0.218
-  Pclass    ordinal-candidate   eta             +0.338  mann-whitney  891   1e-23  *    0.319  0.084
-  Fare      numeric_continuous  eta             +0.257  mann-whitney  891   1e-21  *    0.692  0.101
+  Pclass    ordinal-candidate   eta              0.338  mann-whitney  891   1e-23  *    0.319  0.084
+  Fare      numeric_continuous  eta              0.257  mann-whitney  891   1e-21  *    0.692  0.101
   Embarked  categorical         cramers_v       +0.166  chi-square    889   3e-06  *           0.021
-  Parch     numeric_discrete    eta             +0.082  mann-whitney  891   5e-05  *    0.561  0.024
-  Age       numeric_continuous  eta             +0.077  mann-whitney  714    0.16       0.469  0.019
-  SibSp     numeric_discrete    eta             +0.035  mann-whitney  891  0.0094  *    0.543  0.033
+  Parch     numeric_discrete    eta              0.082  mann-whitney  891   5e-05  *    0.561  0.024
+  Age       numeric_continuous  eta              0.077  mann-whitney  714    0.16       0.469  0.019
+  SibSp     numeric_discrete    eta              0.035  mann-whitney  891  0.0094  *    0.543  0.033
   6/7 features significantly associated (BH-adjusted p < 0.05)
 
   is the target different when a feature is missing?
