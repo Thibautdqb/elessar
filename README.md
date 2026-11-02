@@ -17,7 +17,7 @@ release gates are in the [scientific contract](docs/SCIENTIFIC_CONTRACT.md) and
 
 One function call (`elessar.see(df)`, or `elessar.see("sales.parquet")`) or one command (`elessar data.csv`) gives
 you the semantic type of every column, full descriptive statistics, the best-fitting distribution, associations
-between all columns with significance tests, target and leakage analysis, feature selection, PCA and factor
+between all columns with significance tests, target associations and leakage-provenance warnings, feature selection, PCA and factor
 analysis, outliers, time series, data-quality alerts and a preparation plan with the code to apply it, and
 report-ready charts.
 
@@ -54,13 +54,14 @@ your terminal and in one HTML page:
   in a table indexed by time, non-stationary columns are tested on their differences and numeric
   Pearson/Spearman tests use a lag-1 effective sample size; serial Kendall/categorical/mixed tests use
   conservative truncated time shifts with explicit stationarity conditions
-- **target analysis**: feature ranking, **leakage detection**, informative missingness
+- **target analysis**: feature ranking, **leakage-suspect flags requiring provenance review** (association alone cannot prove leakage), informative missingness
 - **feature selection** by embedded methods (decision tree, random forest, lasso, ridge) and a filter, with
   tree depth and linear penalties tuned by cross-validation, model scores on held-out rows, and a vote
   per feature against shuffled shadows
-- **multivariate statistics**: whether **PCA** is worth it (Bartlett, KMO, parallel analysis), a **factor
-  analysis** run step by step as it is taught (KMO and Bartlett, communalities, number of factors, varimax,
-  Cronbach's alpha, scale scores), redundant groups of columns, rows that are outliers on several columns at once
+- **multivariate statistics**: whether **PCA** is worth it (Bartlett, KMO, parallel analysis),
+  PCA-based component extraction with varimax rotation (not a fitted common-factor model),
+  exploratory composite scores and internal-consistency diagnostics (Cronbach's alpha / Spearman-Brown),
+  redundant groups of columns and multivariate outliers
 - **outliers** flagged three ways (3 sigma, boxplot, modified z); optional cleaning recommendations require
 domain review because an extreme measurement is not necessarily erroneous
 - **time series** recognised on their own (single series, panel, event log): trend, stationarity, seasonality,
@@ -72,8 +73,8 @@ domain review because an extreme measurement is not necessarily erroneous
   multicollinearity, missingness associated with observed columns (evidence against MCAR), sorted rows…
 - a set of **plots that actually carry information**, saved as PNG files, and **one HTML page** with everything
 - **any input, any size**: CSV, Parquet, Excel, JSON, SQLite, SAS, Stata… or polars, pyarrow, dask, NumPy
-  objects; files bigger than memory are **typed progressively and streamed in parallel**, with exact counts over
-  every row
+  objects; files bigger than memory are **typed progressively and streamed in parallel**, with exact
+  row and missing-value counts over the full table (high-cardinality distinct counts are approximate)
 
 It is built for scripts and the terminal: plain-text output that fits your terminal width, files on disk, no
 display needed (except to click the target, if you ask for it).
@@ -137,8 +138,9 @@ blocks with a copy button, and collapsible sections per column; it works offline
   was typed** (its path down the decision tree and the certainty of the decision) and, for a sampled big table,
   the **exact figures over every row**
 - **target analysis**: ranking with tests, AUC and mutual information, informative missingness, target charts
-- **feature selection**: every method's importance per feature, the vote, the cross-validated score of each
-  model, the lasso path
+- **feature selection**: each method's importance and votes, model hyperparameters selected by
+  training-only cross-validation, model scores on separate voting rows, and (when available) the
+  independently held-out score of a refitted model on the frozen selected subset; plus the L1 path
 - **time series** (when the table is one): structure, trend, stationarity, seasonality, decomposition and
   autocorrelation charts, the per-entity table of a panel, the treatment and the validation folds
 - **distributions**: for every numeric column the normality tests, the best fit with its parameters, Akaike
