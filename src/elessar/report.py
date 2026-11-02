@@ -100,7 +100,7 @@ def _pair_rows(pairs: pd.DataFrame) -> tuple[list[str], list[list[str]]]:
 
 def _target_rows(assoc: pd.DataFrame) -> tuple[list[str], list[list[str]]]:
     rows = [
-        [r.feature, r.feature_type, r.method, f"{r.association:+.3f}", r.test, f"{r.n:,}", fmt_p(r.p_adjusted),
+        [r.feature, r.feature_type, r.method, f"{r.association:.3f}" if r.method in ("eta", "cramers_v", "mutual_info") else f"{r.association:+.3f}", r.test, f"{r.n:,}", fmt_p(r.p_adjusted),
          "*" if r.significant else "", f"{r.auc:.3f}" if pd.notna(r.auc) else "",
          f"{r.mutual_info:.3f}" if pd.notna(r.mutual_info) else "", "LEAKAGE?" if r.leakage_suspect else ""]
         for r in assoc.itertuples(index=False)
@@ -437,6 +437,15 @@ class Vision:
             "quality": self.quality,
             "alerts": self.alerts,
             "plots": [str(p) for p in self.plots],
+            "selection": self.selection,
+            "timeseries": self.timeseries,
+            "multivariate": self.multivariate,
+            "outliers": self.outliers,
+            "preparation": self.preparation,
+            "timings": self.timings,
+            "target": self.target,
+            "alpha": self.alpha,
+            "name": self.name,
         })
 
     def to_json(self, path: str | Path) -> Path:
