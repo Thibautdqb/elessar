@@ -575,7 +575,7 @@ def plan(
                          "other_idx = np.setdiff1d(np.arange(len(df)), train_idx)\n")
                 if multi:
                     code = (start + "encoded = pd.DataFrame(index=df.index)\n"
-                            f"classes = sorted(df.loc[known, {target!r}].unique(), key=str)\n"
+                            f"classes = sorted(df.iloc[train_idx][{target!r}].unique(), key=str)\n"
                             "for i, label in enumerate(classes):\n"
                             f"    enc = TargetEncoder(target_type='binary', random_state={cfg.random_state})\n"
                             "    values = np.full((len(df), 1), np.nan)\n"
