@@ -41,7 +41,7 @@ jobs:
           /tmp/fresh/bin/pip install dist/*.whl
           /tmp/fresh/bin/elessar --version
           /tmp/fresh/bin/python -c "import elessar, pandas as pd; elessar.see(pd.DataFrame({'a': range(50), 'b': list('xy') * 25}), verbose=False, plots=False, open_report=False, out_dir='/tmp/fresh_report')"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: dist
           path: dist/
@@ -56,7 +56,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: dist
           path: dist/
@@ -74,7 +74,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: dist
           path: dist/
