@@ -474,8 +474,9 @@ the report's checklist, with its question, its answer and a *yes / no / removed*
 9. **Descriptives** of the component scores: mean, median, mode when uniquely meaningful, standard deviation.
 
 The exploratory verdict is *recommended* when components pass the heuristics and internal-consistency checks;
-reliability alone does not establish unidimensionality or construct validity.
-*indicative* when the sample is small, *not useful* when KMO or Bartlett fail or no scale is reliable.
+Reliability alone does not establish unidimensionality or construct validity. The verdict is
+*indicative* when the sample is small and *not useful* when KMO or Bartlett fail or no internally
+consistent composite can be identified.
 
 Checked on reference data sets whose structure is known: the 25 Big Five items of `psych::bfi` give the five
 factors with the published keying (E1, E2, C4, C5, O2, O5 and A1 reversed) and alphas of .61 to .82, age and
