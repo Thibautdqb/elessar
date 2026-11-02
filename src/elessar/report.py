@@ -88,7 +88,7 @@ _NUMERIC_HEADERS = {"missing", "unique", "mean/top", "std/top%", "min", "max", "
 
 def _pair_rows(pairs: pd.DataFrame) -> tuple[list[str], list[list[str]]]:
     rows = [
-        [r.col_a, r.col_b, r.method, f"{r.value:+.3f}",
+        [r.col_a, r.col_b, r.method, f"{r.value:.3f}" if r.method in ("eta", "cramers_v") else f"{r.value:+.3f}",
          f"[{r.ci_low:+.3f}, {r.ci_high:+.3f}]" if pd.notna(r.ci_low) else "",
          f"{'spearman' if r.method == 'pearson' else 'pearson'} {r.other_value:+.3f}"
          if pd.notna(getattr(r, "other_value", np.nan)) else "", f"{r.n:,}", fmt_p(r.p_adjusted),
