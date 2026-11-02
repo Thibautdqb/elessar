@@ -244,8 +244,8 @@ def _reliability(items: pd.DataFrame, loadings: pd.Series, same_scale: bool,
 
 
 def _mode(x: pd.Series) -> float:
-    m = x.round(2).mode()
-    return float(m.iloc[0]) if len(m) else float("nan")
+    m = x.dropna().round(2).mode()
+    return float(m.iloc[0]) if len(m) == 1 and (x.dropna().round(2) == m.iloc[0]).sum() > 1 else float("nan")
 
 
 def factor_analysis(df: pd.DataFrame, types: dict[str, str], cfg: StoneConfig, target: str | None = None) -> dict[str, Any]:
@@ -443,7 +443,9 @@ def factor_analysis(df: pd.DataFrame, types: dict[str, str], cfg: StoneConfig, t
          else "none: no factor reached an acceptable alpha (>= .60)", bool(scores))
     if descriptives:
         step(9, "Descriptives of the new factors", "; ".join(
-            f"{k}: mean {d['mean']:.2f}, median {d['median']:.2f}, mode {d['mode']:.2f}, sd {d['std']:.2f}"
+            f"{k}: mean {d['mean']:.2f}, median {d['median']:.2f}, "
+            + (f"mode {d['mode']:.2f}, " if np.isfinite(d["mode"]) else "no unique mode, ")
+            + f"sd {d['std']:.2f}"
             for k, d in descriptives.items()), None)
     out.update(scores=pd.DataFrame(scores) if scores else None, descriptives=descriptives, code="\n\n".join(code))
     k = sol["k"]
@@ -463,8 +465,8 @@ def factor_analysis(df: pd.DataFrame, types: dict[str, str], cfg: StoneConfig, t
     else:
         out.update(verdict="recommended", reason=f"{k} factor{'s' if k > 1 else ''} explain {explained:.0f}% of the "
                                                  f"variance of {len(current)} variables (KMO {kmo_all:.2f}, Bartlett p "
-                                                 f"{fmt_p(bart_p)}); {reliable} reliable scale"
-                                                 f"{'s' if reliable != 1 else ''} created")
+                                                 f"{fmt_p(bart_p)}); {reliable} internally consistent component score"
+                                                 f"{'s' if reliable != 1 else ''} created (exploratory, not construct validity)")
     steps.sort(key=lambda st: st["step"])  # stable: removals sit with their step, in the order they happened
     out["defined_by"] = factors
     out["weak_columns"] = [r["item"] for r in out["removed"]]
