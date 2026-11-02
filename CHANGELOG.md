@@ -1,5 +1,14 @@
 # Changelog
 
+### Report/README consistency follow-up (review amendments)
+
+- HTML feature selection legend now describes shadow-feature L1/L2 votes and voting/final-test split; eta effects no longer imply positive direction.
+- Adaptive category grouping uses an independent design/confirmation split with a seven-node Bonferroni guard under IID assumptions. Reproduction and null-calibration checks added.
+- Preparation snippets include numeric bucket imports, complete category mappings and normalization lists; target-encoding examples isolate fitted train rows.
+- Factor summaries now distinguish PCA-derived exploratory composites from validated psychometric constructs, and omit arbitrary tied rounded modes. Outlier advice is explicitly conditional on domain review.
+- JSON export now includes selection, temporal, multivariate, outlier and preparation results while keeping raw tables out of the export.
+
+
 ## 1.2.0rc1 — review candidate (not published)
 
 - Calibrate serial numeric-target shape and missingness tests with conservative TTS, including complete
