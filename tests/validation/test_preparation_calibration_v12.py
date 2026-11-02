@@ -17,6 +17,6 @@ def test_adaptive_category_grouping_iid_null_calibration(record):
         for _ in range(n))
     # Conservative 3-sigma binomial allowance above the nominal 5% bound.
     upper = .05 + 3 * np.sqrt(.05 * .95 / n)
-    record("category_grouping_iid_null", {"n": n, "false_splits": false_splits,
-                                         "rate": false_splits / n, "upper": upper})
+    record(design="category_grouping_iid_null", n=n, false_splits=false_splits,
+           rate=false_splits / n, upper=upper)
     assert false_splits / n <= upper
