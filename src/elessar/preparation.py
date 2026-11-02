@@ -122,6 +122,32 @@ def misspellings(s: pd.Series, max_labels: int = 3_000) -> dict[str, str]:
     return fixes
 
 
+# ------------------------------------------------------------------------------------------- version-safe target encoding
+
+def make_target_encoder(target_type: str, random_state: int = 42):
+    """Use seeded cross-fitting with both the legacy and modern sklearn APIs.
+
+    For sklearn >= 1.9, the cross-validation splitter carries the random
+    state. Earlier supported releases expose the legacy random_state option.
+    Supervised transformations must still be fitted on training rows only.
+    """
+    import re
+
+    import sklearn
+    from sklearn.model_selection import KFold, StratifiedKFold
+    from sklearn.preprocessing import TargetEncoder
+
+    version = re.match(r"^(\d+)\.(\d+)", sklearn.__version__)
+    if version is None:
+        raise RuntimeError(f"Unrecognised scikit-learn version: {sklearn.__version__!r}")
+    major, minor = map(int, version.groups())
+    if (major, minor) >= (1, 9):
+        splitter = (KFold if target_type == "continuous" else StratifiedKFold)(
+            n_splits=5, shuffle=True, random_state=random_state)
+        return TargetEncoder(target_type=target_type, cv=splitter)
+    return TargetEncoder(target_type=target_type, cv=5, random_state=random_state)
+
+
 # ------------------------------------------------------------------------------------------- category grouping
 def group_categories(s: pd.Series, y: pd.Series, regression: bool, cfg: StoneConfig) -> list[list[str]] | None:
     """Merge labels that behave alike towards the target with a small binary tree.
@@ -569,7 +595,7 @@ def plan(
                 multi = not regression and hashable(df[target].dropna()).nunique() > 2
                 start = ("import numpy as np\n"
                          "from sklearn.model_selection import train_test_split\n"
-                         "from sklearn.preprocessing import TargetEncoder\n"
+                         "from elessar.preparation import make_target_encoder\n"
                          "# Example split; replace train_idx with the actual model-training indices.\n"
                          f"known = df[{target!r}].notna().to_numpy()\n"
                          f"train_idx, _ = train_test_split(np.flatnonzero(known), test_size=.2, random_state={cfg.random_state})\n"
@@ -578,7 +604,7 @@ def plan(
                     code = (start + "encoded = pd.DataFrame(index=df.index)\n"
                             f"classes = sorted(df.iloc[train_idx][{target!r}].unique(), key=str)\n"
                             "for i, label in enumerate(classes):\n"
-                            f"    enc = TargetEncoder(target_type='binary', random_state={cfg.random_state})\n"
+                            f"    enc = make_target_encoder(target_type='binary', random_state={cfg.random_state})\n"
                             "    values = np.full((len(df), 1), np.nan)\n"
                             f"    values[train_idx] = enc.fit_transform(df.iloc[train_idx][[{col!r}]], "
                             f"df.iloc[train_idx][{target!r}].eq(label).astype(int))\n"
@@ -588,7 +614,7 @@ def plan(
                             f"df = pd.concat([df.drop(columns=[{col!r}]), encoded], axis=1)")
                 else:
                     kind = "continuous" if regression else "binary"
-                    code = (start + f"enc = TargetEncoder(target_type={kind!r}, random_state={cfg.random_state})\n"
+                    code = (start + f"enc = make_target_encoder(target_type={kind!r}, random_state={cfg.random_state})\n"
                             "values = np.full((len(df), 1), np.nan)\n"
                             f"values[train_idx] = enc.fit_transform(df.iloc[train_idx][[{col!r}]], df.iloc[train_idx][{target!r}])\n"
                             "if len(other_idx):\n"
@@ -636,4 +662,4 @@ def plan(
 
 
 __all__ = ["BKTree", "CLEANING", "TRANSFORMATION", "composite", "edit_distance", "group_categories", "magnitude_mix",
-           "misspellings", "plan", "tree_bins"]
+           "make_target_encoder", "misspellings", "plan", "tree_bins"]
