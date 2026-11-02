@@ -307,7 +307,7 @@ class _Recap:
             if not num.empty:
                 self.add("h", 3, "Numeric columns at a glance", None)
                 self.add("table", ["column", "count", "missing", "mean", "std", "min", "median", "max", "skew", "kurtosis",
-                                   "outliers", "best fit"],
+                                   "IQR outliers", "best fit"],
                          [[[("link", f"col-{list(v.columns).index(c)}"), code(c)], _int(r["count"]), f"{r['pct_missing']:.1f}%",
                            _num(r["mean"]), _num(r["std"]), _num(r["min"]), _num(r["median"]), _num(r["max"]),
                            _num(r["skewness"], 3), _num(r["kurtosis"], 3),
