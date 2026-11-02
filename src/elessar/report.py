@@ -428,7 +428,7 @@ class Vision:
 
     # ------------------------------------------------------------------ exports
     def to_dict(self) -> dict[str, Any]:
-        """JSON-serialisable dict of the whole report."""
+        """JSON-serialisable analysis results (excluding raw input, file handles and rendered HTML)."""
         return jsonable({
             "overview": self.overview,
             "summary": self.summary,
