@@ -509,7 +509,7 @@ after the features suspected of leakage are set aside:
 | Method | Selected when |
 |---|---|
 | **decision tree** (depth chosen by cross-validation) | impurity importance above that of every shadow |
-| **random forest** | permutation importance on held-out rows (all one-hot columns of a feature shuffled together) above twice its standard deviation |
+| **random forest** | permutation importance on voting rows (not the unused final test) (all one-hot columns of a feature shuffled together) above twice its standard deviation |
 | **lasso** (L1; L1 logistic regression for classes; penalty by cross-validation) | coefficient above that of every shadow |
 | **ridge** (L2) | standardised coefficient above that of every shadow |
 | **filter** (univariate test) | significant after BH correction |
@@ -627,7 +627,7 @@ are recomputed for every surrogate. The signed Spearman coefficient remains a de
 
 Groups of columns with mean |Spearman| ≥ 0.7 are proposed for combination.
 
-**Preparation plan**: *cleaning*: invalid values (placeholders, impossible values, infinities), wrong formats
+**Preparation plan** (exploratory; generated code is not a leak-proof model pipeline and outlier actions require source review): *cleaning*: invalid values (placeholders, impossible values, infinities), wrong formats
 (numbers or dates as text, mixed types, stray spaces, a file without a header row), misspellings (case, accents,
 spaces, and 1-2 typos found with a **BK-tree** on the edit distance), duplicates (also ignoring identifier
 columns), consistency (mixed units, values on two scales ~100× or 1000× apart), missing data (strategy by type and
@@ -658,7 +658,7 @@ timedeltas, duplicated or MultiIndex row index. The target can be given by its o
 timestamp…). A randomized test suite generates hostile frames on every CI run. A failing step on one column is
 recorded as an error entry and an alert; it never stops the report.
 
-**Real data**: tested on 55 public datasets (Titanic, adult census, California housing, diamonds, Pokémon, Vega
+**Real data**: historically exercised on 55 public datasets (not all preserved as reproducible fixtures); the versioned validation suite independently rechecks the datasets listed in `VALIDATION.md` (Titanic, adult census, California housing, diamonds, Pokémon, Vega
 movies, NYC taxis, penguins, wine quality, Netflix, Olympic athletes, Spotify, Nobel laureates, members of
 Congress, a 62-column MultiIndex brain-network table…), on the Berka bank data (1 million transactions) and on an
 8-million-row file; the statistical checks against a known truth (simulations, Holzinger-Swineford, the Big Five
