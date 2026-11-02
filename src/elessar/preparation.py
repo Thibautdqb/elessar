@@ -126,7 +126,7 @@ def misspellings(s: pd.Series, max_labels: int = 3_000) -> dict[str, str]:
 def group_categories(s: pd.Series, y: pd.Series, regression: bool, cfg: StoneConfig) -> list[list[str]] | None:
     """Merge labels that behave alike towards the target with a small binary tree.
 
-    Labels are ordered by their target mean (the rate of the minority class for a binary target).
+    Labels are ordered on an independent design half, with Welch tests performed on confirmation rows.
     The tree splits that order in two where the two sides differ most (Welch t-test), and only
     if the difference is significant after a Bonferroni correction for the cut points tried;
     each side then splits again, at most three levels deep. The leaves are the groups.
@@ -140,20 +140,28 @@ def group_categories(s: pd.Series, y: pd.Series, regression: bool, cfg: StoneCon
         if len(top) != 2:
             return None
         frame["y"] = (labels == top.index[-1]).astype(float)
-    frame = frame.dropna()
-    agg = frame.groupby("x")["y"].agg(["size", "sum", lambda v: float((v**2).sum())])
-    agg.columns = ["n", "s", "ss"]
-    agg = agg[agg["n"] >= 5]
-    if len(agg) < 4:
+    frame = frame.dropna().reset_index(drop=True)
+    counts = frame["x"].value_counts()
+    frame = frame[frame["x"].isin(counts[counts >= 10].index)].reset_index(drop=True)
+    if frame["x"].nunique() < 4:
         return None
-    agg = agg.assign(mean=agg["s"] / agg["n"]).sort_values("mean")
-    total = agg["n"].sum()
+    rng = np.random.default_rng(cfg.random_state)
+    design_mask = np.zeros(len(frame), dtype=bool)
+    for _, positions in frame.groupby("x", sort=True).indices.items():
+        permuted = rng.permutation(positions)
+        design_mask[permuted[:len(permuted) // 2]] = True
+    design = frame.loc[design_mask].groupby("x")["y"].agg(["size", "sum", lambda v: float((v**2).sum())])
+    confirm = frame.loc[~design_mask].groupby("x")["y"].agg(["size", "sum", lambda v: float((v**2).sum())])
+    for aggregate in (design, confirm):
+        aggregate.columns = ["n", "s", "ss"]
+    design = design.assign(mean=design["s"] / design["n"]).sort_values("mean", kind="stable")
+    total = design["n"].sum()
 
     def side(rows: pd.DataFrame) -> tuple[float, float, int]:
         n, sm, ss = rows["n"].sum(), rows["s"].sum(), rows["ss"].sum()
         mean = sm / n
         var = max((ss - n * mean**2) / max(n - 1, 1), 1e-12)
-        return mean, np.sqrt(var), int(n)
+        return float(mean), float(np.sqrt(var)), int(n)
 
     def split(rows: pd.DataFrame, depth: int) -> list[list[str]]:
         if depth == 3 or len(rows) < 2:
@@ -163,17 +171,24 @@ def group_categories(s: pd.Series, y: pd.Series, regression: bool, cfg: StoneCon
             left, right = rows.iloc[:k], rows.iloc[k:]
             if min(left["n"].sum(), right["n"].sum()) < 0.05 * total:
                 continue
-            (m1, s1, n1), (m2, s2, n2) = side(left), side(right)
-            res = stats.ttest_ind_from_stats(m1, s1, n1, m2, s2, n2, equal_var=False)
-            if best is None or abs(res.statistic) > best[0]:
-                best = (abs(res.statistic), res.pvalue, k)
-        if best is None or min(1.0, best[1] * (len(rows) - 1)) >= cfg.alpha:
+            left_stats, right_stats = side(left), side(right)
+            statistic = abs(float(stats.ttest_ind_from_stats(
+                *left_stats, *right_stats, equal_var=False).statistic))
+            if np.isfinite(statistic) and (best is None or statistic > best[0]):
+                best = (statistic, k)
+        if best is None:
             return [list(map(str, rows.index))]
-        return split(rows.iloc[:best[2]], depth + 1) + split(rows.iloc[best[2]:], depth + 1)
+        k = best[1]
+        p = float(stats.ttest_ind_from_stats(*side(confirm.loc[rows.index[:k]]),
+                                           *side(confirm.loc[rows.index[k:]]), equal_var=False).pvalue)
+        # Up to seven adaptively visited nodes, each tested on independent confirmation rows:
+        # Bonferroni across all nodes, not only cutpoints on one chosen ordering.
+        if not np.isfinite(p) or p >= cfg.alpha / 7:
+            return [list(map(str, rows.index))]
+        return split(rows.iloc[:k], depth + 1) + split(rows.iloc[k:], depth + 1)
 
-    groups = split(agg, 0)
-    return groups if 1 < len(groups) < len(agg) else None
-
+    groups = split(design, 0)
+    return groups if 1 < len(groups) < len(design) else None
 
 _FIT_ON_TRAIN = ("Learnt from the target on every row: for a model, learn it again on the training rows only, "
                  "or the validation score is optimistic")
@@ -455,7 +470,7 @@ def plan(
                                        f"irregular shape (modes, heaping or heavy skew): {len(cuts) + 1} bins chosen by "
                                        f"a decision tree on {target!r}. {_FIT_ON_TRAIN}",
                                        f"{_FIT_COMMENT}\n"
-                                       f"df[{col!r} + '_bin'] = pd.cut(df[{col!r}], [{edges}])"))
+                                       f"import numpy as np\n" f"df[{col!r} + '_bin'] = pd.cut(df[{col!r}], [{edges}])"))
             if stype in CATEGORY_TYPES and stype != "boolean" and target is not None and (st.get("cardinality") or 0) >= 4:
                 groups = _safe(group_categories, df[col], y, regression, cfg)
                 if groups:
@@ -465,10 +480,9 @@ def plan(
                                        for g in groups[:4])
                     steps.append(_step("transformation", "Bucketing", col,
                                        f"{st['cardinality']} labels behave as {len(groups)} groups towards {target!r} "
-                                       f"(significance-tested binary tree): {shown}. {_FIT_ON_TRAIN}",
+                                       f"(independently confirmed binary tree under IID): {shown}. {_FIT_ON_TRAIN}",
                                        f"{_FIT_COMMENT}\n"
-                                       f"df[{col!r} + '_group'] = df[{col!r}].map({dict(list(mapping.items())[:12])!r})"
-                                       + ("  # ...truncated" if len(mapping) > 12 else "")))
+                                       f"df[{col!r} + '_group'] = df[{col!r}].map({mapping!r})"))
     # transform first (a power transform needs the original, positive values), then put the columns on one scale
     numeric_cols = [c for c in df.columns if types.get(c) in NUMERIC_TYPES and c != target and types.get(c) != "boolean"
                     and c not in dropped]
@@ -531,7 +545,7 @@ def plan(
     if len(sym) >= 2 and not rescaled:  # after a rescale every numeric column is already on a common scale
         steps.append(_step("transformation", "Normalization", None,
                            f"{len(sym)} roughly symmetric columns: z-score them (mean 0, sd 1) for linear and distance "
-                           "models", f"cols = {sym[:12]!r}\ndf[cols] = (df[cols] - df[cols].mean()) / df[cols].std()"))
+                           "models", f"cols = {sym!r}\ndf[cols] = (df[cols] - df[cols].mean()) / df[cols].std()"))
     for col, d in details.items():
         if col == target:
             continue
@@ -552,28 +566,32 @@ def plan(
                 # Binary encoders also support multiclass one-vs-rest on sklearn 1.3.
                 # Explicit target types avoid treating integer regression targets as classes.
                 multi = not regression and hashable(df[target].dropna()).nunique() > 2
-                start = ("from sklearn.preprocessing import TargetEncoder\n"
-                         "# fit on labelled training rows only; transform validation/test separately\n"
-                         f"known = df[{target!r}].notna()\n")
+                start = ("import numpy as np\n"
+                         "from sklearn.model_selection import train_test_split\n"
+                         "from sklearn.preprocessing import TargetEncoder\n"
+                         "# Example split; replace train_idx with the actual model-training indices.\n"
+                         f"known = df[{target!r}].notna().to_numpy()\n"
+                         f"train_idx, _ = train_test_split(np.flatnonzero(known), test_size=.2, random_state={cfg.random_state})\n"
+                         "other_idx = np.setdiff1d(np.arange(len(df)), train_idx)\n")
                 if multi:
                     code = (start + "encoded = pd.DataFrame(index=df.index)\n"
                             f"classes = sorted(df.loc[known, {target!r}].unique(), key=str)\n"
                             "for i, label in enumerate(classes):\n"
                             f"    enc = TargetEncoder(target_type='binary', random_state={cfg.random_state})\n"
                             "    values = np.full((len(df), 1), np.nan)\n"
-                            f"    values[known] = enc.fit_transform(df.loc[known, [{col!r}]], "
-                            f"df.loc[known, {target!r}].eq(label).astype(int))\n"
-                            "    if (~known).any():\n"
-                            f"        values[~known] = enc.transform(df.loc[~known, [{col!r}]])\n"
+                            f"    values[train_idx] = enc.fit_transform(df.iloc[train_idx][[{col!r}]], "
+                            f"df.iloc[train_idx][{target!r}].eq(label).astype(int))\n"
+                            "    if len(other_idx):\n"
+                            f"        values[other_idx] = enc.transform(df.iloc[other_idx][[{col!r}]])\n"
                             f"    encoded[{col!r} + '__target_' + str(i)] = values[:, 0]\n"
                             f"df = pd.concat([df.drop(columns=[{col!r}]), encoded], axis=1)")
                 else:
                     kind = "continuous" if regression else "binary"
                     code = (start + f"enc = TargetEncoder(target_type={kind!r}, random_state={cfg.random_state})\n"
                             "values = np.full((len(df), 1), np.nan)\n"
-                            f"values[known] = enc.fit_transform(df.loc[known, [{col!r}]], df.loc[known, {target!r}])\n"
-                            "if (~known).any():\n"
-                            f"    values[~known] = enc.transform(df.loc[~known, [{col!r}]])\n"
+                            f"values[train_idx] = enc.fit_transform(df.iloc[train_idx][[{col!r}]], df.iloc[train_idx][{target!r}])\n"
+                            "if len(other_idx):\n"
+                            f"    values[other_idx] = enc.transform(df.iloc[other_idx][[{col!r}]])\n"
                             f"df[[{col!r}]] = values")
             else:
                 code = f"df[{col!r}] = df[{col!r}].map(df[{col!r}].value_counts(normalize=True))"
