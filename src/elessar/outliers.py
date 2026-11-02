@@ -8,7 +8,7 @@ A point flagged by at least two methods is a consensus outlier. For each column 
 proposes to **remove** (values so far out they are likely errors: more than 10 robust standard deviations,
 on the log scale for a positive, right-skewed column, from a column whose other values have light tails) or
 **reassign** them (cap at the boxplot fences: the
-tail is real but too influential).
+tail may be valid but could be influential).
 """
 
 from __future__ import annotations
@@ -73,14 +73,14 @@ def column_outliers(x: pd.Series, cfg: StoneConfig | None = None) -> dict[str, A
         action, why = "keep", "no point is flagged by two methods"
     elif extreme and extreme <= max(3, 0.002 * len(v)) and light:
         action, why = "remove", (f"{extreme} value{'s are' if extreme > 1 else ' is'} more than 10 robust standard "
-                                 "deviations away from a light-tailed column: likely entry or unit errors")
+                                 "deviations away from a light-tailed column: possible entry or unit errors; verify against the source before deleting")
     elif extreme and extreme <= max(3, 0.002 * len(v)):
         action, why = "reassign", (f"{extreme} value{'s are' if extreme > 1 else ' is'} more than 10 robust standard "
                                    "deviations away, but the rest of the column is heavy-tailed: such values happen, "
-                                   "check them before removing anything; meanwhile cap the consensus outliers at the "
+                                   "check them before removing anything; meanwhile consider whether to cap the consensus outliers at the "
                                    "boxplot fences (winsorize) or use robust models")
     else:
-        action, why = "reassign", (f"{n_cons} consensus outliers form a real but influential tail: cap them at the "
+        action, why = "reassign", (f"{n_cons} consensus outliers form a real but influential tail: consider whether to cap them at the "
                                    "boxplot fences (winsorize) or use robust models")
     # Positional masks retain missing rows and work even when row labels repeat.
     present = x.replace([np.inf, -np.inf], np.nan).notna().to_numpy()
