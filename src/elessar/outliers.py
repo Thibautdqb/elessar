@@ -5,10 +5,9 @@
 - **modified z (Hampel)**: |0.6745 (x - median) / MAD| > 3.5, robust to the outliers themselves.
 
 A point flagged by at least two methods is a consensus outlier. For each column elessar then
-proposes to **remove** (values so far out they are likely errors: more than 10 robust standard deviations,
-on the log scale for a positive, right-skewed column, from a column whose other values have light tails) or
-**reassign** them (cap at the boxplot fences: the
-tail may be valid but could be influential).
+proposes an optional source-reviewed **removal** (possible extreme unit or entry anomalies, not
+statistically proven errors) or **winsorisation** (cap at Tukey fences if analytically justified).
+Exploratory flags are not ground truth; leave valid observations unchanged.
 """
 
 from __future__ import annotations
