@@ -95,10 +95,20 @@ class StoneConfig:
     pearson_max_kurtosis: float = 3.0
     """A numeric pair is tested with Pearson when both columns have |skewness| and |excess kurtosis| below
     these, with Spearman otherwise. The choice looks only at each column's shape, never at the pair's
-    association, so the test keeps its stated error rate."""
+    association. This avoids selecting the larger observed coefficient; p-value validity still depends on
+    the test's sampling/distribution assumptions, not on this heuristic alone."""
     leakage_threshold: float = 0.98
+    exclude_features: tuple[str, ...] = ()
+    """Features known from provenance to be unavailable at prediction time; excluded explicitly."""
+    exclude_target_aliases: bool = True
+    """Quarantine observed exact affine/bijective target aliases. Near-perfect associations only raise a warning.
+    Set False only when provenance establishes availability before the outcome; this is not a causal test."""
     vif_threshold: float = 10.0
     """Variance inflation factor above which a column is flagged as multicollinear."""
+    serial_shift_radius: int = 99
+    """Maximum TTS radius; the actual radius is min(this, n_time//4), fixed without inspecting associations."""
+    serial_max_points: int = 2_000
+    """Maximum consecutive time points for serial TTS tests; whole entity vectors are retained for panels."""
 
     # quality
     high_missing_pct: float = 50.0

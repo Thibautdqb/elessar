@@ -16,12 +16,13 @@ import pytest
 from elessar import see
 
 pytestmark = pytest.mark.validation
-SOURCE = "https://raw.githubusercontent.com/mwaskom/seaborn-data/master/"
+SOURCE_COMMIT = "71e2436a092d714350de0fc409ca8a8714e7e78f"
+SOURCE = f"https://raw.githubusercontent.com/mwaskom/seaborn-data/{SOURCE_COMMIT}/"
 CACHE = Path(os.environ.get("ELESSAR_VALIDATION_DATA", Path.home() / ".cache" / "elessar-validation"))
 
 
 def _path(name: str) -> Path:
-    local = CACHE / f"seaborn_{name}.csv"
+    local = CACHE / f"seaborn_{SOURCE_COMMIT[:12]}_{name}.csv"
     if not local.exists():
         try:
             local.parent.mkdir(parents=True, exist_ok=True)

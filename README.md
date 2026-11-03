@@ -11,9 +11,13 @@
 
 **Automated exploratory data analysis and data-quality profiling.**
 
+**1.2 review candidate:** the development branch prepares `1.2.0rc1`. Its conditional guarantees and
+release gates are in the [scientific contract](docs/SCIENTIFIC_CONTRACT.md) and
+[release review record](docs/RELEASE_1_2.md); this does not publish a release.
+
 One function call (`elessar.see(df)`, or `elessar.see("sales.parquet")`) or one command (`elessar data.csv`) gives
-you the semantic type of every column, full descriptive statistics, the best-fitting distribution, associations
-between all columns with significance tests, target and leakage analysis, feature selection, PCA and factor
+you semantic types, descriptive statistics, the best-ranked candidate distribution, supported associations
+with conditional or approximate significance where statistically justified, target associations and leakage-provenance warnings, feature selection, PCA and factor
 analysis, outliers, time series, data-quality alerts and a preparation plan with the code to apply it, and
 report-ready charts.
 
@@ -23,14 +27,13 @@ report-ready charts.
   <img src="https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/terminal.svg" alt="elessar installed and run on the Titanic dataset in a terminal, then its HTML report opening in a browser and scrolling (key findings, overall statistics, target analysis, feature selection, distributions, outliers)" width="900">
 </p>
 
-Every decision elessar takes (a column's type, whether a table is a time series, whether a date is a date of
-birth, whether PCA or a factor analysis is worth it, what to do with an outlier) is an **explicit decision tree**
-of named yes / no questions with stated thresholds, and the report shows the path each decision took. They are
-all drawn in [How elessar decides](#how-elessar-decides).
+Elessar reports an **explicit decision path for semantic column typing**. Other analyses use statistical tests,
+optimisation, fitted models and documented diagnostic rules; not all their results are yes/no decision trees.
+Their methods and limits are explained in [How elessar decides](#how-elessar-decides).
 
 **Contents**: [What you get](#what-you-get) · [Install](#install) · [Quickstart](#quickstart) ·
 [Any input, any size](#any-input-any-size) · [API](#api) · [How elessar decides](#how-elessar-decides) ·
-[What it computes](#what-it-computes) · [Sample terminal output](#sample-terminal-output) · [Plots](#plots) ·
+[What it computes](#what-it-computes) · [Sample terminal output](#terminal-output) · [Plots](#plots) ·
 [Development](#development)
 
 ## What you get
@@ -44,30 +47,33 @@ your terminal and in one HTML page:
   certainty of each decision
 - **dates of birth** told apart from event dates, and turned into ages
 - **full descriptive statistics** adapted to each type, with confidence intervals
-- the **best-fitting statistical distribution** (MLE, ranked by AIC) and four normality tests
-- **associations of every kind with statistical significance**: Pearson, Spearman, Kendall, Cramér's V,
+- **likelihood-based numerical distribution candidates**, ranked by AIC, and four normality diagnostics
+- **supported associations with inference under documented assumptions**: Pearson, Spearman, Kendall, Cramér's V,
   correlation ratio, mutual information, AUC, with p-values, Benjamini-Hochberg correction and confidence intervals;
-  in a table indexed by time, non-stationary columns are tested on their differences and every test on the
-  effective sample size of autocorrelated rows
-- **target analysis**: feature ranking, **leakage detection**, informative missingness
-- **feature selection** by embedded methods (decision tree, random forest, lasso, ridge) and a filter, each
-  model tuned by cross-validation and scored on held-out rows, a vote per feature against shuffled shadows
-- **multivariate statistics**: whether **PCA** is worth it (Bartlett, KMO, parallel analysis), a **factor
-  analysis** run step by step as it is taught (KMO and Bartlett, communalities, number of factors, varimax,
-  Cronbach's alpha, scale scores), redundant groups of columns, rows that are outliers on several columns at once
-- **outliers** found three ways (3 sigma, boxplot, modified z) and listed point by point, with whether to keep,
-  remove or reassign them
+  in a table indexed by time, non-stationary columns are tested on their differences and numeric
+  Pearson/Spearman tests use a lag-1 effective sample size; serial Kendall/categorical/mixed tests use
+  conservative truncated time shifts with explicit stationarity conditions
+- **target analysis**: feature ranking, **leakage-suspect flags requiring provenance review** (association alone cannot prove leakage), informative missingness
+- **feature selection** by embedded methods (decision tree, random forest, lasso, ridge) and a filter, with
+  tree depth and linear penalties tuned by cross-validation, model scores on held-out rows, and a vote
+  per feature against shuffled shadows
+- **multivariate statistics**: whether **PCA** is worth it (Bartlett, KMO, parallel analysis),
+  PCA-based component extraction with varimax rotation (not a fitted common-factor model),
+  exploratory composite scores and internal-consistency diagnostics (Cronbach's alpha / Spearman-Brown),
+  redundant groups of columns and multivariate outliers
+- **outliers** flagged three ways (3 sigma, boxplot, modified z); optional cleaning recommendations require
+domain review because an extreme measurement is not necessarily erroneous
 - **time series** recognised on their own (single series, panel, event log): trend, stationarity, seasonality,
   decomposition, windows, validation folds on the real dates, augmentation recipes
 - a **preparation plan**: every cleaning step (invalid values, wrong formats, misspellings, duplicates,
   consistency, missing data, outliers) and transformation (bucketing, decomposition, aggregation, combination,
   rescaling, normalisation, transformation, encoding, dimensionality reduction), each with its reason and its code
 - **data quality** checks and **actionable alerts** (with the code to fix them): placeholders, duplicates,
-  multicollinearity, values missing not at random, sorted rows…
+  multicollinearity, missingness associated with observed columns (evidence against MCAR), sorted rows…
 - a set of **plots that actually carry information**, saved as PNG files, and **one HTML page** with everything
-- **any input, any size**: CSV, Parquet, Excel, JSON, SQLite, SAS, Stata… or polars, pyarrow, dask, NumPy
-  objects; files bigger than memory are **typed progressively and streamed in parallel**, with exact counts over
-  every row
+- **many tabular input formats, with resource-dependent limits**: CSV, Parquet, Excel, JSON, SQLite, SAS, Stata… or polars, pyarrow, dask, NumPy
+  objects; files bigger than memory are **typed progressively and streamed in parallel**, with exact
+  row and missing-value counts over the full table (high-cardinality distinct counts are approximate)
 
 It is built for scripts and the terminal: plain-text output that fits your terminal width, files on disk, no
 display needed (except to click the target, if you ask for it).
@@ -131,8 +137,9 @@ blocks with a copy button, and collapsible sections per column; it works offline
   was typed** (its path down the decision tree and the certainty of the decision) and, for a sampled big table,
   the **exact figures over every row**
 - **target analysis**: ranking with tests, AUC and mutual information, informative missingness, target charts
-- **feature selection**: every method's importance per feature, the vote, the cross-validated score of each
-  model, the lasso path
+- **feature selection**: each method's importance and votes, model hyperparameters selected by
+  training-only cross-validation, model scores on separate voting rows, and (when available) the
+  independently held-out score of a refitted model on the frozen selected subset; plus the L1 path
 - **time series** (when the table is one): structure, trend, stationarity, seasonality, decomposition and
   autocorrelation charts, the per-entity table of a panel, the treatment and the validation folds
 - **distributions**: for every numeric column the normality tests, the best fit with its parameters, Akaike
@@ -232,6 +239,9 @@ On macOS and Windows, where a process cannot be forked safely (Windows has no fo
 numerical libraries), the chunks of a big file are read and summarised by fresh processes on every core instead
 (they are self-contained: a byte range or a row group), even from a script without an
 `if __name__ == "__main__":` guard; the other steps run in one process. Results are the same everywhere.
+
+Historical 1.1 timings, not remeasured for the preliminary changes. They are not performance claims for
+the new tuning pipeline.
 
 | Table (full run: every analysis, every chart, the report) | Time (14 cores) |
 |---|---|
@@ -422,9 +432,9 @@ replaced by the median):
 
 The report also gives Kaiser's rule and the components needed for 80 / 90 / 95 % of the variance.
 
-### 5. Factor analysis, step by step
+### 5. PCA-based exploratory factor extraction, step by step
 
-The factor analysis follows the method as it is taught and reported in SPSS-style studies. Each step is a line of
+PCA-based exploratory component extraction with varimax is not a fitted common-factor model or a proof of construct validity. Each step is a line of
 the report's checklist, with its question, its answer and a *yes / no / removed* mark.
 
 <p align="center"><img src="https://raw.githubusercontent.com/thibautdqb/elessar/main/docs/diagrams/6_factor_analysis.png" alt="Factor analysis in nine steps, with the loops that remove items and reduce the number of factors" width="620"></p>
@@ -462,10 +472,12 @@ the report's checklist, with its question, its answer and a *yes / no / removed*
    for two items (Eisinga, te Grotenhuis & Pelzer, 2013).
 8. **New factors**, only for the scales with an acceptable reliability: the mean of their items, with the code for the
    mean of the answered items and for the version requiring every item (`MEAN.k`).
-9. **Descriptives** of the new factors: mean, median, mode, standard deviation.
+9. **Descriptives** of the component scores: mean, median, mode when uniquely meaningful, standard deviation.
 
-The verdict is *recommended* when the factors pass every step and at least one reliable scale is created,
-*indicative* when the sample is small, *not useful* when KMO or Bartlett fail or no scale is reliable.
+The exploratory verdict is *recommended* when components pass the heuristics and internal-consistency checks;
+Reliability alone does not establish unidimensionality or construct validity. The verdict is
+*indicative* when the sample is small and *not useful* when KMO or Bartlett fail or no internally
+consistent composite can be identified.
 
 Checked on reference data sets whose structure is known: the 25 Big Five items of `psych::bfi` give the five
 factors with the published keying (E1, E2, C4, C5, O2, O5 and A1 reversed) and alphas of .61 to .82, age and
@@ -494,25 +506,49 @@ confirmed by an isolation forest; flagged as indicative when more than 15 % of r
 ### 7. Which features to keep
 
 With a target, the features (numeric, and categorical one-hot encoded but scored as one) go through five methods,
-after the features suspected of leakage are set aside:
+after configured provenance exclusions and observed exact target aliases are quarantined on training rows (a strong association alone does not imply leakage):
 
 | Method | Selected when |
 |---|---|
 | **decision tree** (depth chosen by cross-validation) | impurity importance above that of every shadow |
-| **random forest** | permutation importance on held-out rows (all one-hot columns of a feature shuffled together) above twice its standard deviation |
+| **random forest** | permutation importance on voting rows (not the unused final test) (all one-hot columns of a feature shuffled together) above twice its standard deviation |
 | **lasso** (L1; L1 logistic regression for classes; penalty by cross-validation) | coefficient above that of every shadow |
 | **ridge** (L2) | standardised coefficient above that of every shadow |
 | **filter** (univariate test) | significant after BH correction |
 
 A **shadow** is a feature with its rows shuffled: same distribution, no link with the target (as in Boruta).
 The tree, the lasso and ridge are refitted with one shadow per feature, at the setting they tuned, and vote for
-a feature only when it beats every shadow: on pure noise with a binary target, 1.5 % of the features are kept
-(28 % with the former fixed thresholds). Selected by 3 methods or more = **keep**, 2 = **borderline**, else
-**drop**. 20 % of the rows are set aside first; every model is tuned by 5-fold cross-validation on the others,
-with imputation and scaling learnt there too, and scored once on the held-out rows (R², ROC AUC for a binary
-target, balanced accuracy). Rows with dates are sorted in time, the folds cut between two dates and the
-held-out rows are the most recent; when the target is not stationary, its changes are modelled from the changes
-of the other non-stationary columns.
+a feature only when it beats every shadow. Selected by 3 methods or more = **keep**, 2 = **borderline**, else
+**drop**. About 80 % of rows train the selector, 10 % vote and 10 % form a separate final test. Partitions
+are fixed without consulting target values. Leakage exclusions, the filter and category vocabulary use training rows.
+During tuning, imputation and scaling are fitted inside each fold; the forest uses fixed settings.
+Lasso uses a fixed alpha grid from
+1e-6 to 1e6; ridge and logistic regularisation also use explicit grids. These finite grids can miss an
+appropriate setting for unusual scales or difficult tasks.
+
+Rows with dates are sorted in time. Dates remain indivisible in both the holdout and internal folds; the
+holdout fraction and number of folds can change when necessary, and selection is unavailable when a valid
+split cannot be formed. Automatic differencing is decided on outer training rows, then applied causally
+within each entity. Scores are R², ROC AUC for a binary target, or balanced accuracy.
+
+**Score scope:** `scores` diagnose the base models on voting rows, which also determine forest importance.
+`consensus_evaluation` separately assesses the final kept subset with a predefined random forest (100 trees,
+leaf size 3, fixed feature-sampling rule), refitted on training + voting rows and scored once on the final
+test. An empty subset uses a training-prior dummy model. The final test never votes or tunes a model.
+`n_holdout` remains the total reserved from tuning, now divided into `n_voting` and `n_final_test`.
+The full report learns selection types on training rows; callers supplying types directly must fix them
+independently of final outcomes. Small tables, impossible temporal cuts, externally supplied difference
+policies or undefined metrics report the independent assessment as unavailable, with a reason.
+High target association raises a provenance warning and retains near-deterministic predictors. Known
+post-outcome variables can be named in `StoneConfig(exclude_features=("column",))`. Observed exact affine or
+low-cardinality bijective target aliases are quarantined by default on training rows; this explicit policy
+can be overridden with `exclude_target_aliases=False` when pre-outcome availability is established.
+Association alone does not establish leakage: inspect provenance and availability at prediction time.
+
+Screening/stationarity choices are not all refitted inside every inner fold. The unused final test measures
+the outcome of that complete adaptive procedure; it does not make the internal CV fully nested. A chronological
+test estimates future-block performance without assuming its rows are IID. See the
+[serial and consensus validation record](docs/VALIDATION_V12_SERIAL_CONSENSUS.md) for executed checks and limits.
 
 ## What it computes
 
@@ -539,41 +575,67 @@ weekdays, quarters, 1-5 integer scales, ordered categoricals), `datetime`, `date
 - *text*: length and word counts, empty / whitespace-only strings, share of digits / uppercase / punctuation, most
   common tokens
 
-**Distributions**: Shapiro-Wilk, D'Agostino K², Jarque-Bera and Anderson-Darling with a majority verdict; MLE fits
+**Distributions**: Shapiro-Wilk, D'Agostino K², Jarque-Bera and Anderson-Darling with an exploratory majority
+verdict (not a combined calibrated test); likelihood-based numerical fits
 of `norm, lognorm, expon, gamma, weibull_min, beta, uniform, logistic, t, laplace, pareto, chi2, cauchy`
 (continuous) or `poisson, nbinom, geom, binom` (discrete), with support handling (shifted / rescaled fits), ranked
-by AIC, with ΔAIC, Akaike weights, BIC and the KS statistic / p-value (KS p-values are optimistic when the
-parameters are estimated from the same data: that is reported too). Integer data get a proper goodness of fit
-(gap on the integer support, chi-square test) instead of KS, which ties inflate. A value holding 30 % or more of a
+by AIC, with ΔAIC, Akaike weights, BIC and CDF-gap diagnostics. Calibrated fitted-model `ks_pvalue` is
+unavailable: the same-data approximation is retained only as `diagnostic_pvalue`, with its fitting/selection
+limitations. Integer data use both sides of jumps on the integer support and a grouped chi-square
+diagnostic. These are not refitting-aware calibrated goodness-of-fit tests. A value holding 30 % or more of a
 continuous column (rain: 57 % exact zeros) is reported as a point mass and the candidates are fitted to the rest;
 fits that collapse onto repeated values are rejected. Each candidate has a timeout.
+The binomial candidate profiles its likelihood over integer trial counts up to 100,000, with p=mean/n.
+The search domain is reported with the fit; a maximum at the upper search limit is rejected. This is not
+a claim of an unconstrained maximum over all integers, and a scientifically known trial count should
+take precedence in a modelling analysis.
 
 **Associations and significance** (`see_corr` keys)
 
 | Key | Content |
 |---|---|
 | `pearson`, `spearman`, `kendall` + `*_p`, `n_numeric` | num-num matrices, their p-value matrices and pairwise-complete counts |
-| `cramers_v` + `cramers_v_p` + `cramers_v_n` | bias-corrected Cramér's V with chi-square p-values |
-| `eta` + `eta_p` + `eta_n` | correlation ratio (categorical rows × numeric columns) with Kruskal-Wallis p-values |
+| `kendall_n` | tested central-window row counts for serial Kendall (distinct from full `n_numeric`) |
+| `cramers_v` + `cramers_v_p` + `cramers_v_n` | bias-corrected Cramér's V; IID chi-square or serial TTS p-values |
+| `eta` + `eta_p` + `eta_n` | correlation ratio (categorical rows × numeric columns); IID Kruskal-Wallis or serial TTS p-values |
 | `association`, `association_p` | one matrix over every column: Spearman, Cramér's V or eta depending on the pair |
 | `pairs`, `top_pairs` | every pair tested (method, n, test, p, **BH-adjusted p**, significant, **Fisher 95 % CI**, the other coefficient and why the method was chosen), and those above `corr_threshold`; a numeric pair is tested with Pearson when both columns are roughly symmetric with light tails, with Spearman otherwise |
 | `numeric_shape` | skewness and excess kurtosis of each numeric column, and whether it is shaped for Pearson |
-| `serial`, `n_effective` | for rows indexed by time: the lag-1 autocorrelation of each column, whether it was replaced by its first differences (not shown stationary by ADF and KPSS), and Bartlett's effective sample size n (1 − r₁r₂) / (1 + r₁r₂) used by every test |
+| `serial`, `n_effective` | for rows indexed by time: lag-1 autocorrelations, differencing status, and Bartlett's effective sample size n (1 − r₁r₂) / (1 + r₁r₂) used for Pearson/Spearman; a limited model-based approximation |
+| `serial_inference` | serial TTS per-pair effects, row/time counts, radius, exceedances, p-value, conditions and unsupported-input reasons |
+| `inference_limits` | TTS stationarity conditions, Bartlett numeric-pair approximations and IID moment intervals; surfaced as an alert |
 | `vif` | variance inflation factor of each numeric feature (multicollinearity) |
 | `linear_dependencies` | exact linear relations recovered as equations, e.g. `Total = 1·HP + 1·Attack + 1·Defense + …` |
-| `missingness` | does a column go missing more for some values of another column? (Mann-Whitney / chi-square, BH-adjusted: evidence against MCAR) |
-| `target` | each feature vs the target: association, test (Spearman with a Kruskal-Wallis across deciles, Bonferroni, which also sees U-shaped links / Kruskal-Wallis / Mann-Whitney / chi-square), p, BH-adjusted p, AUC (binary target), mutual information, leakage flag |
-| `missing_target` | is the target different when a feature is missing? (informative missingness) |
+| `missingness` | missing-indicator associations: IID Mann-Whitney / chi-square or serial TTS of centred AUC / V, BH-adjusted; evidence against MCAR |
+| `target` | each feature vs the target: IID association tests or serial TTS; numeric serial targets use a fixed Spearman/rank-decile eta omnibus that also sees U-shaped links; p, BH-adjusted p, AUC, mutual information and provenance warning |
+| `missing_target` | is the target different when a feature is missing? IID or serial missing-indicator test with the same assumptions as `missingness` |
+
+For serial Kendall/categorical/mixed associations, effects and tests use the same fixed central window of
+**original levels**. There is no adaptive stationarity/differencing pretest for TTS. The method tests
+independence of the entire processes, requires at least one to be strictly stationary and assumes a fixed
+statistic/type policy. Automatic typing or ADF/KPSS cannot certify these conditions. It is not a general
+test for two nonstationary processes or for conditional/causal dependence.
+
+The conservative rule is `min(1, max(B_forward, B_reverse)/(r+1))`, including ties and zero shift. Radius
+`r=min(serial_shift_radius, n_time//4)` depends only on length. Defaults are 99 and at most 2,000 consecutive
+time points (`serial_max_points`), within the row sampling budget. No circular wrapping or random temporal
+thinning is used. Balanced panels shift whole entity vectors synchronously, preserving cross-entity
+dependence. Missing observations, irregular grids and unbalanced panels return unavailable p-values
+instead of an IID fallback. With radius 99 the smallest p-value is 0.01: multiplicity can substantially
+limit power. Choose larger fixed budgets before analysing results when necessary. See
+[Yuan & Shou (2024)](https://doi.org/10.1371/journal.pbio.3002758). For missingness, the complete indicator
+is tested; gaps in its comparator still make inference unavailable. Numeric-target omnibus statistics
+are recomputed for every surrogate. The signed Spearman coefficient remains a descriptive effect.
 
 Groups of columns with mean |Spearman| ≥ 0.7 are proposed for combination.
 
-**Preparation plan**: *cleaning*: invalid values (placeholders, impossible values, infinities), wrong formats
+**Preparation plan** (exploratory; generated code is not a leak-proof model pipeline and outlier actions require source review): *cleaning*: invalid values (placeholders, impossible values, infinities), wrong formats
 (numbers or dates as text, mixed types, stray spaces, a file without a header row), misspellings (case, accents,
 spaces, and 1-2 typos found with a **BK-tree** on the edit distance), duplicates (also ignoring identifier
 columns), consistency (mixed units, values on two scales ~100× or 1000× apart), missing data (strategy by type and
 by missingness mechanism), outliers to remove or reassign. *Transformation*: bucketing (numeric cut points from a
-decision tree on the target; labels merged by a **binary tree that only splits where the target differs
-significantly**, Bonferroni-corrected), decomposition (dates into calendar parts, dates of birth into ages, lists
+decision tree on the target; labels merged by an adaptive binary tree whose ordering and cuts are selected on one half of the rows and
+confirmed on independent rows (at most seven tests with a Bonferroni familywise bound under IID assumptions), decomposition (dates into calendar parts, dates of birth into ages, lists
 into 0/1 columns, cells holding several data items such as `"Paris, France"` or `"1920x1080"` split), aggregation
 (time series, panels), combination (redundant groups, exact linear relations, factor scores), rescaling,
 normalisation, transformation of skewed columns (Box-Cox / log / Yeo-Johnson, with the skewness before and after),
@@ -598,7 +660,7 @@ timedeltas, duplicated or MultiIndex row index. The target can be given by its o
 timestamp…). A randomized test suite generates hostile frames on every CI run. A failing step on one column is
 recorded as an error entry and an alert; it never stops the report.
 
-**Real data**: tested on 55 public datasets (Titanic, adult census, California housing, diamonds, Pokémon, Vega
+**Real data**: historically exercised on 55 public datasets (not all preserved as reproducible fixtures); the versioned validation suite independently rechecks the datasets listed in `VALIDATION.md` (Titanic, adult census, California housing, diamonds, Pokémon, Vega
 movies, NYC taxis, penguins, wine quality, Netflix, Olympic athletes, Spotify, Nobel laureates, members of
 Congress, a 62-column MultiIndex brain-network table…), on the Berka bank data (1 million transactions) and on an
 8-million-row file; the statistical checks against a known truth (simulations, Holzinger-Swineford, the Big Five
@@ -609,9 +671,10 @@ Cabin is missing; taxi tips always 0 when the payment type is missing; movie tit
 *1776*); Nobel laureates' and congressmen's birth dates, with their ages at the award or at the start of the term;
 the five personality factors of the Big Five questionnaire; files sorted by price or year.
 
-## Sample terminal output
+## Historical sample terminal output (v1.1; not a current v1.2 validation trace)
 
-The Kaggle Titanic training set (`elessar train.csv --target Survived`), excerpt:
+Historical 1.1 excerpt from the Kaggle Titanic training set (`elessar train.csv --target Survived`).
+These illustrative numbers are not validation results for the preliminary changes above:
 
 ```
 ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -711,12 +774,12 @@ TARGET ANALYSIS
   feature   type                method     association  test            n   p_adj  sig    AUC     MI  flag
   ────────  ──────────────────  ─────────  ───────────  ────────────  ───  ──────  ───  ─────  ─────  ────
   Sex       categorical         cramers_v       +0.543  chi-square    891   3e-58  *           0.218
-  Pclass    ordinal-candidate   eta             +0.338  mann-whitney  891   1e-23  *    0.319  0.084
-  Fare      numeric_continuous  eta             +0.257  mann-whitney  891   1e-21  *    0.692  0.101
+  Pclass    ordinal-candidate   eta              0.338  mann-whitney  891   1e-23  *    0.319  0.084
+  Fare      numeric_continuous  eta              0.257  mann-whitney  891   1e-21  *    0.692  0.101
   Embarked  categorical         cramers_v       +0.166  chi-square    889   3e-06  *           0.021
-  Parch     numeric_discrete    eta             +0.082  mann-whitney  891   5e-05  *    0.561  0.024
-  Age       numeric_continuous  eta             +0.077  mann-whitney  714    0.16       0.469  0.019
-  SibSp     numeric_discrete    eta             +0.035  mann-whitney  891  0.0094  *    0.543  0.033
+  Parch     numeric_discrete    eta              0.082  mann-whitney  891   5e-05  *    0.561  0.024
+  Age       numeric_continuous  eta              0.077  mann-whitney  714    0.16       0.469  0.019
+  SibSp     numeric_discrete    eta              0.035  mann-whitney  891  0.0094  *    0.543  0.033
   6/7 features significantly associated (BH-adjusted p < 0.05)
 
   is the target different when a feature is missing?
@@ -795,7 +858,7 @@ Files are named `<NN>_<column>_<kind>.png` in the report folder.
 git clone https://github.com/thibautdqb/elessar && cd elessar
 pip install -e ".[dev]"
 pytest                                        # unit tests
-pytest -m validation tests/validation         # statistical validation by simulation (about 5 minutes)
+pytest -m validation tests/validation         # statistical validation by simulation (potentially tens of minutes)
 ruff check src tests docs examples
 python examples/demo.py
 ```

@@ -307,7 +307,7 @@ class _Recap:
             if not num.empty:
                 self.add("h", 3, "Numeric columns at a glance", None)
                 self.add("table", ["column", "count", "missing", "mean", "std", "min", "median", "max", "skew", "kurtosis",
-                                   "outliers", "best fit"],
+                                   "IQR outliers", "best fit"],
                          [[[("link", f"col-{list(v.columns).index(c)}"), code(c)], _int(r["count"]), f"{r['pct_missing']:.1f}%",
                            _num(r["mean"]), _num(r["std"]), _num(r["min"]), _num(r["median"]), _num(r["max"]),
                            _num(r["skewness"], 3), _num(r["kurtosis"], 3),
@@ -354,13 +354,27 @@ class _Recap:
         self.add("p", f"{sel['task'].capitalize()} of {v.target} on {sel['n_rows']:,} rows and {sel['n_features']} "
                       f"features ({sel['n_design_columns']} model columns after one-hot encoding). Held-out "
                       f"{sel['scoring']}: {scores} ({sel.get('validation') or sel['cv'] + ' CV'}).")
+        if sel.get("score_scope"):
+            self.add("p", sel["score_scope"] + ". Held-out scores are descriptive estimates from small samples; "
+                                      "a value of 1.000 does not establish perfect future accuracy.")
+        final = sel.get("consensus_evaluation")
+        if final:
+            if final["status"] == "ok":
+                self.add("p", f"Independent final consensus: {final['scoring']} {final['score']:.3f} "
+                              f"(training-prior baseline {final['baseline_score']:.3f}) on {final['n_test']:,} "
+                              f"separate test rows. {final['model']}, refitted on development rows only after "
+                              "the feature subset was frozen. Final-test outcomes never enter the votes.")
+            else:
+                self.add("p", "Independent final consensus evaluation unavailable: " + final["reason"])
         self.add("p", [bold("Keep: "), ("", ", ".join(map(str, sel["keep"])) or "-"), ("", "  ·  "),
                        bold("Borderline: "), ("", ", ".join(map(str, sel["borderline"])) or "-"), ("", "  ·  "),
                        bold("Drop: "), ("", ", ".join(map(str, sel["drop"])) or "-")])
         if sel.get("excluded_leaks"):
-            self.add("callout", [bold("Left out as leakage suspects: "), ("", ", ".join(sel["excluded_leaks"])),
-                                 ("", " (they predict the target almost perfectly, probably because they are derived "
-                                      "from it).")])
+            self.add("callout", [bold("Explicit exclusions / observed target aliases: "), ("", ", ".join(sel["excluded_leaks"])),
+                                 ("", ". Quarantine is a declared policy; provenance and availability must be checked.")])
+        if sel.get("leakage_suspects"):
+            self.add("p", "Check provenance: " + ", ".join(sel["leakage_suspects"])
+                          + ". A high association alone does not establish leakage and does not automatically exclude the feature.")
         methods = [m for m in ("decision tree", "random forest", "lasso", "ridge", "filter") if m in sel["table"].columns]
         votes = sel["votes"]
         rows = []
@@ -374,9 +388,11 @@ class _Recap:
         self.add("table", ["feature"] + methods + ["votes", "decision"], rows, "data")
         self.add("p", [("i", "Importances scaled to the strongest feature (1); ✓ = selected by that method. Decision "
                               f"tree depth {sel.get('tree_depth')} chosen by cross-validation; random forest: permutation "
-                              "importance on held-out rows (all one-hot columns of a feature shuffled together); lasso: "
-                              "non-zero coefficient at the penalty chosen by cross-validation; ridge: |coefficient| at "
-                              "least 10% of the largest; filter: significant univariate association.")])
+                              "importance on voting rows (one-hot columns shuffled together), above twice its permutation "
+                              "standard deviation; L1 logistic/Lasso and L2 logistic/Ridge: coefficients must beat "
+                              "all shuffled shadow-feature coefficients at the tuned penalty; filter: BH-significant "
+                              "univariate association on training rows. Numeric importance and binary votes are "
+                              "different quantities; the final-test outcomes never determine votes.")])
         self.figures(self.charts(("selection", "lasso_path"), v.target), grid=False)
 
     def timeseries_section(self) -> None:
@@ -453,7 +469,8 @@ class _Recap:
     def outlier_section(self) -> None:
         v, out = self.v, self.v.outliers
         self.add("h", 2, SECTIONS["outliers"], "outliers")
-        self.add("p", "Three methods per numeric column: 3 sigma (|value - mean| > 3 standard deviations), boxplot "
+        self.add("p", "Three exploratory methods per numeric column (a flag does not prove measurement error): "
+                      "3 sigma (|value - mean| > 3 standard deviations), boxplot "
                       "(outside the Tukey fences Q1 - 1.5 IQR, Q3 + 1.5 IQR) and modified z (Hampel: |0.6745 (value "
                       "- median) / MAD| > 3.5). A consensus outlier is flagged by at least two.")
         summary = out["summary"]
@@ -495,6 +512,10 @@ class _Recap:
             self.add("p", "Nothing to clean or transform.")
             return
         counts = prep.get("counts", {})
+        self.add("p", "Preparation recipes are exploratory suggestions, not automatic corrections. Check "
+                      "provenance, preserve valid tails, and fit all data-dependent transformations inside the "
+                      "actual training/CV split before predictive use. The target-driven grouping and binning "
+                      "shown here use the analysed table and MUST be refitted without validation/test labels.")
         self.add("p", "Cleaning: " + ", ".join(f"{a.lower()} {counts[a]}" for a in CLEANING if counts.get(a)) +
                  ".  Transformation: " + ", ".join(f"{a.lower()} {counts[a]}" for a in TRANSFORMATION if counts.get(a)) + ".")
         for kind, title in (("cleaning", "Cleaning"), ("transformation", "Transformation")):
@@ -553,6 +574,9 @@ class _Recap:
         v = self.v
         self.add("h", 2, SECTIONS["target"], "target")
         self.add("p", [("", "Target: "), code(v.target), ("", f" ({v.columns[v.target]['semantic_type']})")])
+        self.add("p", "Effect sizes and significance tests are distinct: eta (correlation ratio) is non-negative, "
+                      "and its displayed significance may come from Kruskal-Wallis/Mann-Whitney on ranks. "
+                      "Neither a positive sign nor a causal direction can be inferred from eta.")
         self.figures(self.charts(("target_ranking",), v.target))
         assoc = v.correlations.get("target")
         if assoc is not None and not assoc.empty:
@@ -602,6 +626,16 @@ class _Recap:
                           f"Benjamini-Hochberg correction (alpha {v.alpha:g}). Two numeric columns are tested "
                           "with Pearson when both are roughly symmetric with light tails, with Spearman otherwise: "
                           "the choice never depends on which coefficient is the larger.")
+        inference = v.correlations.get("serial_inference")
+        if inference is not None and not inference.empty:
+            self.add("p", "Serial Kendall, categorical and mixed tests use conservative truncated time shifts "
+                          "on a fixed central window of original levels. They require at least one entire "
+                          "process to be strictly stationary; automatic stationarity tests cannot certify "
+                          "this. Unsupported grids or missing observations have no p-value. Numeric "
+                          "Pearson/Spearman outputs retain their separate lag-1 approximation.")
+            self.add("table", ["output", "columns", "status", "tested rows", "radius", "p", "condition/limit"],
+                     [[r.output, f"{r.col_a} / {r.col_b}", r.status, str(r.n), str(r.radius), fmt_p(r.p_value), r.detail]
+                      for r in inference.head(50).itertuples(index=False)], "data")
         self.figures(self.charts(("association", "corr_pearson", "corr_spearman", "corr_cramers_v")), grid=True)
         if top is not None and not top.empty:
             self.add("h", 3, "Strongest associations", None)
@@ -657,7 +691,8 @@ class _Recap:
         if not fa.get("steps"):
             return
         self.add("h", 3, "Factor analysis", None)
-        self.add("p", "Principal components of the correlation matrix, varimax rotation, then Cronbach's alpha per "
+        self.add("p", "PCA-based component extraction (not a fitted common-factor model): principal components "
+                      "of the correlation matrix, varimax rotation, then Cronbach's alpha per "
                       "factor; items are examined and removed one at a time (communality < .40, highest loading "
                       "< .40 or cross-loading), and the analysis is run again after each removal.")
         chip = {True: ("cert-certain", "yes"), False: ("cert-uncertain", "no"), None: ("sev-info", "done"),
@@ -696,11 +731,12 @@ class _Recap:
             self.add("table", ["factor", "items", "reliability", "", "alpha if item deleted"], rows, "data")
         desc = fa.get("descriptives") or {}
         if desc:
-            self.add("p", [bold("New factors"), ("", " (created only for factors with an acceptable alpha: the mean of "
-                                                      "their items)")])
+            self.add("p", [bold("Exploratory component scores"), ("", " (created for components passing an "
+                          "internal-consistency threshold; they are means of selected items, not independently "
+                          "validated psychometric constructs or common-factor model estimates)")])
             self.add("table", ["factor", "items", "n", "mean", "median", "mode", "std"],
                      [[[code(k)], ", ".join(map(str, d["items"])), f"{d['n']:,}", f"{d['mean']:.2f}", f"{d['median']:.2f}",
-                       f"{d['mode']:.2f}", f"{d['std']:.2f}"] for k, d in desc.items()], "data")
+                       f"{d['mode']:.2f}" if np.isfinite(d["mode"]) else "n/a", f"{d['std']:.2f}"] for k, d in desc.items()], "data")
         if fa.get("code"):
             self.add("code", fa["code"])
 
@@ -709,13 +745,13 @@ class _Recap:
         self.add("h", 2, SECTIONS["distributions"], "distributions")
         self.add("p", "Normality is tested four ways (Shapiro-Wilk on up to 5,000 values, D'Agostino K², Jarque-Bera, "
                       "Anderson-Darling); the verdict is 'not normal' when at least half of them reject at "
-                      f"alpha {v.alpha:g}. Every candidate distribution is fitted by maximum likelihood and ranked by AIC; "
+                      f"alpha {v.alpha:g}. Candidate distributions use likelihood-based numerical fits ranked by AIC; "
                       "the Akaike weight is its relative support among the candidates.")
-        self.add("p", [("i", "With thousands of values every test rejects even a good fit, so read KS D (the largest gap "
-                              "between the fitted and the observed cumulative distribution) as the size of the misfit: "
-                              "below 0.03 close, below 0.08 fair, above poor. KS p-values are optimistic since the "
-                              "parameters come from the same data. For integer columns the gap is measured on the "
-                              "integer support and the p-value comes from a chi-square goodness-of-fit test.")])
+        self.add("p", [("i", "CDF gaps describe mismatch to a fitted candidate. Parameters and family selection use "
+                              "the same data, so no calibrated goodness-of-fit p-value is reported. Unadjusted "
+                              "diagnostic approximations remain available separately in the API. AIC weights "
+                              "describe relative support within the candidate set; global optima and model truth "
+                              "are not certified.")])
         rows = []
         for i, name in enumerate(v.columns):
             d = v.columns[name]
@@ -736,7 +772,7 @@ class _Recap:
                 (fit.get("description") or "").split(", best fit")[0],
             ])
         self.add("table", ["column", "n", "normality", "tests rejecting", "best fit", "parameters", "weight",
-                           "ΔAIC to 2nd", "KS D", "KS p", "shape"], rows, "data")
+                           "ΔAIC to 2nd", "CDF gap", "calibrated GoF p", "shape"], rows, "data")
         self.figures(self.charts(("dist",), any_column=True), grid=True)
 
     def column_section(self) -> None:
@@ -802,7 +838,7 @@ class _Recap:
             n_tried = fit.get("n_candidates_fitted", len(fit["fits"]))
             body += [("h", 4, f"Best fits ({fit.get('kind', '')}, {n_tried} candidates fitted on "
                               f"{fit.get('n_used', 0):,} values)", None),
-                     ("table", ["#", "distribution", "parameters", "AIC", "ΔAIC", "weight", "BIC", "KS D", "KS p"],
+                     ("table", ["#", "distribution", "parameters", "AIC", "ΔAIC", "weight", "BIC", "CDF gap", "calibrated GoF p"],
                       frows, "data")]
         top = st.get("top_values") or []
         if top and (st.get("pct_unique") or 0) <= 90 and d.get("semantic_type") not in ("numeric_continuous", "text"):

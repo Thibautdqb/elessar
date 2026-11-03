@@ -1,6 +1,62 @@
 # Changelog
 
+### Report/README consistency follow-up (review amendments)
+
+- HTML feature selection legend now describes shadow-feature L1/L2 votes and voting/final-test split; eta effects no longer imply positive direction.
+- Adaptive category grouping uses an independent design/confirmation split with a seven-node Bonferroni guard under IID assumptions. Reproduction and null-calibration checks added.
+- Preparation snippets include numeric bucket imports, complete category mappings and normalization lists; target-encoding examples isolate fitted train rows.
+- Factor summaries now distinguish PCA-derived exploratory composites from validated psychometric constructs, and omit arbitrary tied rounded modes. Outlier advice is explicitly conditional on domain review.
+- JSON export now includes selection, temporal, multivariate, outlier and preparation results while keeping raw tables out of the export.
+
+
+## 1.2.0rc1 — review candidate (not published)
+
+- Calibrate serial numeric-target shape and missingness tests with conservative TTS, including complete
+  missing indicators and explicit unavailable comparator/grid cases.
+- Retain near-deterministic predictors after an association warning; exclude only explicit provenance
+  exclusions and configured observed exact aliases. Quarantine remains an overridable policy.
+- Replace the median interval approximation with exact binomial ranks. Stabilise moments at extreme
+  scales/offsets and harmonic means with subnormal positive values; identify unrepresentable outputs.
+- Correct discrete CDF gaps before observed jumps. Preserve fitted-model p approximations as diagnostics
+  while returning unavailable calibrated GoF p-values; numerical fit/global-optimum limits are explicit.
+- Add repeated compatibility/statistical/package gates. The sdist includes scientific records and CI
+  reproduction constraints. See `docs/RELEASE_1_2.md` and `docs/SCIENTIFIC_CONTRACT.md`.
+
+## Earlier v1.2 implementation stages — historical scope
+
+The bullets below record the preliminary stages; remaining limitations mentioned there are superseded
+where explicitly addressed by the 1.2.0rc1 section and the current scientific contract.
+
+- Replace serial Kendall/categorical/mixed IID or scalar lag-1 p-values with conservative symmetric
+  truncated time-shift tests on original levels. Return unavailable p-values for unsupported grids or
+  missing observations, and expose tested windows and strict-stationarity conditions. Numeric Pearson/
+  Spearman and numeric-target/missingness limitations remain explicit.
+- Split the original reserved rows into voting and final test, retaining the original 80% training budget.
+  Evaluate the frozen final consensus with a predefined refitted model, or a dummy baseline for no kept
+  features; final-test outcomes never enter votes, type learning or tuning. Small/unsupported cases
+  explicitly report that assessment as unavailable. See `docs/VALIDATION_V12_SERIAL_CONSENSUS.md`.
+- Reserve validation rows before target-dependent screening; derive leakage exclusions, the filter and
+  category vocabulary from outer training rows. Infer automatic differencing on those rows rather than
+  taking the decision from the full-data EDA.
+- Fit numerical imputation and scaling inside model-tuning folds, with magnitude rescaling to avoid
+  overflow on extreme finite inputs. Keep whole dates on one side of each temporal split, reducing the
+  number of folds or returning no selection when a valid split is impossible.
+- Preserve missing booleans as nullable 0/1; make supervised bin edges executable; generate deterministic,
+  explicitly typed target encoding, including multiclass one-vs-rest on supported older scikit-learn.
+- Generate panel differences within each entity; apply outlier advice with the detection policy's actual
+  positional masks; associate the unified Spearman matrix with its corresponding p-values.
+- Use regression observation counts and full cubic MacKinnon critical-value surfaces for ADF. Profile
+  binomial likelihood over a documented finite domain instead of fixing trials to the sample maximum.
+- Expose unvalidated serial inference in metadata and report alerts. These warnings do not repair the
+  Kendall or categorical serial tests. Clarify that scores precede feature consensus and do not
+  independently validate the final selected subset.
+- Add reproduced regressions, reference comparisons and three 500-case structural stress checks.
+  See `docs/VALIDATION_V12_PRELIM.md` for executed checks and remaining limits; this is not a release.
+
 ## 1.1.0 (2026-10-30)
+
+Historical release notes follow. Claims below about every model being tuned or every serial test
+being corrected are superseded by the preliminary validation record above and its explicit limits.
 
 ### Statistical fixes
 

@@ -35,11 +35,14 @@ PRETTY_NAMES: dict[str, str] = {
     "geom": "geometric",
     "binom": "binomial",
 }
-KS_NOTE = ("KS p-values are optimistic: the parameters were estimated from the same data. For integer data the "
-           "gap is measured on the integer support and the p-value is a chi-square goodness-of-fit test.")
+KS_NOTE = ("Fitted-model goodness-of-fit values are diagnostics: parameters and the selected family use the same data. "
+           "No calibrated p-value is claimed without refitting-aware validation. diagnostic_pvalue retains the "
+           "unadjusted approximation; ks_pvalue is unavailable. Integer CDF gaps use both sides of observed jumps.")
 POINT_MASS_SHARE = 0.3
 """A single value holding this share of a continuous column is reported apart and left out of the fit."""
 _POSITIVE_SUPPORT = frozenset({"lognorm", "gamma", "weibull_min", "chi2", "pareto"})
+BINOM_MAX_TRIALS = 100_000
+"""Finite search domain for a binomial profile MLE; a maximum at the upper bound is not accepted."""
 
 
 class FitTimeout(Exception):
@@ -86,7 +89,9 @@ def normality_tests(x: np.ndarray | pd.Series, config: StoneConfig | None = None
     x = np.asarray(x, dtype="float64")
     x = x[np.isfinite(x)]
     n = len(x)
-    out: dict[str, Any] = {"n": n, "alpha": cfg.alpha}
+    out: dict[str, Any] = {"n": n, "alpha": cfg.alpha,
+                           "inference_note": "IID sampling required. The majority verdict is a diagnostic rule, "
+                                             "not a calibrated combined level-alpha test; 'normal' means not rejected, not proven."}
     if n < 8 or np.ptp(x) == 0:
         out["verdict"] = "insufficient data" if n < 8 else "constant"
         return out
@@ -148,12 +153,30 @@ def _fit_discrete(name: str, x: np.ndarray) -> tuple[tuple[float, ...], int, str
             return -float(stats.nbinom.logpmf(x, r, r / (r + mean)).sum())
 
         r = math.exp(optimize.minimize_scalar(nll, bounds=(-6, 12), method="bounded").x)
-        return (r, r / (r + mean)), 2, ""
+        return (r, r / (r + mean)), 2, "numerical profile over log(r) in [-6, 12]"
     if name == "binom":
-        n = int(x.max())
-        if n < 1:
+        lower = int(x.max())
+        if lower < 1:
             raise ValueError("needs a positive upper bound")
-        return (float(n), mean / n), 2, f"n fixed to max = {n}"
+        if x.min() < 0 or not np.all(x == np.floor(x)):
+            raise ValueError("binomial data must be non-negative integers")
+        if lower >= BINOM_MAX_TRIALS:
+            raise ValueError(f"binomial support exceeds the search limit {BINOM_MAX_TRIALS}")
+        # At every admissible integer n, p_hat = mean/n exactly. Compress repeated
+        # observations, and examine the whole declared range rather than assuming
+        # that the sample maximum is the distribution's upper support bound.
+        values, counts = np.unique(x, return_counts=True)
+        best_n, best_ll = lower, -np.inf
+        for start in range(lower, BINOM_MAX_TRIALS + 1, 2_048):
+            ns = np.arange(start, min(start + 2_048, BINOM_MAX_TRIALS + 1))
+            likelihood = counts @ stats.binom.logpmf(values[:, None], ns, mean / ns)
+            i = int(np.argmax(likelihood))
+            if likelihood[i] > best_ll:
+                best_n, best_ll = int(ns[i]), float(likelihood[i])
+        if best_n == BINOM_MAX_TRIALS:
+            raise ValueError("binomial profile maximum is at the search limit; use the Poisson candidate "
+                             "or supply a scientifically justified trial count")
+        return (float(best_n), mean / best_n), 2, f"profile MLE over n in [{lower}, {BINOM_MAX_TRIALS}]"
     raise ValueError(f"unknown discrete candidate {name!r}")
 
 
@@ -177,7 +200,10 @@ def _discrete_gof(x: np.ndarray, dist: Any, params: tuple[float, ...], n_fitted:
     """
     values, counts = np.unique(x, return_counts=True)
     n = len(x)
-    gap = float(np.max(np.abs(np.cumsum(counts) / n - dist.cdf(values, *params))))
+    after = np.cumsum(counts) / n
+    before = (np.cumsum(counts) - counts) / n
+    gap = float(max(np.max(np.abs(after - dist.cdf(values, *params))),
+                    np.max(np.abs(before - dist.cdf(values - 1, *params)))))
     support = np.arange(values.min(), values.max() + 1)
     expected = dist.pmf(support, *params) * n
     expected[0] += dist.cdf(support[0] - 1, *params) * n  # tails folded into the end cells
@@ -264,7 +290,11 @@ def fit_distributions(
             "aic": 2 * k - 2 * loglik,
             "bic": k * math.log(n) - 2 * loglik,
             "ks_stat": float(ks_stat),
-            "ks_pvalue": float(ks_p),
+            "ks_pvalue": float("nan"),
+            "diagnostic_pvalue": float(ks_p),
+            "gof_status": "uncalibrated fitted-model diagnostic",
+            "diagnostic_method": "merged-cell chi-square approximation" if discrete else "continuous KS with parameters treated as known",
+            "estimation": "likelihood-based numerical fit in the candidate's declared domain; global optimum not certified",
             "note": note,
         })
     fits.sort(key=lambda f: f["aic"])

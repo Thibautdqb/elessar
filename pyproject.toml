@@ -18,7 +18,7 @@ dependencies = [
     "matplotlib>=3.7",
     "scikit-learn>=1.3",
     "dask[dataframe]>=2024.1",
-    "pyarrow>=14",
+    "pyarrow>=14.0.1",
     "openpyxl>=3.1",
     "python-calamine>=0.2",
 ]
@@ -42,7 +42,7 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7", "ruff>=0.6"]
+dev = ["pytest>=7", "ruff>=0.6", "statsmodels>=0.14"]
 
 [project.scripts]
 elessar = "elessar.cli:main"
@@ -60,7 +60,7 @@ path = "src/elessar/__init__.py"
 packages = ["src/elessar"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/elessar", "tests", "examples", "README.md", "CHANGELOG.md", "VALIDATION.md", "LICENSE", "pyproject.toml"]
+include = ["src/elessar", "tests", "examples", "docs", "ci", "README.md", "CHANGELOG.md", "VALIDATION.md", "LICENSE", "pyproject.toml"]
 
 [tool.ruff]
 line-length = 125

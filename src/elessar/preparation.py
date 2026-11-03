@@ -122,14 +122,41 @@ def misspellings(s: pd.Series, max_labels: int = 3_000) -> dict[str, str]:
     return fixes
 
 
+# ------------------------------------------------------------------------------------------- version-safe target encoding
+
+def make_target_encoder(target_type: str, random_state: int = 42):
+    """Use seeded cross-fitting with both the legacy and modern sklearn APIs.
+
+    For sklearn >= 1.9, the cross-validation splitter carries the random
+    state. Earlier supported releases expose the legacy random_state option.
+    Supervised transformations must still be fitted on training rows only.
+    """
+    import re
+
+    import sklearn
+    from sklearn.model_selection import KFold, StratifiedKFold
+    from sklearn.preprocessing import TargetEncoder
+
+    version = re.match(r"^(\d+)\.(\d+)", sklearn.__version__)
+    if version is None:
+        raise RuntimeError(f"Unrecognised scikit-learn version: {sklearn.__version__!r}")
+    major, minor = map(int, version.groups())
+    if (major, minor) >= (1, 9):
+        splitter = (KFold if target_type == "continuous" else StratifiedKFold)(
+            n_splits=5, shuffle=True, random_state=random_state)
+        return TargetEncoder(target_type=target_type, cv=splitter)
+    return TargetEncoder(target_type=target_type, cv=5, random_state=random_state)
+
+
 # ------------------------------------------------------------------------------------------- category grouping
 def group_categories(s: pd.Series, y: pd.Series, regression: bool, cfg: StoneConfig) -> list[list[str]] | None:
     """Merge labels that behave alike towards the target with a small binary tree.
 
-    Labels are ordered by their target mean (the rate of the minority class for a binary target).
-    The tree splits that order in two where the two sides differ most (Welch t-test), and only
-    if the difference is significant after a Bonferroni correction for the cut points tried;
-    each side then splits again, at most three levels deep. The leaves are the groups.
+    Labels are ordered on an independent design half, with Welch tests performed on confirmation rows.
+    At each node the candidate split is chosen using the design rows, then evaluated by
+    a Welch test on the untouched confirmation rows. The alpha/7 limit covers at
+    most seven candidate nodes across depths 0 to 2, under IID sampling and the
+    prespecified response type; target-driven grouping must be refitted for predictive use.
     """
     frame = pd.DataFrame({"x": hashable(s).astype("string"), "y": y}).dropna()
     if regression:
@@ -140,20 +167,28 @@ def group_categories(s: pd.Series, y: pd.Series, regression: bool, cfg: StoneCon
         if len(top) != 2:
             return None
         frame["y"] = (labels == top.index[-1]).astype(float)
-    frame = frame.dropna()
-    agg = frame.groupby("x")["y"].agg(["size", "sum", lambda v: float((v**2).sum())])
-    agg.columns = ["n", "s", "ss"]
-    agg = agg[agg["n"] >= 5]
-    if len(agg) < 4:
+    frame = frame.dropna().reset_index(drop=True)
+    counts = frame["x"].value_counts()
+    frame = frame[frame["x"].isin(counts[counts >= 10].index)].reset_index(drop=True)
+    if frame["x"].nunique() < 4:
         return None
-    agg = agg.assign(mean=agg["s"] / agg["n"]).sort_values("mean")
-    total = agg["n"].sum()
+    rng = np.random.default_rng(cfg.random_state)
+    design_mask = np.zeros(len(frame), dtype=bool)
+    for _, positions in frame.groupby("x", sort=True).indices.items():
+        permuted = rng.permutation(positions)
+        design_mask[permuted[:len(permuted) // 2]] = True
+    design = frame.loc[design_mask].groupby("x")["y"].agg(["size", "sum", lambda v: float((v**2).sum())])
+    confirm = frame.loc[~design_mask].groupby("x")["y"].agg(["size", "sum", lambda v: float((v**2).sum())])
+    for aggregate in (design, confirm):
+        aggregate.columns = ["n", "s", "ss"]
+    design = design.assign(mean=design["s"] / design["n"]).sort_values("mean", kind="stable")
+    total = design["n"].sum()
 
     def side(rows: pd.DataFrame) -> tuple[float, float, int]:
         n, sm, ss = rows["n"].sum(), rows["s"].sum(), rows["ss"].sum()
         mean = sm / n
         var = max((ss - n * mean**2) / max(n - 1, 1), 1e-12)
-        return mean, np.sqrt(var), int(n)
+        return float(mean), float(np.sqrt(var)), int(n)
 
     def split(rows: pd.DataFrame, depth: int) -> list[list[str]]:
         if depth == 3 or len(rows) < 2:
@@ -163,17 +198,24 @@ def group_categories(s: pd.Series, y: pd.Series, regression: bool, cfg: StoneCon
             left, right = rows.iloc[:k], rows.iloc[k:]
             if min(left["n"].sum(), right["n"].sum()) < 0.05 * total:
                 continue
-            (m1, s1, n1), (m2, s2, n2) = side(left), side(right)
-            res = stats.ttest_ind_from_stats(m1, s1, n1, m2, s2, n2, equal_var=False)
-            if best is None or abs(res.statistic) > best[0]:
-                best = (abs(res.statistic), res.pvalue, k)
-        if best is None or min(1.0, best[1] * (len(rows) - 1)) >= cfg.alpha:
+            left_stats, right_stats = side(left), side(right)
+            statistic = abs(float(stats.ttest_ind_from_stats(
+                *left_stats, *right_stats, equal_var=False).statistic))
+            if np.isfinite(statistic) and (best is None or statistic > best[0]):
+                best = (statistic, k)
+        if best is None:
             return [list(map(str, rows.index))]
-        return split(rows.iloc[:best[2]], depth + 1) + split(rows.iloc[best[2]:], depth + 1)
+        k = best[1]
+        p = float(stats.ttest_ind_from_stats(*side(confirm.loc[rows.index[:k]]),
+                                           *side(confirm.loc[rows.index[k:]]), equal_var=False).pvalue)
+        # Up to seven adaptively visited nodes, each tested on independent confirmation rows:
+        # Bonferroni across all nodes, not only cutpoints on one chosen ordering.
+        if not np.isfinite(p) or p >= cfg.alpha / 7:
+            return [list(map(str, rows.index))]
+        return split(rows.iloc[:k], depth + 1) + split(rows.iloc[k:], depth + 1)
 
-    groups = split(agg, 0)
-    return groups if 1 < len(groups) < len(agg) else None
-
+    groups = split(design, 0)
+    return groups if 1 < len(groups) < len(design) else None
 
 _FIT_ON_TRAIN = ("Learnt from the target on every row: for a model, learn it again on the training rows only, "
                  "or the validation score is optimistic")
@@ -375,6 +417,10 @@ def plan(
             stat = "median" if skewed or st.get("pct_outliers_iqr", 0) > 5 else "mean"
             how = f"impute with the {stat}" + (" (skewed or outliers)" if stat == "median" else "")
             code = f"df[{col!r}] = df[{col!r}].fillna(df[{col!r}].{stat}())"
+        elif stype == "boolean":
+            how = "preserve unknown values as nullable 0/1, rather than treating them as True"
+            code = ("from elessar.types import as_boolean\n"
+                    f"df[{col!r}] = as_boolean(df[{col!r}]).astype('Int64')")
         elif stype in DATETIME_TYPES:
             how, code = "interpolate in time order, or leave missing", f"df[{col!r}] = df[{col!r}].ffill()"
         else:
@@ -394,11 +440,17 @@ def plan(
         x = f"elessar.types.parse_numeric(df[{col!r}])" if types.get(col) == "numeric_string" else f"df[{col!r}]"
         if r["action"] == "remove":
             steps.append(_step("cleaning", "Remove outliers", col, r["why"],
-                               f"x = {x}\nmed, iqr = x.median(), x.quantile(.75) - x.quantile(.25)\n"
-                               f"df = df[(x - med).abs() <= 10 * iqr / 1.349]"))
+                               "from elessar.outliers import column_outliers\n"
+                               f"x = {x}\ncheck = column_outliers(x)\n"
+                               "if check is not None and check['action'] == 'remove':\n"
+                               "    df = df.loc[~check['remove_mask']].copy()"))
         else:
             steps.append(_step("cleaning", "Reassign outliers", col, r["why"],
-                               f"df[{col!r}] = {x}.clip({r['lower_fence']:.6g}, {r['upper_fence']:.6g})"))
+                               "from elessar.outliers import column_outliers\n"
+                               f"x = {x}\ncheck = column_outliers(x)\n"
+                               "if check is not None:\n"
+                               f"    df[{col!r}] = x.where(~check['consensus_mask'], "
+                               "x.clip(check['lower_fence'], check['upper_fence']))"))
 
     # ---- transformation
     with quiet():
@@ -440,11 +492,12 @@ def plan(
                     st.get("heaping_index") or (st.get("n_modes_kde") or 1) > 1 or abs(st.get("skewness") or 0) > 2) else None
                 if cuts:
                     found["bins"][col] = cuts
+                    edges = ", ".join(["-np.inf", *(repr(round(c, 6)) for c in cuts), "np.inf"])
                     steps.append(_step("transformation", "Bucketing", col,
                                        f"irregular shape (modes, heaping or heavy skew): {len(cuts) + 1} bins chosen by "
                                        f"a decision tree on {target!r}. {_FIT_ON_TRAIN}",
                                        f"{_FIT_COMMENT}\n"
-                                       f"df[{col!r} + '_bin'] = pd.cut(df[{col!r}], {[-np.inf] + [round(c, 6) for c in cuts] + [np.inf]!r})"))
+                                       f"import numpy as np\n" f"df[{col!r} + '_bin'] = pd.cut(df[{col!r}], [{edges}])"))
             if stype in CATEGORY_TYPES and stype != "boolean" and target is not None and (st.get("cardinality") or 0) >= 4:
                 groups = _safe(group_categories, df[col], y, regression, cfg)
                 if groups:
@@ -454,10 +507,9 @@ def plan(
                                        for g in groups[:4])
                     steps.append(_step("transformation", "Bucketing", col,
                                        f"{st['cardinality']} labels behave as {len(groups)} groups towards {target!r} "
-                                       f"(significance-tested binary tree): {shown}. {_FIT_ON_TRAIN}",
+                                       f"(independently confirmed binary tree under IID): {shown}. {_FIT_ON_TRAIN}",
                                        f"{_FIT_COMMENT}\n"
-                                       f"df[{col!r} + '_group'] = df[{col!r}].map({dict(list(mapping.items())[:12])!r})"
-                                       + ("  # ...truncated" if len(mapping) > 12 else "")))
+                                       f"df[{col!r} + '_group'] = df[{col!r}].map({mapping!r})"))
     # transform first (a power transform needs the original, positive values), then put the columns on one scale
     numeric_cols = [c for c in df.columns if types.get(c) in NUMERIC_TYPES and c != target and types.get(c) != "boolean"
                     and c not in dropped]
@@ -520,14 +572,16 @@ def plan(
     if len(sym) >= 2 and not rescaled:  # after a rescale every numeric column is already on a common scale
         steps.append(_step("transformation", "Normalization", None,
                            f"{len(sym)} roughly symmetric columns: z-score them (mean 0, sd 1) for linear and distance "
-                           "models", f"cols = {sym[:12]!r}\ndf[cols] = (df[cols] - df[cols].mean()) / df[cols].std()"))
+                           "models", f"cols = {sym!r}\ndf[cols] = (df[cols] - df[cols].mean()) / df[cols].std()"))
     for col, d in details.items():
         if col == target:
             continue
         stype, st = types.get(col), d.get("stats") or {}
         k = st.get("cardinality") or st.get("n_unique") or 0
         if stype == "boolean":
-            code, why = f"df[{col!r}] = df[{col!r}].astype(bool).astype(int)", "boolean: 0/1"
+            code = ("from elessar.types import as_boolean\n"
+                    f"df[{col!r}] = as_boolean(df[{col!r}]).astype('Int64')")
+            why = "boolean: nullable 0/1; unknown values remain missing"
         elif stype == "ordinal-candidate":
             why, code = "ordered levels: map them to ranks", f"order = [...]  # low to high\ndf[{col!r}] = df[{col!r}].map({{v: i for i, v in enumerate(order)}})"
         elif stype in CATEGORY_TYPES and k <= 10:
@@ -535,10 +589,39 @@ def plan(
         elif stype in CATEGORY_TYPES:
             why = f"{k} labels: too many for one-hot; target encoding (cross-fitted) or frequency encoding" + (
                 f". {_FIT_ON_TRAIN}" if target else "")
-            code = (f"from sklearn.preprocessing import TargetEncoder\n"
-                    f"enc = TargetEncoder()  # fit on the training rows only, then enc.transform() the others\n"
-                    f"df[[{col!r}]] = enc.fit_transform(df[[{col!r}]], df[{target!r}])" if target else
-                    f"df[{col!r}] = df[{col!r}].map(df[{col!r}].value_counts(normalize=True))")
+            if target:
+                # Binary encoders also support multiclass one-vs-rest on sklearn 1.3.
+                # Explicit target types avoid treating integer regression targets as classes.
+                multi = not regression and hashable(df[target].dropna()).nunique() > 2
+                start = ("import numpy as np\n"
+                         "from sklearn.model_selection import train_test_split\n"
+                         "from elessar.preparation import make_target_encoder\n"
+                         "# Example split; replace train_idx with the actual model-training indices.\n"
+                         f"known = df[{target!r}].notna().to_numpy()\n"
+                         f"train_idx, _ = train_test_split(np.flatnonzero(known), test_size=.2, random_state={cfg.random_state})\n"
+                         "other_idx = np.setdiff1d(np.arange(len(df)), train_idx)\n")
+                if multi:
+                    code = (start + "encoded = pd.DataFrame(index=df.index)\n"
+                            f"classes = sorted(df.iloc[train_idx][{target!r}].unique(), key=str)\n"
+                            "for i, label in enumerate(classes):\n"
+                            f"    enc = make_target_encoder(target_type='binary', random_state={cfg.random_state})\n"
+                            "    values = np.full((len(df), 1), np.nan)\n"
+                            f"    values[train_idx] = enc.fit_transform(df.iloc[train_idx][[{col!r}]], "
+                            f"df.iloc[train_idx][{target!r}].eq(label).astype(int))\n"
+                            "    if len(other_idx):\n"
+                            f"        values[other_idx] = enc.transform(df.iloc[other_idx][[{col!r}]])\n"
+                            f"    encoded[{col!r} + '__target_' + str(i)] = values[:, 0]\n"
+                            f"df = pd.concat([df.drop(columns=[{col!r}]), encoded], axis=1)")
+                else:
+                    kind = "continuous" if regression else "binary"
+                    code = (start + f"enc = make_target_encoder(target_type={kind!r}, random_state={cfg.random_state})\n"
+                            "values = np.full((len(df), 1), np.nan)\n"
+                            f"values[train_idx] = enc.fit_transform(df.iloc[train_idx][[{col!r}]], df.iloc[train_idx][{target!r}])\n"
+                            "if len(other_idx):\n"
+                            f"    values[other_idx] = enc.transform(df.iloc[other_idx][[{col!r}]])\n"
+                            f"df[[{col!r}]] = values")
+            else:
+                code = f"df[{col!r}] = df[{col!r}].map(df[{col!r}].value_counts(normalize=True))"
         elif stype == "text":
             why, code = "free text: TF-IDF features", (f"from sklearn.feature_extraction.text import TfidfVectorizer\n"
                                                      f"tfidf = TfidfVectorizer(min_df=5).fit_transform(df[{col!r}].fillna(''))")
@@ -579,4 +662,4 @@ def plan(
 
 
 __all__ = ["BKTree", "CLEANING", "TRANSFORMATION", "composite", "edit_distance", "group_categories", "magnitude_mix",
-           "misspellings", "plan", "tree_bins"]
+           "make_target_encoder", "misspellings", "plan", "tree_bins"]

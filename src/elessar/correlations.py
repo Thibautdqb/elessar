@@ -2,6 +2,8 @@
 
 Every association comes with a test p-value, a Benjamini-Hochberg adjusted p-value (false
 discovery rate over all the pairs tested together) and a ``significant`` flag at ``alpha``.
+False-discovery guarantees require valid input p-values and the procedure's dependence assumptions.
+Serial limitations are returned in ``inference_limits`` and surfaced by the full report.
 """
 
 from __future__ import annotations
@@ -343,7 +345,8 @@ def _pairs(out: dict[str, pd.DataFrame], cfg: StoneConfig) -> pd.DataFrame:
                     continue
                 v = mat.loc[a, b]
                 if pd.notna(v):
-                    rows.append([a, b, kind, key, v, int(nmat.loc[a, b]), test, pmat.loc[a, b], np.nan, np.nan,
+                    name = "symmetric truncated time-shift on levels" if "serial_inference" in out else test
+                    rows.append([a, b, kind, key, v, int(nmat.loc[a, b]), name, pmat.loc[a, b], np.nan, np.nan,
                                  np.nan, None])
     frame = pd.DataFrame(rows, columns=["col_a", "col_b", "kind", "method", "value", "n", "test", "p_value",
                                         "ci_low", "ci_high", "other_value", "method_reason"])
@@ -357,22 +360,25 @@ def _association_matrix(out: dict[str, pd.DataFrame], pairs: pd.DataFrame, cols:
     """Unified matrix over numeric + categorical columns (Spearman / Cramér's V / eta) and the raw test p-values."""
     assoc = pd.DataFrame(np.eye(len(cols)), index=cols, columns=cols)
     padj = pd.DataFrame(np.zeros((len(cols), len(cols))), index=cols, columns=cols)
-    adjusted = {(r.col_a, r.col_b): r.p_value for r in pairs.itertuples(index=False)}
-    adjusted.update({(b, a): p for (a, b), p in adjusted.items()})
     for i, a in enumerate(cols):
         for b in cols[i + 1:]:
             if "spearman" in out and a in out["spearman"].index and b in out["spearman"].index:
                 v = out["spearman"].loc[a, b]
+                p = out["spearman_p"].loc[a, b]
             elif "cramers_v" in out and a in out["cramers_v"].index and b in out["cramers_v"].index:
                 v = out["cramers_v"].loc[a, b]
+                p = out["cramers_v_p"].loc[a, b]
             elif "eta" in out and a in out["eta"].index and b in out["eta"].columns:
                 v = out["eta"].loc[a, b]
+                p = out["eta_p"].loc[a, b]
             elif "eta" in out and b in out["eta"].index and a in out["eta"].columns:
                 v = out["eta"].loc[b, a]
+                p = out["eta_p"].loc[b, a]
             else:
                 v = np.nan
+                p = np.nan
             assoc.loc[a, b] = assoc.loc[b, a] = v
-            padj.loc[a, b] = padj.loc[b, a] = adjusted.get((a, b), np.nan)
+            padj.loc[a, b] = padj.loc[b, a] = p
     return {"association": assoc, "association_p": padj}
 
 
@@ -380,13 +386,17 @@ def _association_matrix(out: dict[str, pd.DataFrame], pairs: pd.DataFrame, cols:
 def target_associations(
     df: pd.DataFrame, target: str, types: dict[str, str], config: StoneConfig | None = None,
     rho: dict[Any, float] | None = None,
+    serial: dict[str, Any] | None = None,
 ) -> pd.DataFrame:
     """Association of every feature with ``target``: effect size, test, adjusted p, AUC, mutual information.
 
     ``rho``: for rows in time order, the lag-1 autocorrelation of each column (see :func:`serial_dependence`):
-    every p-value is then computed on Bartlett's effective sample size."""
+    serial target tests need the actual ``serial`` time grid for TTS; with ``rho`` alone their p-value is
+    unavailable. Numeric targets use a prescribed monotone/rank-decile omnibus statistic."""
     cfg = config or StoneConfig()
     numeric, categorical = _roles(df, types, cfg)
+    if serial is not None and rho is None:
+        rho = serial_dependence(df, _numeric_frame(df, numeric, types), categorical, serial)
     t_type = types[target]
     t_numeric = target in numeric
     t_cat = not t_numeric and (target in categorical or t_type in CATEGORY_TYPES)
@@ -411,10 +421,6 @@ def target_associations(
                 # (Kruskal-Wallis), which sees a U shape; two tests fixed in advance, so Bonferroni keeps the 5%
                 bins = _discretize(pair.iloc[:, 0], True)
                 _, p_shape, _ = correlation_ratio_test(bins, pair.iloc[:, 1])
-                if rho is not None:
-                    infl = serial_inflation(rho.get(col), rho.get(target))
-                    p_mono = corr_pvalue(value, len(pair) / infl)
-                    p_shape = deflate_chi2(p_shape, bins.nunique() - 1, infl)
                 p = min(1.0, 2 * min(p_mono, p_shape)) if np.isfinite(p_shape) else p_mono
                 method, test, n = "spearman", "spearman + kruskal-wallis by deciles (Bonferroni)", len(pair)
             elif f_numeric:
@@ -431,15 +437,9 @@ def target_associations(
                 method, test = "cramers_v", "chi-square"
             if not np.isfinite(value):
                 continue
-            if rho is not None and test != "spearman + kruskal-wallis by deciles (Bonferroni)":
-                infl = serial_inflation(rho.get(col), rho.get(target))
-                if test == "mann-whitney":  # a z test: the statistic shrinks by the square root
-                    p = float(2 * stats.norm.sf(stats.norm.isf(p / 2) / np.sqrt(infl))) if np.isfinite(p) else p
-                elif test == "kruskal-wallis":
-                    groups = (y if f_numeric else x).nunique()
-                    p = deflate_chi2(p, groups - 1, infl)
-                else:
-                    p = deflate_chi2(p, (x.nunique() - 1) * (y.nunique() - 1), infl)
+            if rho is not None:
+                p = np.nan
+                test = "serial test unavailable without the time grid"
             mi = mutual_information(x, y, f_numeric, t_numeric)
             leak = abs(value) >= cfg.leakage_threshold or (np.isfinite(auc) and abs(auc - 0.5) >= cfg.leakage_threshold / 2)
             rows.append([col, types[col], method, float(value), int(n), test, float(p), np.nan, False, auc, mi, leak])
@@ -448,6 +448,8 @@ def target_associations(
         return out
     out["p_adjusted"] = bh_adjust(out["p_value"])
     out["significant"] = out["p_adjusted"] < cfg.alpha
+    if serial is not None:
+        _serial_adjustments({"target": out}, df, types, target, cfg, serial)
     order = out["association"].abs().sort_values(ascending=False).index
     return out.loc[order].reset_index(drop=True)
 
@@ -457,7 +459,8 @@ def _fmt_level(v: Any) -> str:
 
 
 def missing_vs_target(
-    df: pd.DataFrame, target: str, types: dict[str, str], config: StoneConfig | None = None
+    df: pd.DataFrame, target: str, types: dict[str, str], config: StoneConfig | None = None,
+    serial: dict[str, Any] | None = None,
 ) -> pd.DataFrame:
     """Is the target different when a feature is missing? (informative missingness)"""
     cfg = config or StoneConfig()
@@ -491,6 +494,8 @@ def missing_vs_target(
     out = pd.DataFrame(rows, columns=["feature", "pct_missing", "test", "effect", "p_value", "detail"])
     out["p_adjusted"] = bh_adjust(out["p_value"])
     out["significant"] = out["p_adjusted"] < cfg.alpha
+    if serial is not None:
+        _serial_adjustments({"missing_target": out}, df, types, target, cfg, serial)
     return out[MISSING_TARGET_COLUMNS].sort_values("p_value", ignore_index=True)
 
 
@@ -537,7 +542,8 @@ def _missingness_frame(df: pd.DataFrame, rows: list[list[Any]], cfg: StoneConfig
 
 
 def missingness_dependence(
-    df: pd.DataFrame, types: dict[str, str], config: StoneConfig | None = None
+    df: pd.DataFrame, types: dict[str, str], config: StoneConfig | None = None,
+    serial: dict[str, Any] | None = None,
 ) -> pd.DataFrame:
     """Does a column go missing more often for some values of other columns? (evidence against MCAR)
 
@@ -546,11 +552,15 @@ def missingness_dependence(
     Effects: AUC for numeric (0.5 = no dependence), Cramér's V for categorical.
     """
     cfg = config or StoneConfig()
+    raw = df
     df = sample(df, cfg.sample_size, cfg.random_state)
     numeric, categorical = _roles(df, types, cfg)
     num = _numeric_frame(df, numeric, types)
     rows = [row for col in df.columns for row in _missingness_rows(df, col, numeric, categorical, num)]
-    return _missingness_frame(df, rows, cfg)
+    out = _missingness_frame(df, rows, cfg)
+    if serial is not None:
+        _serial_adjustments({"missingness": out}, raw, types, None, cfg, serial)
+    return out
 
 
 # --------------------------------------------------------------------------- entry points
@@ -613,6 +623,102 @@ def _corr_task(key: tuple[str, ...]) -> Any:
     raise ValueError(f"unknown correlation task {key!r}")
 
 
+def _serial_adjustments(out: dict[str, pd.DataFrame], raw: pd.DataFrame, types: dict[str, str],
+                        target: str | None, cfg: StoneConfig, serial: dict[str, Any]) -> None:
+    """Replace unsupported IID/lag-1 serial tests, retaining explicit per-pair provenance."""
+    from .serial_inference import serial_layout, serial_test
+
+    layout = serial_layout(raw, serial, cfg)
+    numeric_roles = set(_roles(raw, types, cfg)[0])
+    records = []
+    cache: dict[tuple[str, str, str, bool], dict[str, Any]] = {}
+
+    def numeric(c: str) -> pd.Series:
+        return _numeric_frame(raw, [c], types)[c]
+
+    def test(a: str, b: str, kind: str, output: str, indicator: bool = False) -> dict[str, Any]:
+        key = (a, b, kind, indicator)
+        if key not in cache:
+            x = raw[a].isna() if indicator else numeric(a) if kind in ("kendall", "target_numeric") else raw[a]
+            y = raw[b] if kind == "cramers_v" else numeric(b)
+            cache[key] = serial_test(layout, x, y, kind, cfg)
+        result = cache[key]
+        records.append({"output": output, "col_a": a, "col_b": b, **result})
+        return result
+
+    if "kendall" in out:
+        cols = list(out["kendall"].columns)
+        out["kendall_n"] = out["n_numeric"].copy()
+        for i, a in enumerate(cols):
+            for b in cols[i + 1:]:
+                result = test(a, b, "kendall", "kendall_p")
+                out["kendall_p"].loc[a, b] = out["kendall_p"].loc[b, a] = result["p_value"]
+                if result["status"] == "conditional":
+                    out["kendall"].loc[a, b] = out["kendall"].loc[b, a] = result["value"]
+                    out["kendall_n"].loc[a, b] = out["kendall_n"].loc[b, a] = result["n"]
+    if "cramers_v" in out:
+        cols = list(out["cramers_v"].columns)
+        for i, a in enumerate(cols):
+            for b in cols[i + 1:]:
+                result = test(a, b, "cramers_v", "cramers_v_p")
+                out["cramers_v_p"].loc[a, b] = out["cramers_v_p"].loc[b, a] = result["p_value"]
+                if result["status"] == "conditional":
+                    out["cramers_v"].loc[a, b] = out["cramers_v"].loc[b, a] = result["value"]
+                    out["cramers_v_n"].loc[a, b] = out["cramers_v_n"].loc[b, a] = result["n"]
+    if "eta" in out:
+        for a in out["eta"].index:
+            for b in out["eta"].columns:
+                result = test(a, b, "eta", "eta_p")
+                out["eta_p"].loc[a, b] = result["p_value"]
+                if result["status"] == "conditional":
+                    out["eta"].loc[a, b], out["eta_n"].loc[a, b] = result["value"], result["n"]
+    targets = out.get("target")
+    if target is not None and targets is not None:
+        for i, row in targets.iterrows():
+            kind, feature = row["method"], row["feature"]
+            if kind not in ("cramers_v", "eta", "spearman"):
+                continue
+            kind = "target_numeric" if kind == "spearman" else kind
+            a, b = (target, feature) if kind == "eta" and feature in numeric_roles else (feature, target)
+            result = test(a, b, kind, "target")
+            targets.loc[i, "p_value"] = result["p_value"]
+            targets.loc[i, "test"] = ("spearman + rank-decile eta omnibus / " if kind == "target_numeric" else "") + result["test"] + " on levels"
+            if result["status"] == "conditional":
+                targets.loc[i, "association"], targets.loc[i, "n"] = result["value"], result["n"]
+                center = layout["order"][result["radius"]:layout["n_time"] - result["radius"]].ravel()
+                fnum = kind == "target_numeric" or (kind == "eta" and a == target)
+                tnum = kind == "target_numeric" or (kind == "eta" and a == feature)
+                xx = numeric(feature).iloc[center] if fnum else raw.iloc[center][feature]
+                yy = numeric(target).iloc[center] if tnum else raw.iloc[center][target]
+                if fnum and _labels(yy).nunique() == 2:
+                    targets.loc[i, "auc"] = auc_binary(numeric(feature).iloc[center], yy)[0]
+                targets.loc[i, "mutual_info"] = mutual_information(xx, yy, fnum, tnum)
+                auc = targets.loc[i, "auc"]
+                targets.loc[i, "leakage_suspect"] = (abs(result["value"]) >= cfg.leakage_threshold or
+                                                     (np.isfinite(auc) and abs(auc - .5) >= cfg.leakage_threshold / 2))
+        targets["p_adjusted"] = bh_adjust(targets["p_value"])
+        targets["significant"] = targets["p_adjusted"] < cfg.alpha
+    for output in ("missingness", "missing_target"):
+        frame = out.get(output)
+        if frame is None:
+            continue
+        for i, row in frame.iterrows():
+            a = row["column"] if output == "missingness" else row["feature"]
+            b = row["depends_on"] if output == "missingness" else target
+            kind = "auc" if b in numeric_roles else "cramers_v"
+            result = test(a, b, kind, output, indicator=True)
+            frame.loc[i, "p_value"] = result["p_value"]
+            frame.loc[i, "test"] = ("mann-whitney AUC statistic / " if kind == "auc" else "Cramer's V statistic / ") + result["test"]
+            if result["status"] == "conditional":
+                frame.loc[i, "effect"] = result["value"]
+                frame.loc[i, "detail"] = (f"TTS central window ({result['n']} rows): missing indicator vs '{b}'; "
+                                          "see serial_inference for stationarity conditions")
+        frame["p_adjusted"] = bh_adjust(frame["p_value"])
+        frame["significant"] = frame["p_adjusted"] < cfg.alpha
+    if records:
+        out["serial_inference"] = pd.DataFrame(records)
+
+
 def compute_correlations(
     df: pd.DataFrame, types: dict[str, str], target: str | None = None, config: StoneConfig | None = None,
     workers: int = 1, serial: dict[str, Any] | None = None,
@@ -624,10 +730,17 @@ def compute_correlations(
 
     ``serial`` (rows indexed by time, see :func:`elessar.timeseries.serial_structure`): the columns with a unit
     root are replaced by their first differences (two random walks look associated whatever they are), and
-    every test uses Bartlett's effective sample size n (1 - r_a r_b) / (1 + r_a r_b) from the lag-1
-    autocorrelations of the two columns: autocorrelated rows carry less information than independent ones.
+    Pearson/Spearman tests use Bartlett's lag-1 effective sample size n (1 - r_a r_b) / (1 + r_a r_b).
+    This is a model-based approximation, not a general serial correction. Kendall/categorical/mixed
+    tests instead use conservative symmetric TTS on a fixed central window of original levels. At least
+    one process must be strictly stationary, with the statistic/type policy fixed in advance. Automatic
+    stationarity tests cannot certify this. Unsupported grids/missing data give no p-value. See
+    ``serial_inference`` for tested effects/counts and ``inference_limits`` for remaining assumptions.
     """
     cfg = config or StoneConfig()
+    # TTS uses original levels on a fixed window: a data-selected differencing
+    # policy must not be mistaken for an independently specified stationary process.
+    raw = df
     if serial is not None and serial["differences"] is not None:
         df = df.copy()
         for c in serial["differences"].columns:
@@ -679,6 +792,13 @@ def compute_correlations(
                     for frame, val in zip(frames, vals):
                         frame.loc[c, n_col] = val
             out["eta"], out["eta_p"], out["eta_n"] = frames
+        if target is not None:
+            out["target"] = results[("target",)]
+            out["missing_target"] = results[("missing_target",)]
+        rows = [row for col in df.columns for row in results[("missing", col)]]
+        out["missingness"] = _missingness_frame(df, rows, cfg)
+        if serial is not None:
+            _serial_adjustments(out, raw, types, target, cfg, serial)
         pairs = _pairs(out, cfg)
         if rho is not None:
             diffed = set(serial["differences"].columns) if serial["differences"] is not None else set()
@@ -688,11 +808,29 @@ def compute_correlations(
         out["top_pairs"] = pairs[pairs["abs_value"] >= cfg.corr_threshold].reset_index(drop=True)
         if len(numeric) + len(categorical) >= 2:
             out.update(_association_matrix(out, pairs, numeric + categorical))
-        rows = [row for col in df.columns for row in results[("missing", col)]]
-        out["missingness"] = _missingness_frame(df, rows, cfg)
         if target is not None:
-            out["target"] = results[("target",)]
-            out["missing_target"] = results[("missing_target",)]
+            out["target"] = out["target"].sort_values("association", key=lambda x: x.abs(), ascending=False).reset_index(drop=True)
+        if rho is not None:
+            limits = []
+            tested = out.get("serial_inference")
+            if tested is not None:
+                for output, rows in tested.groupby("output", sort=False):
+                    conditional = (rows["status"] == "conditional").any()
+                    unavailable = (rows["status"] == "unavailable").any()
+                    limits.append({"output": output,
+                                   "status": "stationarity assumption unvalidated" if conditional else "unavailable",
+                                   "detail": ("TTS controls type I error conditional on process independence and strict "
+                                              "stationarity of at least one process, with a fixed statistic/type policy; "
+                                              "no stationarity pretest certifies this"
+                                              if conditional else "unsupported temporal grid or missing observations")
+                                   + ("; some pairs unavailable (see serial_inference)" if unavailable else "")})
+            if "pearson" in out:
+                limits.append({"output": "pearson_p, spearman_p, numeric pair intervals",
+                               "status": "lag-1 model approximation",
+                               "detail": "Bartlett effective-size and Fisher intervals assume the lag-1 model is adequate; "
+                                         "not a general serial calibration. Column-moment intervals separately require IID sampling."})
+            if limits:
+                out["inference_limits"] = pd.DataFrame(limits)
     return out
 
 
@@ -705,8 +843,9 @@ def see_corr(
 
     - ``pearson``, ``spearman``, ``kendall`` and their ``*_p`` p-value matrices, ``n_numeric``
       (pairwise complete counts), ``vif`` (variance inflation factors)
-    - ``cramers_v`` (cat-cat, bias-corrected) + ``cramers_v_p`` (chi-square) + ``cramers_v_n``
-    - ``eta`` (rows = categorical, columns = numeric) + ``eta_p`` (Kruskal-Wallis) + ``eta_n``
+    - ``cramers_v`` (cat-cat, bias-corrected) + ``cramers_v_p`` + ``cramers_v_n``
+    - ``eta`` (rows = categorical, columns = numeric) + ``eta_p`` + ``eta_n``. IID p-values use chi-square
+      and Kruskal-Wallis respectively; serial outputs use TTS, with effects/counts on its central window
     - ``association`` / ``association_p``: one matrix over every column (Spearman, Cramér's V or
       eta depending on the pair) with the raw test p-values
     - ``pairs`` (every pair tested, with p, BH-adjusted p, significance and Fisher CI) and
@@ -714,8 +853,11 @@ def see_corr(
       when both columns are roughly symmetric with light tails (``numeric_shape``), with Spearman
       otherwise; ``other_value`` holds the other coefficient and ``method_reason`` the reason
     - for rows indexed by time, ``serial``: the lag-1 autocorrelation of each column and whether it was
-      replaced by its first differences (not shown stationary); every test then uses Bartlett's effective
-      sample size (``n_effective`` for the numeric pairs)
+      replaced by its first differences (not shown stationary); numeric Pearson/Spearman pairs use
+      Bartlett's lag-1 effective size (``n_effective``)
+    - ``serial_inference``: TTS effects, counts, radii, exceedances and conditional/unavailable status
+    - ``inference_limits``: stationarity assumptions and remaining IID/heuristic serial outputs;
+      the full report raises an alert for these conditions and limitations
     - ``missingness``: which columns' missingness depends on other columns
     - with ``target``: ``target`` (feature ranking with tests, AUC, mutual information, leakage) and
       ``missing_target`` (is the target different when a feature is missing?)

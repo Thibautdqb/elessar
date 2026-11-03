@@ -5,10 +5,9 @@
 - **modified z (Hampel)**: |0.6745 (x - median) / MAD| > 3.5, robust to the outliers themselves.
 
 A point flagged by at least two methods is a consensus outlier. For each column elessar then
-proposes to **remove** (values so far out they are likely errors: more than 10 robust standard deviations,
-on the log scale for a positive, right-skewed column, from a column whose other values have light tails) or
-**reassign** them (cap at the boxplot fences: the
-tail is real but too influential).
+proposes an optional source-reviewed **removal** (possible extreme unit or entry anomalies, not
+statistically proven errors) or **winsorisation** (cap at Tukey fences if analytically justified).
+Exploratory flags are not ground truth; leave valid observations unchanged.
 """
 
 from __future__ import annotations
@@ -25,7 +24,7 @@ from .types import NUMERIC_TYPES, as_numeric
 METHODS = ("3 sigma", "boxplot", "modified z")
 
 
-def column_outliers(x: pd.Series, cfg: StoneConfig) -> dict[str, Any] | None:
+def column_outliers(x: pd.Series, cfg: StoneConfig | None = None) -> dict[str, Any] | None:
     """Flags of the three methods for one numeric column, with the listed points."""
     v = x.replace([np.inf, -np.inf], np.nan).dropna()
     if len(v) < 8 or v.nunique() < 3:
@@ -73,21 +72,28 @@ def column_outliers(x: pd.Series, cfg: StoneConfig) -> dict[str, Any] | None:
         action, why = "keep", "no point is flagged by two methods"
     elif extreme and extreme <= max(3, 0.002 * len(v)) and light:
         action, why = "remove", (f"{extreme} value{'s are' if extreme > 1 else ' is'} more than 10 robust standard "
-                                 "deviations away from a light-tailed column: likely entry or unit errors")
+                                 "deviations away from a light-tailed column: possible entry or unit errors; verify against the source before deleting")
     elif extreme and extreme <= max(3, 0.002 * len(v)):
         action, why = "reassign", (f"{extreme} value{'s are' if extreme > 1 else ' is'} more than 10 robust standard "
                                    "deviations away, but the rest of the column is heavy-tailed: such values happen, "
-                                   "check them before removing anything; meanwhile cap the consensus outliers at the "
+                                   "check them before removing anything; meanwhile consider whether to cap the consensus outliers at the "
                                    "boxplot fences (winsorize) or use robust models")
     else:
-        action, why = "reassign", (f"{n_cons} consensus outliers form a real but influential tail: cap them at the "
+        action, why = "reassign", (f"{n_cons} consensus outliers form a real but influential tail: consider whether to cap them at the "
                                    "boxplot fences (winsorize) or use robust models")
+    # Positional masks retain missing rows and work even when row labels repeat.
+    present = x.replace([np.inf, -np.inf], np.nan).notna().to_numpy()
+    consensus_mask, remove_mask = np.zeros(len(x), dtype=bool), np.zeros(len(x), dtype=bool)
+    consensus_mask[present] = consensus.to_numpy()
+    if action == "remove":
+        remove_mask[present] = far.to_numpy()
     return {
         "n": len(v), "mean": mean, "std": std, "median": med, "q1": q1, "q3": q3, "lower_fence": lo, "upper_fence": hi,
         "sigma_low": mean - 3 * std, "sigma_high": mean + 3 * std,
         "counts": {m: int(flags[m].sum()) for m in METHODS}, "n_consensus": n_cons,
         "pct_consensus": 100.0 * n_cons / len(v), "n_extreme": extreme, "action": action, "why": why,
         "points": points, "robust": robust, "consensus": consensus,
+        "consensus_mask": consensus_mask, "remove_mask": remove_mask,
     }
 
 

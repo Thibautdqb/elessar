@@ -32,7 +32,8 @@ def test_see_full(messy_df: pd.DataFrame, tmp_path: Path, capsys: pytest.Capture
     assert {a["severity"] for a in report.alerts} <= {"high", "medium", "info"}
 
     data = json.loads(report.to_json(tmp_path / "r.json").read_text())
-    assert set(data) == {"overview", "summary", "columns", "correlations", "quality", "alerts", "plots"}
+    assert {"overview", "summary", "columns", "correlations", "quality", "alerts", "plots",
+            "selection", "multivariate", "outliers", "preparation", "timings", "timeseries"} <= set(data)
     csv = pd.read_csv(report.to_csv(tmp_path / "s.csv"), index_col=0)
     assert list(csv.index) == list(messy_df.columns)
     md = report.to_markdown(tmp_path / "r.md").read_text()
