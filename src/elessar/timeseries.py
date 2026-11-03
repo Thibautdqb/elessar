@@ -37,6 +37,9 @@ _STEP_SECONDS = [(1, "second"), (60, "minute"), (3600, "hour"), (86400, "day"), 
                  (30.44 * 86400, "month"), (91.31 * 86400, "quarter"), (365.25 * 86400, "year")]
 _PANDAS_FREQ = {"second": "s", "minute": "min", "hour": "h", "day": "D", "week": "W", "month": "MS", "quarter": "QS",
                 "year": "YS"}
+DATETIME_INDEX_AXIS = "__datetime_index__"
+"""Virtual time-axis label for a preserved pandas DatetimeIndex/PeriodIndex."""
+
 SEASONAL_STRENGTH_MIN = 0.25
 """Seasonal strength 1 - var(remainder) / var(seasonal + remainder) needed to report a seasonality."""
 # MacKinnon (2010), N=1 response surfaces, including the cubic finite-sample term.
@@ -91,6 +94,13 @@ def _time_columns(df: pd.DataFrame, types: dict[str, str]) -> dict[str, pd.Serie
                 t = as_datetime(df[col])
             if t.notna().mean() >= 0.8 and t.nunique() >= 10:
                 out[col] = t
+    # A pandas datetime row index carries observation time even when there is
+    # no date *column*. Keep it virtual so numeric-column and report counts
+    # remain unchanged. A non-unique index is already reset by prepare().
+    if DATETIME_INDEX_AXIS not in df.columns and isinstance(df.index, (pd.DatetimeIndex, pd.PeriodIndex)):
+        idx = df.index.to_timestamp() if isinstance(df.index, pd.PeriodIndex) else df.index
+        if idx.is_unique and idx.notna().all():
+            out[DATETIME_INDEX_AXIS] = pd.Series(idx, index=df.index)
     return out
 
 
@@ -499,17 +509,22 @@ def treatment(info: dict[str, Any], main: dict[str, Any], n_steps: int, value: s
                       "code": f"df['date'] = pd.to_datetime(df[{y!r}].astype(str) + '-' + df[{m!r}].astype(str), "
                               "format='mixed')"})
         t = "date"
+    elif t == DATETIME_INDEX_AXIS:
+        steps.append({"step": "Time index", "advice": "the pandas datetime row index is the time axis; preserve it",
+                      "code": "df = df.sort_index()  # datetime index already carries observation time"})
     elif info.get("time_dtype") == "year":
         steps.append({"step": "Time column", "advice": f"{t} holds years: turn it into dates first",
                       "code": f"df[{t!r}] = pd.to_datetime(df[{t!r}].astype(int).astype(str), format='%Y')"})
     if not info["sorted"]:
         steps.append({"step": "Order", "advice": "the rows are not in time order: sort before anything else",
-                      "code": f"df = df.sort_values({t!r})"})
+                      "code": ("df = df.sort_index()" if t == DATETIME_INDEX_AXIS else
+                               f"df = df.sort_values({t!r})")})
     if info["kind"] == "event log":
         steps.append({"step": "Aggregation", "advice": f"timestamps repeat: aggregate per {info['aggregated_to']} to get "
                                                        "a regular series (counts, sums or means)",
                       "code": "\n".join(
-                          [f"s = df.set_index(pd.to_datetime(df[{t!r}])).sort_index()",
+                          [("s = df.sort_index()" if t == DATETIME_INDEX_AXIS else
+                            f"s = df.set_index(pd.to_datetime(df[{t!r}])).sort_index()"),
                            f"series = s.resample({_PANDAS_FREQ[info['aggregated_to']]!r}).size().to_frame('rows')"]
                           + [f"series[{c!r}] = elessar.types.as_numeric(s[{c!r}])"
                              f".resample({_PANDAS_FREQ[info['aggregated_to']]!r}).mean()"
@@ -517,11 +532,13 @@ def treatment(info: dict[str, Any], main: dict[str, Any], n_steps: int, value: s
     elif info.get("n_missing_steps"):
         steps.append({"step": "Gaps", "advice": f"{info['n_missing_steps']:,} missing time steps: reindex on the full "
                                                 "range, then interpolate short gaps",
-                      "code": f"df = df.set_index({t!r}).asfreq({_PANDAS_FREQ[freq]!r})\n"
-                              "df = df.interpolate(limit=3)"})
+                      "code": (f"df = df.asfreq({_PANDAS_FREQ[freq]!r})\n" if t == DATETIME_INDEX_AXIS
+                               else f"df = df.set_index({t!r}).asfreq({_PANDAS_FREQ[freq]!r})\n")
+                              + "df = df.interpolate(limit=3)"})
     if freq in ("second", "minute") and n_steps > 50_000:
         steps.append({"step": "Aggregation", "advice": "very fine sampling: resample to hours to remove noise and size",
-                      "code": f"hourly = df.set_index({t!r}).resample('h').mean(numeric_only=True)"})
+                      "code": ("hourly = df.resample('h').mean(numeric_only=True)" if t == DATETIME_INDEX_AXIS
+                               else f"hourly = df.set_index({t!r}).resample('h').mean(numeric_only=True)")})
     if info["kind"] == "panel":
         e = info["entity"]
         steps.append({"step": "Panel", "advice": f"one series per {e}: compute lags and windows within each {e}, "
