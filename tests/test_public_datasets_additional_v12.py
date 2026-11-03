@@ -1,6 +1,5 @@
 """Offline public scikit-learn datasets: descriptive, reporting and reference checks."""
 import numpy as np
-import pandas as pd
 import pytest
 from scipy import stats
 from sklearn.datasets import load_breast_cancer, load_diabetes, load_digits
