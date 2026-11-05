@@ -80,3 +80,24 @@ def test_no_recap_without_plots(messy_df: pd.DataFrame, tmp_path: Path) -> None:
     md = v.to_markdown(tmp_path / "solo" / "r.md")
     assert md.exists() and "## Key findings" in md.read_text()
     assert v.to_html(tmp_path / "solo" / "r.html").read_text().startswith("<!doctype html>")
+
+
+def test_light_theme_and_print_styles(tmp_path) -> None:  # noqa: ANN001
+    import numpy as np
+    import pandas as pd
+
+    from elessar import StoneConfig, plots, see
+
+    rng = np.random.default_rng(0)
+    df = pd.DataFrame({"amount": rng.lognormal(6, 1, 300), "k": rng.choice(list("abc"), 300)})
+    v = see(df, verbose=False, open_report=False, out_dir=tmp_path / "light", config=StoneConfig(theme="light"))
+    page = v.recap["html"].read_text()
+    assert v.theme == "light" and '<html lang="en" data-theme="light">' in page and "@media print" in page
+    assert plots.SURFACE == "#0b111b"  # the dark tokens are back after drawing
+    dark = see(df, verbose=False, open_report=False, out_dir=tmp_path / "dark").recap["html"].read_text()
+    assert 'data-theme="light"' not in dark and "@media print" in dark and "beforeprint" in dark
+    import pytest
+
+    with pytest.raises(ValueError):
+        with plots.theme("sepia"):
+            pass

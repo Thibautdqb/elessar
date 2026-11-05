@@ -983,7 +983,56 @@ def _html_inline(inline: Inline) -> str:
     return "".join(out)
 
 
-def render_html(blocks: list[Block], title: str, embed_from: Path | None = None) -> str:
+# the light page: the same layout on a near-white plane, for theme="light" and for printing (Save as PDF), where the
+# sidebar, the top bar and the chart viewer are hidden and every folded section is opened
+_LIGHT_VARS = ("--bg:#fcfcfb; --panel:#ffffff; --panel2:#f6f6f3; --line:rgba(11,11,11,.12); --ink:#0b0b0b; --text:#2b2a28; "
+               "--muted:#52514e; --dim:#898781; --mint:#0a7d3e; --pink:#b8327a; --cyan:#1f66b8; --amber:#8a5a00; --red:#b42e2e;")
+_LIGHT_RULES: tuple[tuple[tuple[str, ...], str], ...] = (
+    (("body",), "background:var(--bg) !important; color:var(--text);"),
+    (("body::before", ".hero::before", ".hero::after", ".sidebar::before", ".chart-card::before", ".kpi::before",
+      ".kpi.pink::before", ".kpi.amber::before"), "display:none !important;"),
+    ((".sidebar", ".hero", ".kpi", ".chart-card", ".table-wrap", "details", ".topbar", ".overlay-top"),
+     "background:var(--panel) !important; border-color:var(--line) !important; box-shadow:none !important;"),
+    ((".brand strong", ".crumb b", ".hero h1", ".kpi-value", ".section-heading h2", "h3", "strong", "summary",
+      "table.data td:first-child", "table.plan td:first-child", ".chart-card figcaption", ".card td:last-child",
+      ".overlay-top"), "color:var(--ink) !important; text-shadow:none !important;"),
+    (("p", "ul", "td", "pre code"), "color:var(--text) !important;"),
+    ((".side-nav a", ".crumb", ".crumb i", ".hero p", ".kpi-meta", "p em", "table.kv td:first-child",
+      ".card td:first-child", ".foot", ".chart-card .corner", ".status"), "color:var(--muted) !important;"),
+    (("th",), "background:#f1f0ec !important; color:var(--muted) !important;"),
+    (("th", "td", ".chart-card figcaption"), "border-color:#e1e0d9 !important;"),
+    ((".side-nav a.active", ".side-nav a:hover"), "color:var(--ink) !important; background:#f1f0ec !important;"),
+    (("code",), "color:#0b5e3a !important; background:#f1f0ec !important; border-color:#e1e0d9 !important;"),
+    ((".copy",), "color:#0b5e3a !important; background:#ffffff !important; border-color:#c3c2b7 !important;"),
+    ((".callout",), "color:var(--text) !important; background:#fdf6e7 !important;"),
+    ((".chip.sev-high",), "color:#a8292a !important; background:#fbe9e9 !important; border-color:#f3c1c1 !important;"),
+    ((".chip.sev-medium", ".chip.cert-uncertain"),
+     "color:#7a5200 !important; background:#fdf3e1 !important; border-color:#f2dcae !important;"),
+    ((".chip.sev-info", ".chip.cert-probable"),
+     "color:#1f5fa8 !important; background:#e8f1fc !important; border-color:#b7d3f6 !important;"),
+    ((".chip.cert-certain",), "color:#0a6b36 !important; background:#e5f4ea !important; border-color:#b9dfc6 !important;"),
+)
+_PRINT_RULES: tuple[tuple[tuple[str, ...], str], ...] = (
+    ((".sidebar", ".topbar", ".menu", ".overlay", ".copy"), "display:none !important;"),
+    ((".layout",), "display:block !important;"),
+    (("main",), "padding:0 !important;"),
+    ((".chart-card", ".kpi", "table", "figure"), "break-inside:avoid;"),
+    (("img",), "max-width:100% !important;"),
+    ((".table-wrap",), "overflow:visible !important;"),
+    (("table",), "font-size:9.5px !important;"),
+    (("th", "td"), "padding:5px 7px !important; white-space:normal !important;"),
+)
+
+
+def _css(rules: tuple[tuple[tuple[str, ...], str], ...], prefix: str = "") -> str:
+    return "\n".join(", ".join(prefix + sel for sel in sels) + " { " + decl + " }" for sels, decl in rules)
+
+
+_LIGHT_CSS = ("html[data-theme=light] { " + _LIGHT_VARS + " }\n" + _css(_LIGHT_RULES, "html[data-theme=light] ")
+              + "\n@media print {\n:root { " + _LIGHT_VARS + " }\n" + _css(_LIGHT_RULES + _PRINT_RULES) + "\n}")
+
+
+def render_html(blocks: list[Block], title: str, embed_from: Path | None = None, theme: str = "dark") -> str:
     """The report page; with ``embed_from`` (the folder chart paths are relative to) the charts are
     inlined, so the page is one file that can be sent or attached on its own.
 
@@ -1007,7 +1056,7 @@ def render_html(blocks: list[Block], title: str, embed_from: Path | None = None)
         return _PAGE.format(
             title=html.escape(title), name=html.escape(h1[2] if h1 else title), version=html.escape(__version__),
             nav=nav, meta=_html_inline(meta[1]) if meta else "", kpis=f'<div class="kpi-grid">{cards}</div>' if cards else "",
-            body=_html_body(rest))
+            body=_html_body(rest), theme_attr=' data-theme="light"' if theme == "light" else "", light_css=_LIGHT_CSS)
     finally:
         _EMBED["base"] = None
 
@@ -1084,7 +1133,7 @@ def _figure(path: str, label: str) -> str:
 
 
 _PAGE = """<!doctype html>
-<html lang="en">
+<html lang="en"{theme_attr}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1259,6 +1308,7 @@ summary:hover {{ background:rgba(58,255,176,.035); }}
 }}
 @media (prefers-reduced-motion: reduce) {{ html {{ scroll-behavior:auto; }} *, *::before, *::after {{ animation:none !important; transition:none !important; }} }}
 @media print {{ .sidebar, .topbar, .copy {{ display:none; }} .layout {{ display:block; }} }}
+{light_css}
 </style>
 </head>
 <body>
@@ -1294,6 +1344,9 @@ summary:hover {{ background:rgba(58,255,176,.035); }}
     if (el && el.tagName === "DETAILS") el.open = true;
   }}
   window.addEventListener("hashchange", openTarget); openTarget();
+  window.addEventListener("beforeprint", function () {{
+    document.querySelectorAll("details").forEach(function (d) {{ d.open = true; }});
+  }});
   var overlay = document.getElementById("overlay"), img = document.getElementById("overlay-img");
   function close() {{ overlay.classList.remove("open"); img.removeAttribute("src"); }}
   document.querySelectorAll(".zoom").forEach(function (b) {{
@@ -1355,11 +1408,12 @@ def write(vision: Vision, out_dir: str | Path, title: str | None = None, single_
         points.to_csv(out / "outliers.csv", index=False)
     md, page = out / "report.md", out / "report.html"
     md.write_text(render_markdown(blocks), encoding="utf-8")
-    page.write_text(render_html(blocks, name), encoding="utf-8")
+    theme = getattr(vision, "theme", "dark")
+    page.write_text(render_html(blocks, name, theme=theme), encoding="utf-8")
     paths = {"md": md, "html": page}
     if single_file:
         paths["single"] = out / "report_single.html"
-        paths["single"].write_text(render_html(blocks, name, embed_from=out.resolve()), encoding="utf-8")
+        paths["single"].write_text(render_html(blocks, name, embed_from=out.resolve(), theme=theme), encoding="utf-8")
     return paths
 
 

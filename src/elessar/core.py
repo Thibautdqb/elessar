@@ -610,6 +610,7 @@ def see(
         timeseries=extra.get("timeseries"),
         selection=extra.get("selection"),
         preparation=_with_names_step(prep, original) if renamed else prep,
+        theme=cfg.theme,
     )
     if plots and df.shape[1]:
         step = time.perf_counter()

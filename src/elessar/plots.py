@@ -9,12 +9,14 @@ the plot body, and an optional footer note explaining the method.
 
 from __future__ import annotations
 
+import contextlib
 import inspect
 import math
 import re
+import sys
 import textwrap
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 import matplotlib as mpl
 import numpy as np
@@ -57,48 +59,74 @@ SEQUENTIAL = LinearSegmentedColormap.from_list("elessar_seq", ["#151d2a", "#163a
 DENSITY = LinearSegmentedColormap.from_list("elessar_density", ["#163a4a", "#1d6a80", "#2fa9c6", "#9ef0ff"])
 MISSING_CMAP = ListedColormap([PANEL, ORANGE])
 TYPE_COLORS = {"numeric": "#123c4a", "category": "#3e1838", "datetime": "#123f30", "text": "#28224a", "other": "#1d2836"}
+MINT_FILL = "#16503d"
+
+# light theme (StoneConfig.theme = "light", for print and PDF): the same roles on a near-white surface; the
+# categorical series is the reference light palette, validated on #fcfcfb (lightness band, chroma, adjacent
+# colour-vision-deficiency separation >= 9 OKLab, normal vision >= 19.6; three slots under 3:1 contrast are
+# named by legends and labels); sequential and density ramps run light -> dark, the diverging one blue <->
+# red through a neutral grey
+_LIGHT_TOKENS: dict[str, Any] = {
+    "SURFACE": "#fcfcfb", "PANEL": "#f1f0ec", "INK": "#0b0b0b", "INK_2": "#52514e", "MUTED": "#898781",
+    "LIGHT": "#c3c2b7", "GRID": "#e1e0d9",
+    "SERIES": ("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300"),
+    "BLUE": "#2a78d6", "ORANGE": "#d4447f", "MINT": "#008300", "AMBER": "#b97a00", "BLUE_FILL": "#86b6ef",
+    "BLUE_PALE": "#dbe9fb", "HIGHLIGHT": "#d03b3b", "MINT_FILL": "#cfe9d6",
+    "DIVERGING": LinearSegmentedColormap.from_list("elessar_div_light", ["#184f95", "#5598e7", "#b7d3f6", "#f0efec",
+                                                                         "#f3c1c1", "#e66767", "#a8292a"]),
+    "SEQUENTIAL": LinearSegmentedColormap.from_list("elessar_seq_light", ["#f3f6fb", "#b7d3f6", "#6da7ec", "#256abf",
+                                                                          "#0d366b"]),
+    "DENSITY": LinearSegmentedColormap.from_list("elessar_density_light", ["#cde2fb", "#6da7ec", "#256abf", "#0d366b"]),
+    "TYPE_COLORS": {"numeric": "#dbe8f8", "category": "#f6dde8", "datetime": "#d8efe2", "text": "#e5e1f7",
+                    "other": "#ebeae5"},
+}
+_THEMED = tuple(_LIGHT_TOKENS) + ("MISSING_CMAP", "STYLE")
 
 FONTS = ["Inter", "Lato", "Helvetica Neue", "Helvetica", "Arial", "Liberation Sans", "DejaVu Sans"]
-STYLE: dict[str, Any] = {
-    "font.family": "sans-serif",
-    "text.color": INK,
-    "legend.labelcolor": INK_2,
-    "font.sans-serif": FONTS,
-    "text.parse_math": False,  # column names and values may contain "$"
-    "figure.facecolor": SURFACE,
-    "axes.facecolor": SURFACE,
-    "savefig.facecolor": SURFACE,
-    "axes.edgecolor": LIGHT,
-    "axes.linewidth": 0.8,
-    "axes.labelcolor": INK_2,
-    "axes.labelsize": 9.5,
-    "axes.titlecolor": INK,
-    "axes.titlesize": 10.5,
-    "axes.titleweight": "bold",
-    "axes.titlelocation": "left",
-    "axes.titlepad": 8,
-    "axes.spines.top": False,
-    "axes.spines.right": False,
-    "axes.grid": True,
-    "axes.axisbelow": True,
-    "grid.color": GRID,
-    "grid.linewidth": 0.7,
-    "xtick.color": INK_2,
-    "ytick.color": INK_2,
-    "xtick.labelsize": 8.5,
-    "ytick.labelsize": 8.5,
-    "xtick.major.size": 0,
-    "ytick.major.size": 0,
-    "xtick.minor.size": 0,
-    "ytick.minor.size": 0,
-    "xtick.major.pad": 5,
-    "ytick.major.pad": 5,
-    "font.size": 9.5,
-    "legend.frameon": False,
-    "legend.fontsize": 8.5,
-    "figure.constrained_layout.h_pad": 0.06,
-    "figure.constrained_layout.w_pad": 0.08,
-}
+def _style() -> dict[str, Any]:
+    return {
+        "font.family": "sans-serif",
+        "text.color": INK,
+        "legend.labelcolor": INK_2,
+        "font.sans-serif": FONTS,
+        "text.parse_math": False,  # column names and values may contain "$"
+        "figure.facecolor": SURFACE,
+        "axes.facecolor": SURFACE,
+        "savefig.facecolor": SURFACE,
+        "axes.edgecolor": LIGHT,
+        "axes.linewidth": 0.8,
+        "axes.labelcolor": INK_2,
+        "axes.labelsize": 9.5,
+        "axes.titlecolor": INK,
+        "axes.titlesize": 10.5,
+        "axes.titleweight": "bold",
+        "axes.titlelocation": "left",
+        "axes.titlepad": 8,
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "axes.grid": True,
+        "axes.axisbelow": True,
+        "grid.color": GRID,
+        "grid.linewidth": 0.7,
+        "xtick.color": INK_2,
+        "ytick.color": INK_2,
+        "xtick.labelsize": 8.5,
+        "ytick.labelsize": 8.5,
+        "xtick.major.size": 0,
+        "ytick.major.size": 0,
+        "xtick.minor.size": 0,
+        "ytick.minor.size": 0,
+        "xtick.major.pad": 5,
+        "ytick.major.pad": 5,
+        "font.size": 9.5,
+        "legend.frameon": False,
+        "legend.fontsize": 8.5,
+        "figure.constrained_layout.h_pad": 0.06,
+        "figure.constrained_layout.w_pad": 0.08,
+    }
+
+
+STYLE: dict[str, Any] = _style()
 _PLOT_FILE = re.compile(r"^\d{2,}_.+\.png$")
 _PART_FILE = re.compile(r"^\.part\d{4}-\d{2,}_.+\.png$")
 
@@ -745,7 +773,7 @@ def _sparkline(ax: Any, s: pd.Series, stype: str, st: dict[str, Any], box: tuple
             if len(counts) >= 2:
                 xs = x0 + w * np.linspace(0, 1, len(counts))
                 ys = y0 + h - h * counts / counts.max()
-                ax.fill_between(xs, y0 + h, ys, color="#16503d", lw=0)
+                ax.fill_between(xs, y0 + h, ys, color=MINT_FILL, lw=0)
                 ax.plot(xs, ys, color=SERIES[2], lw=1)
                 return
     if heights is None or not heights.max():
@@ -1076,7 +1104,42 @@ def _run_job(i: int) -> tuple[list[dict[str, Any]], list[str]]:
     return writer.index, writer.errors
 
 
-def make_plots(
+@contextlib.contextmanager
+def theme(name: str = "dark") -> Iterator[None]:
+    """Draw with the ``"dark"`` (default) or ``"light"`` tokens inside the block (charts for print and PDF)."""
+    if name not in ("dark", "light"):
+        raise ValueError(f"theme is 'dark' or 'light', got {name!r}")
+    from . import plots_advanced
+
+    module = sys.modules[__name__]
+    saved = {k: getattr(module, k) for k in _THEMED}
+    try:
+        if name == "light":
+            for k, v in _LIGHT_TOKENS.items():
+                setattr(module, k, v)
+            module.MISSING_CMAP = ListedColormap([module.PANEL, module.ORANGE])
+            module.STYLE = _style()
+        for k in _THEMED:  # plots_advanced imported the tokens by name
+            if hasattr(plots_advanced, k):
+                setattr(plots_advanced, k, getattr(module, k))
+        yield
+    finally:
+        for k, v in saved.items():
+            setattr(module, k, v)
+            if hasattr(plots_advanced, k):
+                setattr(plots_advanced, k, v)
+
+
+def make_plots(df: pd.DataFrame, details: dict[str, dict[str, Any]], correlations: dict[str, pd.DataFrame],
+               out_dir: str | Path, target: str | None = None, config: StoneConfig | None = None,
+               errors: list[str] | None = None, index: list[dict[str, Any]] | None = None, workers: int = 1,
+               advanced: dict[str, Any] | None = None) -> list[Path]:
+    """Every informative plot (:func:`_make_plots`), in the theme of ``config.theme``."""
+    with theme((config or StoneConfig()).theme):
+        return _make_plots(df, details, correlations, out_dir, target, config, errors, index, workers, advanced)
+
+
+def _make_plots(
     df: pd.DataFrame,
     details: dict[str, dict[str, Any]],
     correlations: dict[str, pd.DataFrame],

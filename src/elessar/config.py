@@ -135,5 +135,7 @@ class StoneConfig:
     n_scatter: int = 4
     n_target_plots: int = 8
     dpi: int = 144
+    theme: str = "dark"
+    """Charts and report page: ``"dark"`` (on screen) or ``"light"`` (print, PDF, light documents)."""
     single_file_report: bool = False
     """Also write ``report_single.html`` with every chart inlined (one file to send or attach)."""

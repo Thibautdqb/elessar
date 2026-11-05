@@ -149,6 +149,7 @@ class Vision:
         selection: feature selection against the target (decision tree, random forest, lasso,
             ridge, filter): ``table`` of importances and votes, ``keep`` / ``borderline`` / ``drop``.
         preparation: the cleaning and transformation plan (``steps``: kind, action, column, why, code).
+        theme: ``"dark"`` or ``"light"`` (``StoneConfig.theme``): the charts' and the report page's colours.
     """
 
     overview: dict[str, Any]
@@ -171,6 +172,7 @@ class Vision:
     timeseries: dict[str, Any] | None = None
     selection: dict[str, Any] | None = None
     preparation: dict[str, Any] = field(default_factory=dict)
+    theme: str = "dark"
 
     def __repr__(self) -> str:
         o = self.overview
@@ -518,7 +520,8 @@ class Vision:
 
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(render_html(build(self, path.parent), self.name or "elessar report"), encoding="utf-8")
+        path.write_text(render_html(build(self, path.parent), self.name or "elessar report", theme=self.theme),
+                        encoding="utf-8")
         return path
 
 
