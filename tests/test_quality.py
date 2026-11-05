@@ -133,3 +133,12 @@ def test_age_bounds_only_for_ages_in_years() -> None:
     assert suspicious_values(days.rename("AgeMonths"), "numeric_discrete") == []
     assert suspicious_values(days.rename("age"), "numeric_discrete") == ["3 ages above 120"]
     assert suspicious_values(pd.Series([-1, 30], name="age_days"), "numeric_discrete") == ["1 negative ages"]
+
+
+def test_category_words_are_a_question_not_a_replacement() -> None:
+    df = pd.DataFrame({"card_type": ["none"] * 60 + ["classic"] * 30 + ["gold"] * 10,
+                       "city": ["Paris", "?", "Lyon", "Nice"] * 25})
+    q = see_quality(df)
+    by_col = {(a["column"], a["severity"]): a["message"] for a in q["alerts"] if "placeholder" in a["message"] or "category of its own" in a["message"]}
+    assert ("card_type", "info") in by_col and "replace with NaN only if it means missing" in by_col[("card_type", "info")]
+    assert ("card_type", "medium") not in by_col and ("city", "medium") in by_col

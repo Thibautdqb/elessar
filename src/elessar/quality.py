@@ -277,6 +277,12 @@ def whitespace_issues(s: pd.Series) -> int:
     return int((strs != strs.str.strip()).sum())
 
 
+def is_category_word(key: str, config: StoneConfig | None = None) -> bool:
+    """Is a placeholder found by :func:`placeholder_values` (its repr) also an ordinary category label?"""
+    cfg = config or StoneConfig()
+    return key.strip("'\"").strip().lower() in cfg.placeholder_category_words
+
+
 def placeholder_values(s: pd.Series, stype: str, config: StoneConfig | None = None) -> dict[str, int]:
     """Values that are probably sentinels for 'missing' (``"NA"``, ``"?"``, ``-999``...)."""
     cfg = config or StoneConfig()
@@ -635,8 +641,15 @@ def quality_alerts(q: dict[str, Any], config: StoneConfig | None = None) -> list
     for col, n in q["whitespace_columns"].items():
         alerts.append(alert("medium", col, f"{n:,} values with leading/trailing whitespace -> .str.strip()"))
     for col, found in q["placeholder_values"].items():
-        vals = ", ".join(f"{k} ({v})" for k, v in list(found.items())[:5])
-        alerts.append(alert("medium", col, f"placeholder values used as missing: {vals} -> replace with NaN"))
+        missing = {k: v for k, v in found.items() if not is_category_word(k, cfg)}
+        words = {k: v for k, v in found.items() if is_category_word(k, cfg)}
+        if missing:
+            vals = ", ".join(f"{k} ({v})" for k, v in list(missing.items())[:5])
+            alerts.append(alert("medium", col, f"placeholder values used as missing: {vals} -> replace with NaN"))
+        if words:
+            vals = ", ".join(f"{k} ({v})" for k, v in words.items())
+            alerts.append(alert("info", col, f"{vals}: a missing value, or a category of its own (no card, an answer "
+                                             "'unknown')? -> replace with NaN only if it means missing"))
     for col, msgs in q["suspicious_values"].items():
         for m in msgs:
             alerts.append(alert("high", col, f"suspicious: {m}"))

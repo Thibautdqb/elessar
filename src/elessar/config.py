@@ -26,6 +26,9 @@ PLACEHOLDER_STRINGS: tuple[str, ...] = (
     "missing", "unknown", "undefined", "#n/a", "#null!", "not available",
     "0000-00-00", "00/00/0000", "00-00-0000", "0000/00/00", "0000-00-00 00:00:00",  # zero dates: no date
 )
+PLACEHOLDER_CATEGORY_WORDS: tuple[str, ...] = ("none", "unknown")
+"""Placeholders that are also ordinary category labels ("none" for no card, "unknown" as an answer): what they
+mean cannot be read from the data, so they are reported as a question, never replaced."""
 PLACEHOLDER_NUMBERS: tuple[float, ...] = (-999, -9999, -99999, 999, 9999, 99999, 999999)
 
 
@@ -122,6 +125,7 @@ class StoneConfig:
     outlier_alert_pct: float = 5.0
     placeholder_strings: tuple[str, ...] = PLACEHOLDER_STRINGS
     placeholder_numbers: tuple[float, ...] = PLACEHOLDER_NUMBERS
+    placeholder_category_words: tuple[str, ...] = PLACEHOLDER_CATEGORY_WORDS
 
     # plots
     plot_top_n: int = 15
