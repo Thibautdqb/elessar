@@ -494,3 +494,16 @@ def test_formatted_placeholders_are_read_back_as_numbers() -> None:
     from elessar.preparation import _literal
 
     assert [_literal(k) for k in ("99,999", "-999", "1,234.5", "'?'", "NA")] == [99999, -999, 1234.5, "?", "NA"]
+
+
+def test_selection_rows_cover_the_whole_time_span() -> None:
+    from elessar.selection import _MAX_ROWS, _time_spread
+
+    days = pd.date_range("1993-01-01", "1998-12-31", periods=150_000)
+    frame = pd.DataFrame({"t": days, "x": np.arange(len(days))})
+    rows = _time_spread(frame)
+    assert len(rows) == _MAX_ROWS and rows["t"].is_monotonic_increasing and rows.index.is_unique
+    assert rows["t"].min() == days[0] and rows["t"].max() == days[-1]  # was: the last 20,000 rows, from 1998-03
+    assert (rows["x"].diff().dropna() == 1).mean() > 0.99  # contiguous within each block
+    small = frame.iloc[:500]
+    assert _time_spread(small) is small
