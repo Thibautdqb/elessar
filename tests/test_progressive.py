@@ -86,6 +86,18 @@ def test_identifier_checked_on_every_row(tmp_path: Path) -> None:
     assert v.columns["order_id"]["semantic_type"] == "id" and v.columns["order_id"]["certainty"] == "certain"
 
 
+def test_grouping_key_count_is_stated_over_every_row(tmp_path: Path) -> None:
+    # 3,000 accounts, each seen a few times: the rows used for typing hold only part of them
+    rng = np.random.default_rng(4)
+    n = 40_000
+    df = pd.DataFrame({"account_id": rng.integers(0, 3_000, n), "amount": rng.normal(size=n)})
+    df = df.sort_values("account_id", kind="stable")  # blocks of the file see only a range of accounts
+    v = see(_csv(tmp_path, df), config=BIG, plots=False, verbose=False)
+    d = v.columns["account_id"]
+    assert d["semantic_type"] == "categorical" and d["n_ids"] == df.account_id.nunique()
+    assert f"({df.account_id.nunique():,} ids over all {n:,} rows)" in d["reason"]
+
+
 def test_values_that_break_the_type_are_reported(tmp_path: Path) -> None:
     rng = np.random.default_rng(3)
     n = 30_000

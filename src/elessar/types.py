@@ -464,7 +464,8 @@ def _n_id_named(w: Walk, v: _Num) -> dict[str, Any] | None:
         w.identifier = True
         return w.leaf("id", 0.7, f"{v.how}: name looks like an id, mostly unique consecutive integers")
     # a grouping key needs no complete set of values (unlike labels): no Good-Turing check here
-    return w.leaf("categorical", 0.7, f"{v.how}: repeated identifier ({v.nunique} ids), a grouping key")
+    return w.leaf("categorical", 0.7, f"{v.how}: repeated identifier ({v.nunique} ids), a grouping key",
+                  n_ids=int(v.nunique))
 
 
 def _n_id_values(w: Walk, v: _Num) -> dict[str, Any] | None:

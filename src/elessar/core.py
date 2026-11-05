@@ -123,6 +123,12 @@ def verify_types(df: pd.DataFrame, details: dict[str, dict[str, Any]], found: di
                                  "(it looked unique on the rows used for typing)", kind="type_check"))
             elif n_dup == 0:
                 d.update(certainty="certain", certainty_reason=f"unique over all {n_rows:,} rows (checked)")
+        elif d.get("n_ids") is not None and stats_full is not None:
+            # the count in the reason was read on the rows used for typing: state the one over every row
+            n_ids = int(stats_full["n_distinct"])
+            exact = "" if stats_full.get("distinct_exact", True) else "~"
+            d["reason"] = d["reason"].replace(f"({d['n_ids']} ids)", f"({exact}{n_ids:,} ids over all {n_rows:,} rows)")
+            d["n_ids"] = n_ids
         elif stype in ("empty", "constant") and stats_full is not None:
             ok = (stats_full["count"] == 0) if stype == "empty" else (stats_full["n_distinct"] <= 1)
             if ok:
