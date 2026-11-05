@@ -39,6 +39,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="CSV of column descriptions (two columns: column, description) shown in the reports")
     p.add_argument("--dictionary", action="store_true",
                    help="also write <out>/dictionary.csv and dictionary.md (the data dictionary)")
+    p.add_argument("--summary", action="store_true",
+                   help="short report: column charts only for columns with an alert or a significant link to the target")
+    p.add_argument("--light", action="store_true", help="light charts and report page (print, PDF)")
     p.add_argument("--reference-date", metavar="YYYY-MM-DD",
                    help="date at which ages are computed (default: another date of the row, else today)")
     p.add_argument("--no-plots", action="store_true", help="skip the charts (and the HTML recap)")
@@ -78,6 +81,8 @@ def main(argv: list[str] | None = None) -> int:
         if getattr(args, flag) is not None:
             setattr(cfg, attr, getattr(args, flag))
     cfg.single_file_report = args.single_file
+    cfg.report = "summary" if args.summary else "full"
+    cfg.theme = "light" if args.light else "dark"
     if args.describe:
         try:
             described = pd.read_csv(args.describe, dtype=str, keep_default_na=False)

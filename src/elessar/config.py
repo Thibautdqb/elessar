@@ -135,6 +135,10 @@ class StoneConfig:
     n_scatter: int = 4
     n_target_plots: int = 8
     dpi: int = 144
+    report: str = "full"
+    """``"full"``: every chart in report.html / report.md; ``"summary"``: the dataset charts, and the column charts
+    only for columns with a high or medium alert or significantly associated with the target, for a report short
+    enough to print or attach."""
     theme: str = "dark"
     """Charts and report page: ``"dark"`` (on screen) or ``"light"`` (print, PDF, light documents)."""
     single_file_report: bool = False

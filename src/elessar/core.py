@@ -432,6 +432,10 @@ def see(
     or the name of the variable holding the DataFrame).
     """
     cfg = config or StoneConfig()
+    if cfg.report not in ("full", "summary"):
+        raise ValueError(f"StoneConfig.report is 'full' or 'summary', got {cfg.report!r}")
+    if cfg.theme not in ("dark", "light"):
+        raise ValueError(f"StoneConfig.theme is 'dark' or 'light', got {cfg.theme!r}")
     variable = _variable_name(data, inspect.currentframe())
     if isinstance(target, (list, tuple)) and len(target) == 1:
         target = target[0]
@@ -611,6 +615,7 @@ def see(
         selection=extra.get("selection"),
         preparation=_with_names_step(prep, original) if renamed else prep,
         theme=cfg.theme,
+        report=cfg.report,
     )
     if plots and df.shape[1]:
         step = time.perf_counter()

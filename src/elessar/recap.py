@@ -223,6 +223,19 @@ class _Recap:
         self.v = vision
         self.base = base.resolve()
         self.blocks: list[Block] = []
+        self.focus = self._focus() if getattr(vision, "report", "full") == "summary" else None
+
+    def _focus(self) -> set[Any]:
+        """Columns whose charts a summary keeps: a high or medium alert, the target, the features significantly
+        associated with it."""
+        v = self.v
+        keep = {a["column"] for a in v.alerts if a.get("severity") in ("high", "medium") and a.get("column") is not None}
+        if v.target is not None:
+            keep.add(v.target)
+            ranking = v.correlations.get("target")
+            if ranking is not None and not ranking.empty and "significant" in ranking:
+                keep.update(ranking[ranking["significant"].astype(bool)]["feature"])
+        return keep
 
     def rel(self, path: Path) -> str:
         return Path(os.path.relpath(Path(path).resolve(), self.base)).as_posix()
@@ -230,6 +243,9 @@ class _Recap:
     def charts(self, kinds: tuple[str, ...], column: str | None = None, any_column: bool = False) -> list[tuple[str, str]]:
         out = []
         for rec in self.v.plot_index:
+            if self.focus is not None and rec["column"] is not None and rec["column"] != self.v.target \
+                    and rec["column"] not in self.focus and rec.get("other") not in self.focus:
+                continue  # summary report: only the columns that carry a finding
             if rec["kind"] in kinds and (any_column or rec["column"] == column):
                 what = _CHART_KINDS.get(rec["kind"], rec["kind"].replace("_", " ").capitalize())
                 label = what if rec["column"] is None else " vs ".join(
@@ -261,6 +277,11 @@ class _Recap:
             ("Target", str(v.target) if v.target is not None else "none", "the column the others explain"
              if v.target is not None else "descriptive profile", ""),
         ])
+        if self.focus is not None:
+            n_cols = sum(c in self.focus for c in v.columns)
+            self.add("callout", [bold("Summary report. "), ("", f"Column charts are shown for the {n_cols} of "
+                                 f"{o['n_columns']} columns with a high or medium alert or a significant link to the "
+                                 "target; every table and dataset chart is kept (StoneConfig(report='full') for all).")])
         if o.get("sampled"):
             self.add("callout", [bold("Sampled profile. "), ("", f"The table has {o['n_rows']:,} rows: statistics, tests "
                                  f"and charts use a uniform random sample of {o['n_rows_profiled']:,} rows "

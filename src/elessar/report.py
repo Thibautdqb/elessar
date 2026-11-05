@@ -150,6 +150,7 @@ class Vision:
             ridge, filter): ``table`` of importances and votes, ``keep`` / ``borderline`` / ``drop``.
         preparation: the cleaning and transformation plan (``steps``: kind, action, column, why, code).
         theme: ``"dark"`` or ``"light"`` (``StoneConfig.theme``): the charts' and the report page's colours.
+        report: ``"full"`` or ``"summary"`` (``StoneConfig.report``): which charts the recap shows.
     """
 
     overview: dict[str, Any]
@@ -173,6 +174,7 @@ class Vision:
     selection: dict[str, Any] | None = None
     preparation: dict[str, Any] = field(default_factory=dict)
     theme: str = "dark"
+    report: str = "full"
 
     def __repr__(self) -> str:
         o = self.overview

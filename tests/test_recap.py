@@ -101,3 +101,24 @@ def test_light_theme_and_print_styles(tmp_path) -> None:  # noqa: ANN001
     with pytest.raises(ValueError):
         with plots.theme("sepia"):
             pass
+
+
+def test_summary_report_keeps_columns_with_findings(tmp_path) -> None:  # noqa: ANN001
+    import numpy as np
+    import pandas as pd
+
+    from elessar import StoneConfig, see
+
+    rng = np.random.default_rng(1)
+    n = 400
+    x = rng.normal(size=n)
+    df = pd.DataFrame({"driver": x, "noise1": rng.normal(size=n), "noise2": rng.uniform(size=n),
+                       "y": (x + 0.5 * rng.normal(size=n) > 0).astype(int)})
+    full = see(df, target="y", verbose=False, open_report=False, out_dir=tmp_path / "full")
+    short = see(df, target="y", verbose=False, open_report=False, out_dir=tmp_path / "short",
+                config=StoneConfig(report="summary"))
+    page, short_page = full.recap["html"].read_text(), short.recap["html"].read_text()
+    assert "Summary report." in short_page and "Summary report." not in page
+    assert "noise1_dist.png" in page and "noise1_dist.png" not in short_page
+    assert "driver_dist.png" in short_page and "y__driver_target" in short_page
+    assert short_page.count("<img") < page.count("<img")
