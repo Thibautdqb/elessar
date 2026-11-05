@@ -15,6 +15,7 @@ from .distributions import see_dist  # noqa: E402
 from .picker import pick_target, suggest_targets  # noqa: E402
 from .plots import see_plot  # noqa: E402
 from .quality import see_quality  # noqa: E402
+from .relations import Relations, see_relations  # noqa: E402
 from .report import Vision  # noqa: E402
 from .sources import LoadError, Source, load  # noqa: E402
 from .stats import see_stats  # noqa: E402
@@ -24,6 +25,7 @@ __all__ = [
     "LoadError",
     "Source",
     "StoneConfig",
+    "Relations",
     "Vision",
     "load",
     "parse_dates",
@@ -34,6 +36,7 @@ __all__ = [
     "see_dist",
     "see_plot",
     "see_quality",
+    "see_relations",
     "see_stats",
     "see_types",
     "suggest_targets",

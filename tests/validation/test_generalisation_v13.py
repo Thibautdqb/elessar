@@ -177,3 +177,42 @@ def test_one_entity_at_the_bound_is_not_censoring_but_a_cap_is(record) -> None: 
     flagged = _censoring_alerts(df)
     record(capped_share_pay=float(np.mean(pay == 12_000)), flagged=flagged)
     assert "district_salary" not in flagged and "pay" in flagged
+
+
+def _suggested(tables: dict[str, pd.DataFrame]) -> set[tuple[str, str]]:
+    from elessar import see_relations
+
+    r = see_relations(tables, verbose=False)
+    return {(k.child, k.parent) for k in r.keys.itertuples()} if len(r.keys) else set()
+
+
+@pytest.mark.parametrize("parent_share", [0.3, 0.8])
+def test_no_key_suggested_between_unrelated_identifiers(parent_share: float, record) -> None:  # noqa: ANN001
+    """Two tables numbered in the same low range (the parent keeps a share of 1..3,000, the child refers to
+    something else in 1..3,000): they overlap a lot by construction, no column refers to the other."""
+    rng = np.random.default_rng(int(parent_share * 10))
+    runs = 100
+    claimed = 0
+    for _ in range(runs):
+        parent = pd.DataFrame({"client_id": np.sort(rng.choice(np.arange(1, 3_001), int(3_000 * parent_share), replace=False))})
+        child = pd.DataFrame({"order_id": np.arange(5_000), "shop_id": rng.integers(1, 3_001, 5_000)})
+        claimed += ("orders", "clients") in _suggested({"clients": parent, "orders": child})
+    rate = claimed / runs
+    record(parent_share=parent_share, runs=runs, claimed=rate)
+    assert rate < upper(ALPHA, runs)
+
+
+@pytest.mark.parametrize("parent_share", [0.3, 0.8])
+def test_real_keys_are_suggested(parent_share: float, record) -> None:  # noqa: ANN001
+    """The child refers to the parent's identifiers (same tables as above, the child drawn from the parent)."""
+    rng = np.random.default_rng(int(parent_share * 10) + 1)
+    runs = 100
+    found = 0
+    for _ in range(runs):
+        ids = np.sort(rng.choice(np.arange(1, 3_001), int(3_000 * parent_share), replace=False))
+        parent = pd.DataFrame({"client_id": ids})
+        child = pd.DataFrame({"order_id": np.arange(5_000), "client_id": rng.choice(ids, 5_000)})
+        found += ("orders", "clients") in _suggested({"clients": parent, "orders": child})
+    rate = found / runs
+    record(parent_share=parent_share, runs=runs, found=rate)
+    assert rate > lower(0.95, runs)
