@@ -238,11 +238,14 @@ def variance_inflation(num: pd.DataFrame, config: StoneConfig | None = None) -> 
     VIF > 10 signals strong multicollinearity; ``inf`` means exact linear dependence.
     """
     cfg = config or StoneConfig()
-    usable = num.loc[:, num.std() > 0].dropna()
+    usable = sample(num.dropna(), cfg.sample_size, cfg.random_state)
+    # constant on the rows actually used, not on the whole column: a column that varies overall can be
+    # constant on the complete cases, and its zero spread would turn the standardised matrix into NaN
+    usable = usable.loc[:, usable.std() > 0]
     k = usable.shape[1]
     if k < 2 or len(usable) < k + 2:
         return pd.DataFrame(columns=["vif"])
-    x = sample(usable, cfg.sample_size, cfg.random_state).to_numpy(dtype="float64")
+    x = usable.to_numpy(dtype="float64")
     x = (x - x.mean(axis=0)) / x.std(axis=0)
     vif = []
     for j in range(k):
