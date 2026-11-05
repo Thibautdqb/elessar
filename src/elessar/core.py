@@ -24,7 +24,8 @@ from .distributions import _fmt_params, analyze_distribution, is_fittable
 from .parallel import TaskError, n_workers, run_tasks, shared
 from .picker import pick_target
 from .plots import make_plots
-from .quality import advanced_alerts, alert, duplicates_text, check_quality, column_alerts, column_quality, correlation_alerts, group_alerts, row_order_alert, sort_alerts
+from .quality import (advanced_alerts, alert, duplicates_text, check_quality, column_alerts, column_quality, correlation_alerts,
+                      entity_level_censoring, functional_dependencies, group_alerts, row_order_alert, sort_alerts)
 from . import recap
 from .report import Vision
 from .readers import COMPRESSIONS, FORMATS
@@ -93,6 +94,38 @@ def birth_alerts(details: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
             out.append(alert(severity, col, message, kind="birth"))
         if d.get("role_note"):
             out.append(alert("medium", col, d["role_note"] + " -> check what this column holds", kind="birth"))
+    return out
+
+
+def attribute_columns(df: pd.DataFrame, details: dict[str, dict[str, Any]], cfg: StoneConfig,
+                      target: str | None = None) -> list[dict[str, Any]]:
+    """Columns that are attributes of a grouping key (:func:`quality.functional_dependencies`); their
+    pile-ups at the min / max are tested again on one value per group before calling them censored."""
+    types = {c: d["semantic_type"] for c, d in details.items()}
+    with quiet():
+        deps = functional_dependencies(df, types, cfg, exclude=(target,) if target is not None else ())
+    for dep in deps:
+        d = details[dep["column"]]
+        d["determined_by"] = dep["determined_by"]
+        st = d.get("stats") or {}
+        if st.get("capped_max") or st.get("capped_min"):
+            with quiet():
+                d["entity_capped"] = entity_level_censoring(df, dep, d["semantic_type"])
+            d["alerts"] = column_alerts(dep["column"], d, cfg)
+    return deps
+
+
+def dependency_alerts(deps: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_key: dict[Any, list[Any]] = {}
+    for dep in deps:
+        by_key.setdefault(dep["determined_by"], []).append(dep["column"])
+    out = []
+    for key, cols in by_key.items():
+        shown = ", ".join(map(str, cols[:8])) + (f" (+{len(cols) - 8} more)" if len(cols) > 8 else "")
+        out.append(alert("info", key, f"{len(cols)} column{'s are' if len(cols) > 1 else ' is'} determined by {key} "
+                         f"(a single value per {key}, beyond chance): {shown} -> attributes of {key} repeated on its "
+                         f"rows, or recodings of it: their row-level statistics weigh each {key} by its number of rows "
+                         f"(describe them on one row per {key})", kind="dependencies"))
     return out
 
 
@@ -412,13 +445,15 @@ def see(
     decided = src.plan.types if src.plan is not None else None
     df, details, correlations, found = analyze(df, target, cfg, workers, timings, decided)
     type_alerts = verify_types(df, details, found, src, cfg) if src.plan is not None else []
+    dependencies = attribute_columns(df, details, cfg, target)
     step = time.perf_counter()
     exact_dups = full.duplicate_rows if full is not None else None
     if full is not None and exact_dups is None:  # too many rows to hash: say so instead of showing the sample's count
         exact_dups = {"not_counted": True}
     quality = check_quality(df, details, correlations, cfg, target, found, exact_dups,
                             full.n_rows_missing_at_least(cfg.row_missing_pct) if full is not None and df.shape[1] >= 2 else None)
-    alerts = list(quality["alerts"]) + type_alerts + birth_alerts(details)
+    quality["functional_dependencies"] = dependencies
+    alerts = list(quality["alerts"]) + type_alerts + birth_alerts(details) + dependency_alerts(dependencies)
     for d in details.values():
         alerts.extend(d["alerts"])
     renamed = bool(original) and dedupe_names(original) != original

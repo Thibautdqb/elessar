@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from elessar import StoneConfig
 from elessar.quality import duplicate_rows
 
 from .sim import lower, upper
@@ -116,3 +117,63 @@ def test_few_copies_among_many_coincidences_limit(record) -> None:  # noqa: ANN0
     rate = found / runs
     record(runs=runs, found=rate)
     assert 0 <= rate <= 1  # reported in VALIDATION.md
+
+
+def _censoring_alerts(df: pd.DataFrame) -> list[str]:
+    from elessar import see
+
+    v = see(df, plots=False, verbose=False, config=StoneConfig(n_jobs=1))
+    return [a["column"] for a in v.alerts if "censored" in a["message"]]
+
+
+@pytest.mark.parametrize("share", [0.5, 0.9, 0.99])
+def test_no_dependency_claimed_by_chance(share: float, record) -> None:  # noqa: ANN001
+    """A label and an independent column, in groups of 2 to 4 rows: a single value per group happens by
+    chance when one value is very common, and must not be claimed as a dependence beyond 5% of tables."""
+    from elessar.quality import functional_dependencies
+
+    rng = np.random.default_rng(int(share * 100))
+    runs = 300
+    claimed = 0
+    for _ in range(runs):
+        key = rng.integers(0, 150, 450)
+        x = np.where(rng.random(450) < share, "common", rng.choice(["b", "c"], 450))
+        df = pd.DataFrame({"key": key, "x": x})
+        claimed += any(d["column"] == "x" for d in functional_dependencies(df, {"key": "categorical", "x": "categorical"}))
+    rate = claimed / runs
+    record(share=share, runs=runs, claimed=rate)
+    assert rate < upper(ALPHA, runs)
+
+
+def test_attributes_of_a_key_are_found(record) -> None:  # noqa: ANN001
+    """Attributes of 77 districts repeated on 700 clients: every attribute is found, with its key."""
+    from elessar.quality import functional_dependencies
+
+    rng = np.random.default_rng(80)
+    runs = 100
+    found = 0
+    for _ in range(runs):
+        district = rng.choice(77, 700, p=np.r_[0.12, np.full(76, 0.88 / 76)])
+        salary, rate = rng.normal(9_000, 800, 77).round(), rng.uniform(0.3, 7, 77).round(2)
+        df = pd.DataFrame({"district_id": district, "salary": salary[district], "unemployment": rate[district],
+                           "amount": rng.lognormal(10, 1, 700)})
+        deps = {d["column"]: d["determined_by"] for d in functional_dependencies(
+            df, {"district_id": "categorical", "salary": "numeric_continuous", "unemployment": "numeric_continuous",
+                 "amount": "numeric_continuous"})}
+        found += deps == {"salary": "district_id", "unemployment": "district_id"}
+    record(runs=runs, found=found / runs)
+    assert found == runs
+
+
+def test_one_entity_at_the_bound_is_not_censoring_but_a_cap_is(record) -> None:  # noqa: ANN001
+    """The largest district holds the maximum of its attributes on 12% of the rows: not censoring. A salary
+    capped at 12,000 on many clients is."""
+    rng = np.random.default_rng(81)
+    district = rng.choice(77, 700, p=np.r_[0.12, np.full(76, 0.88 / 76)])
+    salary = rng.normal(9_000, 800, 77).round()
+    salary[0] = 12_541  # the capital: highest salary
+    pay = np.minimum(rng.lognormal(9.2, 0.4, 700), 12_000).round()
+    df = pd.DataFrame({"district_id": district, "district_salary": salary[district], "pay": pay})
+    flagged = _censoring_alerts(df)
+    record(capped_share_pay=float(np.mean(pay == 12_000)), flagged=flagged)
+    assert "district_salary" not in flagged and "pay" in flagged

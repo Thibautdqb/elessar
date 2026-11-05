@@ -418,6 +418,74 @@ def column_quality(s: pd.Series, info: dict[str, Any], config: StoneConfig | Non
     return found
 
 
+KEY_TYPES = ("categorical", "id", "boolean", "ordinal-candidate")
+
+
+def functional_dependencies(df: pd.DataFrame, types: dict[str, str], config: StoneConfig | None = None,
+                            exclude: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
+    """Columns that are attributes of a grouping key: one value per key, on every row (``X = f(K)``).
+
+    A district's unemployment rate repeated on each of its clients is an attribute of the district: its
+    row-level statistics weigh each district by its number of rows. A dependence is kept only when
+    chance cannot explain it: if ``X`` were drawn independently of ``K``, every group of ``K`` would hold
+    a single value of ``X`` with probability ``prod over groups of sum_v p_v ** size`` (``p_v`` the shares
+    of ``X``'s values), which must fall below ``alpha``. With a key that rarely repeats this probability
+    stays high and nothing is claimed. Keys are labels (categories, identifiers), never measurements; each
+    column is given its coarsest key (fewest groups).
+    """
+    cfg = config or StoneConfig()
+    rows = sample(df, cfg.sample_size, cfg.random_state)
+    n = len(rows)
+    if n < 20:
+        return []
+    codes = {}
+    for c in rows.columns:
+        if types.get(c) in ("empty", "constant") or c in exclude:
+            continue
+        try:
+            k = pd.factorize(hashable(rows[c]), use_na_sentinel=False)[0]
+        except TypeError:
+            continue
+        if k.max() >= 1:
+            codes[c] = k
+    n_values = {c: int(k.max()) + 1 for c, k in codes.items()}
+    # a key is a label (a category or an identifier), never a measurement: 77 districts are also told apart by
+    # their population, which does not make the population a key
+    keys = sorted((c for c in codes if n_values[c] <= n // 2 and types.get(c) in KEY_TYPES), key=lambda c: n_values[c])
+    found: dict[Any, dict[str, Any]] = {}
+    log_alpha = np.log(cfg.alpha)
+    for key in keys:
+        order = np.argsort(codes[key], kind="stable")
+        k_sorted = codes[key][order]
+        same_group = k_sorted[1:] == k_sorted[:-1]
+        sizes = np.bincount(codes[key])
+        sizes = sizes[sizes >= 2]
+        for col, x in codes.items():
+            if col == key or col in found or n_values[col] > n_values[key]:
+                continue
+            x_sorted = x[order]
+            if np.any(same_group & (x_sorted[1:] != x_sorted[:-1])):
+                continue
+            p = np.bincount(x) / n
+            m, count = np.unique(sizes, return_counts=True)
+            log_p = float(np.sum(count * np.log(np.array([np.sum(p ** s) for s in m]))))
+            if log_p < log_alpha:
+                found[col] = {"column": col, "determined_by": key, "n_groups": n_values[key],
+                              "log10_p_chance": log_p / np.log(10)}
+    return list(found.values())
+
+
+def entity_level_censoring(df: pd.DataFrame, dep: dict[str, Any], stype: str) -> dict[str, Any]:
+    """The pile-up test at a column's min and max, redone on one value per group of its key."""
+    from .stats import _pile_up
+
+    per_entity = as_numeric(df.drop_duplicates(dep["determined_by"])[dep["column"]], stype).dropna().to_numpy()
+    if per_entity.size == 0:
+        return {}
+    out = {**_pile_up(per_entity, float(per_entity.max()), "max"), **_pile_up(per_entity, float(per_entity.min()), "min")}
+    return {k: v for k, v in out.items() if k.startswith("capped_")}
+
+
 def check_quality(
     df: pd.DataFrame,
     types: dict[str, dict[str, Any]],
@@ -622,6 +690,9 @@ def column_alerts(col: str, detail: dict[str, Any], config: StoneConfig | None =
         hint = " -> consider a log transform" if (st.get("min") or 0) > 0 and skew > 0 else ""
         out.append(alert("info", col, f"heavily skewed (skewness {skew:.2f}){hint}", "skewed"))
     for side, word in (("max", "capped at"), ("min", "floored at")):
+        if st.get(f"capped_{side}") and detail.get("determined_by") is not None \
+                and not detail.get("entity_capped", {}).get(f"capped_{side}", True):
+            continue  # one group of the key repeated on many rows, not many values censored (see dependencies)
         if st.get(f"capped_{side}") and not (side == "min" and st[side] == 0):
             out.append(alert("medium", col, f"{word} {fmt_num(st[side])}: {st[f'pct_at_{side}']:.1f}% of values sit exactly "
                              "there (censored data) -> treat as censored, or flag and model separately"))
