@@ -87,3 +87,18 @@ def test_cli_descriptions_and_dictionary(tmp_path: Path) -> None:
     md = (out / "dictionary.md").read_text()
     assert md.startswith("| column | description |") and "A finished OK, B finished unpaid" in md
     assert main([str(path), "--no-target", "-q", "--describe", str(tmp_path / "missing.csv")]) == 2
+
+
+def test_cli_several_targets(tmp_path: Path) -> None:
+    rng = np.random.default_rng(4)
+    n = 300
+    x = rng.normal(size=n)
+    path = tmp_path / "clients.csv"
+    pd.DataFrame({"x": x, "z": rng.normal(size=n), "loan": (x + rng.normal(size=n) > 0).astype(int),
+                  "card": rng.integers(0, 2, n)}).to_csv(path, index=False)
+    out = tmp_path / "out"
+    assert main([str(path), "-t", "loan", "-t", "card", "-q", "--no-plots", "-o", str(out), "--json", "--open", "none"]) == 0
+    for t in ("loan", "card"):
+        report = json.loads((out / f"target-{t}" / "report.json").read_text())
+        assert report["target"] == t
+    assert main([str(path), "-t", "loan", "-t", "nope", "-q", "--no-plots"]) == 2

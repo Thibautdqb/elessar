@@ -27,7 +27,9 @@ def build_parser() -> argparse.ArgumentParser:
                                   "(compressed or not)")
     p.add_argument("-V", "--version", action="version", version=f"elessar {__version__}")
     target = p.add_mutually_exclusive_group()
-    target.add_argument("-t", "--target", help="target column to analyse features against ('ask' opens a picker)")
+    target.add_argument("-t", "--target", action="append",
+                        help="target column to analyse features against ('ask' opens a picker); repeat it for one "
+                             "analysis per target (-t loan_1997 -t card_1997)")
     target.add_argument("--no-target", action="store_true", help="do not ask for a target")
     p.add_argument("-o", "--out", help="output folder (default: elessar_report/<file>_<target-X or no-target>_<YYYY-MM-DD>/)")
     p.add_argument("--type", action="append", default=[], metavar="COL=TYPE",
@@ -110,40 +112,45 @@ def main(argv: list[str] | None = None) -> int:
     except (LoadError, OSError, ValueError, ImportError) as exc:
         print(f"elessar: {exc}", file=sys.stderr)
         return 2
-    target = args.target
-    if target == "ask" or (target is None and not args.no_target and _interactive()):
+    targets = list(args.target or [])
+    if targets == ["ask"] or (not targets and not args.no_target and _interactive()):
         try:
-            target = pick_target(src.df)
+            targets = [pick_target(src.df)]
         except RuntimeError as exc:
             print(f"elessar: {exc}", file=sys.stderr)
             return 2
-    if target is not None and str(target) not in map(str, src.df.columns):
-        print(f"elessar: target {target!r} not in columns: {', '.join(map(str, src.df.columns))}", file=sys.stderr)
-        return 2
+    for t in targets:
+        if str(t) not in map(str, src.df.columns):
+            print(f"elessar: target {t!r} not in columns: {', '.join(map(str, src.df.columns))}", file=sys.stderr)
+            return 2
     open_report = {"auto": None, "html": "html", "md": "md", "none": False}[args.open]
-    report = see(src, target=target, config=cfg, plots=not args.no_plots, out_dir=args.out, verbose=False,
+    target = targets[0] if len(targets) == 1 else (targets or None)
+    result = see(src, target=target, config=cfg, plots=not args.no_plots, out_dir=args.out, verbose=False,
                  open_report=False)
-    if not args.quiet:
-        report.print(width=args.width)
-        sys.stdout.flush()  # keep the report before the "wrote ..." messages when both streams share a file
-    if recap.maybe_open(report, open_report, sys.stderr) is None and report.recap:
-        print(f"\nReport: {report.recap['html'].resolve()}", file=sys.stderr)
-    out = report.out_dir or Path(args.out or ".")
-    if args.json or args.markdown or args.csv or args.dictionary:
-        out.mkdir(parents=True, exist_ok=True)
-    written = [
-        export(out / name)
-        for flag, name, export in (
-            (args.json, "report.json", report.to_json),
-            (args.markdown, "report.md", report.to_markdown),
-            (args.csv, "summary.csv", report.to_csv),
-            (args.dictionary, "dictionary.csv", report.to_dictionary),
-            (args.dictionary, "dictionary.md", report.to_dictionary),
-        )
-        if flag
-    ]
-    for path in written:
-        print(f"wrote {path}", file=sys.stderr)
+    reports = list(result.values()) if isinstance(result, dict) else [result]
+    for i, report in enumerate(reports):
+        if not args.quiet:
+            report.print(width=args.width)
+            sys.stdout.flush()  # keep the report before the "wrote ..." messages when both streams share a file
+        last = i == len(reports) - 1
+        if recap.maybe_open(report, open_report if last else False, sys.stderr) is None and report.recap:
+            print(f"\nReport: {report.recap['html'].resolve()}", file=sys.stderr)
+        out = report.out_dir or Path(args.out or ".")
+        if args.json or args.markdown or args.csv or args.dictionary:
+            out.mkdir(parents=True, exist_ok=True)
+        written = [
+            export(out / name)
+            for flag, name, export in (
+                (args.json, "report.json", report.to_json),
+                (args.markdown, "report.md", report.to_markdown),
+                (args.csv, "summary.csv", report.to_csv),
+                (args.dictionary, "dictionary.csv", report.to_dictionary),
+                (args.dictionary, "dictionary.md", report.to_dictionary),
+            )
+            if flag
+        ]
+        for path in written:
+            print(f"wrote {path}", file=sys.stderr)
     return 0
 
 

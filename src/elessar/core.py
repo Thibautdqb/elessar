@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import datetime as dt
 import inspect
 import sys
@@ -399,7 +400,7 @@ def _with_names_step(prep: dict[str, Any], original: list[Any]) -> dict[str, Any
 
 def see(
     data: Any,
-    target: str | None = None,
+    target: str | list[str] | None = None,
     config: StoneConfig | None = None,
     plots: bool = True,
     out_dir: str | Path | None = None,
@@ -407,7 +408,7 @@ def see(
     open_report: bool | str | None = None,
     name: str | None = None,
     **load_options: Any,
-) -> Vision:
+) -> Vision | dict[str, Vision]:
     """Analyse everything about ``data``: types, stats, distributions, correlations, quality, plots.
 
     ``data`` is a DataFrame or anything :func:`elessar.load` reads: a path, URL, glob or folder
@@ -416,7 +417,10 @@ def see(
     sample. ``load_options`` (``sheet``, ``table``, ``sep``, ``encoding``, ``columns``, ``nrows``,
     ``engine``) are passed to :func:`elessar.load`.
 
-    ``target``: the column to explain, or ``"ask"`` to pick it in a window (or at the terminal).
+    ``target``: the column to explain, or ``"ask"`` to pick it in a window (or at the terminal). A list of
+    columns runs one analysis per target and returns ``{target: Vision}``: in each, the other targets stay in
+    the association table (their link to this target is shown) and are left out of feature selection; each
+    report goes to its own folder (``out_dir/target-<name>`` when ``out_dir`` is given).
 
     Prints a terminal report when ``verbose``. When ``plots``, writes the charts and a recap
     (``report.html`` and ``report.md``, charts embedded) to ``out_dir``; by default a folder of
@@ -429,6 +433,20 @@ def see(
     """
     cfg = config or StoneConfig()
     variable = _variable_name(data, inspect.currentframe())
+    if isinstance(target, (list, tuple)) and len(target) == 1:
+        target = target[0]
+    if isinstance(target, (list, tuple)):
+        targets = list(dict.fromkeys(target))
+        src = load(data, cfg, **load_options)
+        results = {}
+        for i, t in enumerate(targets):
+            others = tuple(o for o in targets if o != t and o not in cfg.exclude_features)
+            each = dataclasses.replace(cfg, exclude_features=tuple(cfg.exclude_features) + others)
+            results[t] = see(src, target=t, config=each, plots=plots,
+                             out_dir=Path(out_dir) / f"target-{safe_name(str(t))}" if out_dir is not None else None,
+                             verbose=verbose, open_report=open_report if i == len(targets) - 1 else False,
+                             name=name or src.name or variable)
+        return results  # type: ignore[return-value]
     started = time.perf_counter()
     timings: dict[str, float] = {}
     src = load(data, cfg, **load_options)

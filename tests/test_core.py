@@ -109,3 +109,17 @@ def test_report_folders_per_dataset_and_day(tmp_path, monkeypatch) -> None:  # n
     assert (tmp_path / v.out_dir / "report.html").exists()
     v = see(sales, target="y", verbose=False, open_report=False)
     assert v.out_dir == Path("elessar_report") / f"sales_target-y_{dt.date.today():%Y-%m-%d}"
+
+
+def test_several_targets_one_analysis_each(tmp_path) -> None:  # noqa: ANN001
+    rng = np.random.default_rng(5)
+    n = 400
+    x = rng.normal(size=n)
+    df = pd.DataFrame({"x": x, "z": rng.normal(size=n), "loan": (x + rng.normal(size=n) > 0).astype(int),
+                       "card": (rng.normal(size=n) > 0).astype(int)})
+    out = see(df, target=["loan", "card"], plots=False, verbose=False, out_dir=tmp_path)
+    assert set(out) == {"loan", "card"} and out["loan"].target == "loan" and out["card"].target == "card"
+    sel = out["loan"].selection
+    if sel is not None:  # the other target is never a candidate feature
+        assert "card" not in set(sel.get("keep", [])) | set(sel.get("borderline", []))
+    assert see(df, target=["loan"], plots=False, verbose=False).target == "loan"
