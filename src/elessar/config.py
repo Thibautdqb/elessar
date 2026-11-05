@@ -64,6 +64,9 @@ class StoneConfig:
     """Types set by hand, e.g. ``{"cylinders": "numeric_discrete", "region": "categorical"}``: they replace
     the decision tree for those columns (numeric_continuous, numeric_discrete, categorical, ordinal-candidate,
     id or text)."""
+    reference_date: str | None = None
+    """Date at which ages are computed (``"1999-01-01"``), for an extract whose own dates end long ago. Unset:
+    the best-filled other date of the same row, else today."""
     id_unique_ratio: float = 0.95
     pattern_match_ratio: float = 0.9
     ordinal_max_levels: int = 12

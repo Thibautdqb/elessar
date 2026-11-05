@@ -6,6 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
+import pandas as pd
+
 from . import __version__, recap
 from .config import StoneConfig
 from .core import see
@@ -31,6 +33,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--type", action="append", default=[], metavar="COL=TYPE",
                    help="set a column's type by hand (repeatable), e.g. --type region=categorical --type cylinders="
                         "numeric_discrete")
+    p.add_argument("--reference-date", metavar="YYYY-MM-DD",
+                   help="date at which ages are computed (default: another date of the row, else today)")
     p.add_argument("--no-plots", action="store_true", help="skip the charts (and the HTML recap)")
     p.add_argument("--single-file", action="store_true", help="also write report_single.html with the charts inlined")
     read = p.add_argument_group("reading")
@@ -68,6 +72,13 @@ def main(argv: list[str] | None = None) -> int:
         if getattr(args, flag) is not None:
             setattr(cfg, attr, getattr(args, flag))
     cfg.single_file_report = args.single_file
+    if args.reference_date is not None:
+        try:
+            pd.Timestamp(args.reference_date)
+        except ValueError:
+            print(f"elessar: --reference-date expects a date, got {args.reference_date!r}", file=sys.stderr)
+            return 2
+        cfg.reference_date = args.reference_date
     for spec in args.type:
         col, sep, stype = spec.partition("=")
         if not sep or not col.strip() or not stype.strip():

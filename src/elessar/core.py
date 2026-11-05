@@ -224,7 +224,7 @@ def apply_roles(df: pd.DataFrame, details: dict[str, dict[str, Any]], found: dic
             continue
         d.update(role="date of birth", role_certainty=evidence["certainty"], role_reason=evidence["reason"],
                  path=list(d.get("path") or []) + ["a date of birth? yes"])
-        report = birth_report(df, col, types, cfg.alpha)
+        report = birth_report(df, col, types, cfg.alpha, cfg.reference_date)
         d["birth"] = {k: v for k, v in report.items() if k != "age"}
         if "age" not in report or col == target:
             continue
