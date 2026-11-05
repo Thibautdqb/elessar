@@ -74,11 +74,111 @@ def _duplicated(df: pd.DataFrame) -> pd.Series:
         return _hashable_frame(df).astype(str).duplicated(keep="first")
 
 
-def duplicate_rows(df: pd.DataFrame, id_columns: list[str] | None = None) -> dict[str, Any]:
+def _strata(codes: np.ndarray) -> np.ndarray:
+    """Codes of a column (numbered in the order of the values) cut into at most sqrt(n) groups of near
+    values: the groups a dependent column is shuffled within. A column with that few values keeps one
+    group per value."""
+    n = len(codes)
+    k = max(1, int(np.sqrt(n)))
+    if codes.max() + 1 <= k:
+        return codes
+    ranks = pd.Series(codes).rank(method="dense").to_numpy()
+    return np.minimum((ranks - 1) * k // ranks.max(), k - 1).astype(np.int64)
+
+
+def _mutual_information(a: np.ndarray, b: np.ndarray) -> float:
+    joint = pd.crosstab(a, b).to_numpy(dtype=float)
+    p = joint / joint.sum()
+    pa, pb = p.sum(axis=1, keepdims=True), p.sum(axis=0, keepdims=True)
+    nz = p > 0
+    return float((p[nz] * np.log(p[nz] / (pa @ pb)[nz])).sum())
+
+
+def _dependence_tree(strata: np.ndarray, root: int = 0) -> list[tuple[int, int | None]]:
+    """Columns in the order they are drawn, each with the column it is drawn given (None for ``root``):
+    the maximum spanning tree of pairwise mutual information (Chow-Liu), the closest tree of pairwise
+    links to the table's joint distribution."""
+    k = strata.shape[1]
+    mi = np.zeros((k, k))
+    for i in range(k):
+        for j in range(i + 1, k):
+            mi[i, j] = mi[j, i] = _mutual_information(strata[:, i], strata[:, j])
+    order: list[tuple[int, int | None]] = [(root, None)]
+    best = mi[root].copy()
+    parent = np.full(k, root)
+    done = {root}
+    while len(done) < k:
+        j = max((c for c in range(k) if c not in done), key=lambda c: best[c])
+        order.append((j, int(parent[j])))
+        done.add(j)
+        for c in range(k):
+            if c not in done and mi[j, c] > best[c]:
+                best[c], parent[c] = mi[j, c], j
+    return order
+
+
+def chance_duplicates(df: pd.DataFrame, n_perm: int = 49, max_rows: int = 100_000,
+                      random_state: int = 42) -> dict[str, Any]:
+    """How many duplicate rows chance alone gives with these columns' values (conditional permutation test).
+
+    Tables are drawn that keep every column's values and the strongest link of each column to another
+    (a Chow-Liu tree: each column is shuffled within the groups of the column it depends on most), and
+    nothing else: two rows then coincide only because their values are common, or commonly go together,
+    never because one row was copied. Few columns with few values (a card type and an issue date)
+    coincide often by chance; a coincidence over many varied columns does not. Returns the observed count,
+    the mean count over the draws and the one-sided p-value ``(1 + #{drawn >= observed}) / (1 + n_perm)``,
+    all on the same rows (at most ``max_rows``).
+    """
+    rows = df if len(df) <= max_rows else df.sample(max_rows, random_state=random_state)
+
+    def ordered_codes(s: pd.Series) -> np.ndarray:  # codes in the order of the values: groups of near values
+        v = hashable(s)
+        try:
+            return pd.factorize(v, sort=True, use_na_sentinel=False)[0]
+        except TypeError:  # values that do not compare: order of appearance
+            return pd.factorize(v, use_na_sentinel=False)[0]
+
+    codes = np.column_stack([ordered_codes(rows[c]) for c in rows.columns])
+    strata = np.column_stack([_strata(c) for c in codes.T])
+    # the most varied column first: the others are drawn within its groups, never the reverse (drawing
+    # a varied column within the values of a 3-level one would keep a two-column table exactly as it is)
+    root = int(np.argmax(codes.max(axis=0)))
+    order = _dependence_tree(strata, root) if codes.shape[1] > 1 else [(0, None)]
+
+    def count(m: np.ndarray) -> int:
+        return int(pd.DataFrame(m).duplicated().sum())
+
+    rng = np.random.default_rng(random_state)
+
+    def draw() -> np.ndarray:
+        out = np.empty_like(codes)
+        drawn_strata = np.empty_like(strata)
+        for col, parent in order:
+            if parent is None:
+                perm = rng.permutation(len(codes))
+            else:  # rows whose parent fell in group g receive, in random order, the values of group g
+                perm = np.empty(len(codes), dtype=np.int64)
+                src = pd.Series(np.arange(len(codes))).groupby(strata[:, parent]).indices
+                dst = pd.Series(np.arange(len(codes))).groupby(drawn_strata[:, parent]).indices
+                for g, where in dst.items():
+                    perm[where] = rng.permutation(src[g])
+            out[:, col], drawn_strata[:, col] = codes[perm, col], strata[perm, col]
+        return out
+
+    observed = count(codes)
+    drawn = np.array([count(draw()) for _ in range(n_perm)])
+    return {"observed": observed, "expected": float(drawn.mean()), "n_rows": int(len(rows)), "n_perm": n_perm,
+            "n_columns": int(codes.shape[1]),
+            "p_value": float((1 + (drawn >= observed).sum()) / (1 + n_perm))}
+
+
+def duplicate_rows(df: pd.DataFrame, id_columns: list[str] | None = None, random_state: int = 42) -> dict[str, Any]:
     """Count of fully duplicated rows (beyond the first occurrence) and example indices.
 
     With ``id_columns``, also the rows that only differ by their identifiers: the same record
-    entered twice under two ids, which a plain duplicate check never sees.
+    entered twice under two ids, which a plain duplicate check never sees. Those are compared with the
+    count chance gives (:func:`chance_duplicates`): a few low-variety columns share values without any
+    record being entered twice.
     """
     if df.empty or df.shape[1] == 0:
         return {"count": 0, "pct": 0.0, "example_indices": []}
@@ -91,6 +191,8 @@ def duplicate_rows(df: pd.DataFrame, id_columns: list[str] | None = None) -> dic
         n_key = int(key.sum())
         out.update(count_ignoring_ids=n_key, pct_ignoring_ids=100.0 * n_key / len(df), id_columns=ids,
                    examples_ignoring_ids=[_idx(i) for i in df.index[key & ~dup][:10]])
+        if n_key > int(dup.sum()):
+            out["chance_ignoring_ids"] = chance_duplicates(df.drop(columns=ids), random_state=random_state)
     return out
 
 
@@ -335,7 +437,8 @@ def check_quality(
     """
     cfg = config or StoneConfig()
     out: dict[str, Any] = {
-        "duplicate_rows": duplicate_rows(df, [c for c, info in types.items() if info.get("semantic_type") == "id"]),
+        "duplicate_rows": duplicate_rows(df, [c for c, info in types.items() if info.get("semantic_type") == "id"],
+                                         cfg.random_state),
         "duplicate_columns": duplicate_columns(df),
         "empty_columns": [],
         "constant_columns": [],
@@ -411,15 +514,28 @@ def quality_alerts(q: dict[str, Any], config: StoneConfig | None = None) -> list
         alerts.append(alert("info", None, f"duplicate rows not counted over all rows (more rows than memory allows "
                             f"hashing); {dr['count']:,} in the sample", kind="duplicates"))
     extra = (dr.get("count_ignoring_ids") or 0) - dr["count"]
-    if extra > 0:
+    chance = dr.get("chance_ignoring_ids")
+    by_chance = chance is not None and (chance["p_value"] >= cfg.alpha or chance["observed"] <= chance["expected"])
+    if extra > 0 and by_chance:
+        ids = dr.get("id_columns") or []
+        alerts.append(alert("info", None,
+                            f"{dr['count_ignoring_ids']:,} rows share all their values once the identifier "
+                            f"column{'s' if len(ids) > 1 else ''} {', '.join(map(str, ids))} "
+                            f"{'are' if len(ids) > 1 else 'is'} ignored, as many as chance gives with these columns "
+                            f"(~{chance['expected']:,.0f} expected on {chance['n_rows']:,} rows when the columns are "
+                            f"shuffled keeping their links, observed {chance['observed']:,}, p {chance['p_value']:.2f}): not a sign of "
+                            "records entered twice", kind="duplicates_ids"))
+    elif extra > 0:
         ids = dr.get("id_columns") or []
         where = " in the sample" if dr.get("ignoring_ids_on_sample") else ""
         ex = dr.get("examples_ignoring_ids") or []
+        beyond = (f" (chance gives ~{chance['expected']:,.0f} on {chance['n_rows']:,} rows, observed "
+                  f"{chance['observed']:,}, permutation p {chance['p_value']:.2f})" if chance else "")
         alerts.append(alert("high" if dr["pct_ignoring_ids"] >= 1 else "medium", None,
                             f"{dr['count_ignoring_ids']:,} rows ({dr['pct_ignoring_ids']:.1f}%){where} are duplicates once "
                             f"the identifier column{'s' if len(ids) > 1 else ''} {', '.join(map(str, ids))} "
                             f"{'are' if len(ids) > 1 else 'is'} ignored: the same record under several ids"
-                            + (f", e.g. index {ex[:3]}" if ex else "")
+                            + beyond + (f", e.g. index {ex[:3]}" if ex else "")
                             + f" -> df.drop_duplicates(subset=[c for c in df.columns if c not in {ids!r}])",
                             kind="duplicates_ids"))
     for group in q["duplicate_columns"]:

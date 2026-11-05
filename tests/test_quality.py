@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from elessar import see_quality
+from elessar import StoneConfig, see_quality
 from elessar.quality import SEVERITIES, duplicate_columns, duplicate_rows, missing_patterns, placeholder_values
 
 
@@ -88,3 +88,38 @@ def test_alert_grouping_and_duplicate_dedup(rng: np.random.Generator) -> None:
     about_copy = [a["message"] for a in alerts if a["column"] in ("copy", "skew0")]
     assert sum("identical" in m for m in about_copy) == 1
     assert not any("linear dependency" in m or "redundant" in m for m in about_copy)
+
+
+def _dup_alerts(df: pd.DataFrame, ids: list[str]) -> list[dict]:
+    q = see_quality(df, StoneConfig(column_types={c: "id" for c in ids}))
+    assert q["duplicate_rows"]["id_columns"] == ids
+    return [a for a in q["alerts"] if a.get("kind") == "duplicates_ids"]
+
+
+def test_duplicates_ignoring_ids_by_chance_are_not_alarming() -> None:
+    # a card table: 3 types x 600 issue dates for 900 cards, no record entered twice (one table; the rate of
+    # false alarms over many such tables is measured in tests/validation/test_generalisation_v13.py)
+    rng = np.random.default_rng(7)
+    n = 900
+    df = pd.DataFrame({"card_id": np.arange(n), "type": rng.choice(["classic", "junior", "gold"], n, p=[.74, .16, .1]),
+                       "issued": rng.integers(0, 600, n)})
+    dr = duplicate_rows(df, ["card_id"])
+    assert dr["count_ignoring_ids"] > 100 and dr["chance_ignoring_ids"]["p_value"] > 0.05
+    alerts = _dup_alerts(df, ["card_id"])
+    assert len(alerts) == 1 and alerts[0]["severity"] == "info" and "as many as chance gives" in alerts[0]["message"]
+
+
+def test_records_entered_twice_are_found_beyond_chance() -> None:
+    # the same loans (amount = duration x payments) under a second id: chance never reproduces such rows
+    rng = np.random.default_rng(6)
+    n = 680
+    duration = rng.choice([12, 24, 36, 48, 60], n)
+    payments = rng.integers(300, 9_900, n)
+    df = pd.DataFrame({"loan_id": np.arange(n), "amount": duration * payments, "duration": duration,
+                       "payments": payments, "status": rng.choice(list("ABCD"), n)})
+    twice = df.sample(10, random_state=0).assign(loan_id=lambda d: d.loan_id + 10_000)
+    df = pd.concat([df, twice], ignore_index=True)
+    dr = duplicate_rows(df, ["loan_id"])
+    assert dr["count_ignoring_ids"] >= 10 and dr["chance_ignoring_ids"]["p_value"] < 0.05
+    alerts = _dup_alerts(df, ["loan_id"])
+    assert alerts[0]["severity"] == "high" and "chance gives" in alerts[0]["message"]
