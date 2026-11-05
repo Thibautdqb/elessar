@@ -15,6 +15,9 @@ from .types import CATEGORY_TYPES, DATETIME_TYPES, NUMERIC_TYPES, as_datetime, a
 
 SEVERITIES: tuple[str, ...] = ("high", "medium", "info")
 _HINT_AGE = re.compile(r"(^|_)age($|_)|(^|_)age_?years")
+# a unit other than years written in the name: the 0-120 range of a human age in years does not apply
+_NOT_YEARS = re.compile(r"(^|_)(days?|months?|weeks?|hours?|hrs?|minutes?|mins?|seconds?|secs?|ms|jours?|mois|semaines?|"
+                        r"heures?)($|_)")
 _HINT_NONNEG = re.compile(
     r"price|amount|cost|salary|income|revenue|qty|quantity|count|weight|height|duration|distance|size|area|fare|fee"
 )
@@ -303,7 +306,8 @@ def suspicious_values(s: pd.Series, stype: str) -> list[str]:
     if stype in NUMERIC_TYPES or stype == "numeric_string":
         x = as_numeric(s).dropna()
         if _HINT_AGE.search(name):
-            neg, old = int((x < 0).sum()), int((x > 120).sum())
+            neg = int((x < 0).sum())
+            old = 0 if _NOT_YEARS.search(name) else int((x > 120).sum())
             if neg:
                 msgs.append(f"{neg} negative ages")
             if old:

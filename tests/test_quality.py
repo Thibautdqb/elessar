@@ -123,3 +123,13 @@ def test_records_entered_twice_are_found_beyond_chance() -> None:
     assert dr["count_ignoring_ids"] >= 10 and dr["chance_ignoring_ids"]["p_value"] < 0.05
     alerts = _dup_alerts(df, ["loan_id"])
     assert alerts[0]["severity"] == "high" and "chance gives" in alerts[0]["message"]
+
+
+def test_age_bounds_only_for_ages_in_years() -> None:
+    from elessar.quality import suspicious_values
+
+    days = pd.Series([400, 1_200, 2_000, 30], name="account_age_at_loan_days")
+    assert suspicious_values(days, "numeric_discrete") == []
+    assert suspicious_values(days.rename("AgeMonths"), "numeric_discrete") == []
+    assert suspicious_values(days.rename("age"), "numeric_discrete") == ["3 ages above 120"]
+    assert suspicious_values(pd.Series([-1, 30], name="age_days"), "numeric_discrete") == ["1 negative ages"]
