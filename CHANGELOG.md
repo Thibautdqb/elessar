@@ -1,5 +1,41 @@
 # Changelog
 
+## Unreleased — checks decided against chance, several tables
+
+Found by profiling the PKDD'99 Berka bank data (8 tables, a 106-million-row transaction file), and fixed by
+methods that judge the data against chance rather than thresholds tuned on example datasets. Each new check is
+measured on tables whose truth is known (`tests/validation/test_generalisation_v13.py`, see VALIDATION.md).
+
+**Fixes**
+- Variance inflation: a column constant on the complete cases (but not overall) made the standardised matrix NaN,
+  `lstsq` raised "SVD did not converge" and the whole correlation step was lost.
+- Rows that share every value once identifiers are ignored are compared with the count chance gives (a
+  conditional permutation test keeping each column's values and its strongest link to another column, a
+  Chow-Liu tree); only an excess keeps the alert. A card table (type x issue date) no longer reports 21% of
+  "records under several ids".
+- Censoring is tested again on one value per group for a column that is an attribute of a key: the largest
+  district holding the maximum of its attributes is no longer "capped (censored data)".
+- A grouping key's id count is stated over every row of a streamed table, not on the rows used for typing.
+- Feature selection on a dated table with more than 20,000 rows uses 10 contiguous blocks spread over the whole
+  span (it used the latest 20,000 rows only: the last two weeks of a six-year table).
+- No "ages above 120" for an age column whose name gives another unit (`account_age_at_loan_days`).
+- `none` / `unknown` are reported as a question (missing, or a category of its own?) and never replaced by the
+  preparation plan.
+
+**New**
+- `see_relations(tables, keys=..., dates=...)`: keys between tables checked over every row (orphans, parent
+  uniqueness, cardinality, children dated before their parent), children read block by block; integer keys
+  suggested when circular shifts of the values show the match is not chance.
+- Columns determined by a grouping key (`quality["functional_dependencies"]`), kept only beyond chance.
+- Several targets in one call: `see(df, target=[...])`, repeated `-t`.
+- Column descriptions (`StoneConfig.descriptions`, `--describe`) and a data dictionary (`Vision.dictionary()`,
+  `to_dictionary()`, `--dictionary`).
+- `StoneConfig.reference_date` / `--reference-date` for ages in an old extract.
+- Light theme for charts and the report page (`StoneConfig.theme="light"`, `--light`), with a validated light
+  palette; every report page prints light.
+- Summary report (`StoneConfig.report="summary"`, `--summary`): column charts only for columns with a high alert
+  or among the features most associated with the target.
+
 ### Report/README consistency follow-up (review amendments)
 
 - HTML feature selection legend now describes shadow-feature L1/L2 votes and voting/final-test split; eta effects no longer imply positive direction.

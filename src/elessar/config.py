@@ -137,8 +137,8 @@ class StoneConfig:
     dpi: int = 144
     report: str = "full"
     """``"full"``: every chart in report.html / report.md; ``"summary"``: the dataset charts, and the column charts
-    only for columns with a high or medium alert or significantly associated with the target, for a report short
-    enough to print or attach."""
+    only for columns with a high alert or among the features drawn against the target (the strongest significant
+    ones, at most ``n_target_plots``), for a report short enough to print or attach."""
     theme: str = "dark"
     """Charts and report page: ``"dark"`` (on screen) or ``"light"`` (print, PDF, light documents)."""
     single_file_report: bool = False

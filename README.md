@@ -253,7 +253,8 @@ the new tuning pipeline.
 
 | Function | Returns | What it does |
 |---|---|---|
-| `see(data, target=None, config=None, plots=True, out_dir=None, verbose=True, open_report=None, name=None, **load_options)` | `Vision` | Runs everything, prints the terminal report, writes the charts and the report page, opens it. `data` is anything `load` reads; `target="ask"` opens the picker. |
+| `see(data, target=None, config=None, plots=True, out_dir=None, verbose=True, open_report=None, name=None, **load_options)` | `Vision` | Runs everything, prints the terminal report, writes the charts and the report page, opens it. `data` is anything `load` reads; `target="ask"` opens the picker; a list of targets returns `{target: Vision}`, one analysis each (the other targets are left out of feature selection). |
+| `see_relations(tables, keys=None, dates=None, config=None, suggest=True, verbose=True, **load_options)` | `Relations` | Several tables: the declared keys checked over every row (orphans, parent uniqueness, cardinality, children dated before their parent), integer keys suggested beyond chance. See [Several tables](#several-tables). |
 | `load(source, config=None, *, sheet, table, sep, encoding, columns, nrows, engine)` | `Source` | Reads anything into `.df` (every row, or the sample of a big table), with `.full` (exact figures) and `.origin`. |
 | `suggest_targets(df)`, `pick_target(df)` | `list`, label | Ranked target candidates; the window / terminal picker. |
 | `parse_dates(series)` | `Series` | Dates in any of the formats below, as datetimes. |
@@ -269,11 +270,16 @@ Every function accepts a `StoneConfig` to change thresholds (alpha, missing %, c
 rare-category %, sample sizes, `max_rows`, `probe_max_rows`, candidate distributions, …) or to set a column's type
 by hand: `StoneConfig(column_types={"region": "categorical", "cylinders": "numeric_discrete"})` (numeric_continuous,
 numeric_discrete, categorical, ordinal-candidate, id or text) replaces the decision tree for those columns.
+`StoneConfig(descriptions={"A11": "average salary"})` shows what each column means in every report and in the data
+dictionary; `reference_date="1999-01-01"` computes ages at that date for an old extract; `theme="light"` draws light
+charts and a light page (print, PDF); `report="summary"` keeps the column charts only for columns with a high
+alert or among the features most associated with the target.
 
 ### Command line
 
 ```
-elessar SOURCE [-t TARGET | --no-target] [-o FOLDER] [--type COL=TYPE ...] [--no-plots] [--single-file]
+elessar SOURCE [-t TARGET ... | --no-target] [-o FOLDER] [--type COL=TYPE ...] [--describe FILE.csv]
+               [--dictionary] [--summary] [--light] [--reference-date YYYY-MM-DD] [--no-plots] [--single-file]
                [--sheet S] [--table T] [--sep SEP] [--encoding E] [--columns a,b] [--nrows N]
                [--max-rows N] [--engine {auto,dask,pandas}] [-j JOBS] [--sample N] [--alpha A]
                [--width W] [--json] [--markdown] [--csv] [-q] [--open {auto,html,md,none}]
@@ -282,7 +288,9 @@ elessar SOURCE [-t TARGET | --no-target] [-o FOLDER] [--type COL=TYPE ...] [--no
 `SOURCE` is a file, URL, glob pattern or folder in any format above. `-t ask` opens the target picker (it opens
 anyway when you run interactively without `-t`). `--type COL=TYPE` (repeatable) sets a column's type by hand.
 `-V` / `--version` prints the version. Without `-o`, the report goes to its dated folder in
-`elessar_report/` and the command prints where.
+`elessar_report/` and the command prints where. `-t` repeated (`-t loan_1997 -t card_1997`) runs one analysis per
+target, each in `<out>/target-<name>`. `--describe` reads a two-column CSV (column, description); `--dictionary`
+writes `dictionary.csv` and `dictionary.md`.
 
 ### `Vision`
 
@@ -306,6 +314,29 @@ anyway when you run interactively without `-t`). `--type COL=TYPE` (repeatable) 
 | `.preparation` | `steps` (kind, action, column, why, code), plus what the detectors found (misspellings, groups, bins...) |
 | `.print()`, `.render(width)` | the terminal report |
 | `.to_dict()`, `.to_json(path)`, `.to_csv(path)`, `.to_markdown(path)`, `.to_html(path)` | exports (CSV = the summary table) |
+| `.dictionary()`, `.to_dictionary(path)` | the data dictionary: description, type, missing share, distinct values, values taken, origin (CSV, or Markdown for `.md`) |
+| `.quality["functional_dependencies"]` | columns with one value per group of a label (`X = f(K)`), kept only beyond chance |
+
+### Several tables
+
+```python
+elessar.see_relations(
+    {"account": "account.csv", "loan": "loan.csv", "trans": "trans.csv"},
+    keys=["loan.account_id -> account.account_id", "trans.account_id -> account.account_id"],
+    dates={"account": "date", "loan": "date", "trans": "date"},
+)
+```
+
+Every declared key is checked over every row: whether the parent column is a key, the orphans (child values with no
+parent), children without a key, parents without a child, children per parent (1:1 or 1:n), and, with a date on both
+sides, the children dated before their parent. Children are read block by block (CSV, Parquet): a 106-million-row
+child is checked in about 30 seconds with 0.6 GB of memory.
+
+Keys that are not declared are suggested among integer label columns, when chance cannot explain the match: the same
+values shifted circularly within the parent's range (by 1 to 199) are looked up too. Identifiers of unrelated tables
+overlap a lot in the same low range; a shift keeps that overlap and breaks a real key. A parent that fills its whole
+range (77 districts numbered 1 to 77) cannot be told from chance and is not suggested, and text keys are never
+guessed: declare them.
 
 ## How elessar decides
 
@@ -562,7 +593,8 @@ weekdays, quarters, 1-5 integer scales, ordered categoricals), `datetime`, `date
 
 **Statistics**
 - *all columns*: count, missing, unique, memory, modes, top-N values
-- *numeric*: caps / floors (censoring: values piled up at the max or min), zero inflation, mean (95 % CI), median
+- *numeric*: caps / floors (censoring: values piled up at the max or min, tested again on one value per group when
+  the column is an attribute of a key, so one large district holding the maximum is not censoring), zero inflation, mean (95 % CI), median
   (95 % CI from order statistics), std, var, sem, CV, min/max/range/sum, quantiles 1–99 %, IQR, MAD, 10 % trimmed
   mean, geometric and harmonic means, skewness, excess kurtosis, zeros, negatives, infinities, outliers (1.5×IQR,
   |z| > 3, modified z > 3.5), decimals, heaping (excess of round values, mixed-precision aware), monotonicity,
@@ -632,7 +664,8 @@ Groups of columns with mean |Spearman| ≥ 0.7 are proposed for combination.
 **Preparation plan** (exploratory; generated code is not a leak-proof model pipeline and outlier actions require source review): *cleaning*: invalid values (placeholders, impossible values, infinities), wrong formats
 (numbers or dates as text, mixed types, stray spaces, a file without a header row), misspellings (case, accents,
 spaces, and 1-2 typos found with a **BK-tree** on the edit distance), duplicates (also ignoring identifier
-columns), consistency (mixed units, values on two scales ~100× or 1000× apart), missing data (strategy by type and
+columns, compared with the count chance gives: tables drawn to keep each column's values and its strongest link to
+another column, a Chow-Liu tree; only an excess is a record entered twice), consistency (mixed units, values on two scales ~100× or 1000× apart), missing data (strategy by type and
 by missingness mechanism), outliers to remove or reassign. *Transformation*: bucketing (numeric cut points from a
 decision tree on the target; labels merged by an adaptive binary tree whose ordering and cuts are selected on one half of the rows and
 confirmed on independent rows (at most seven tests with a Bonferroni familywise bound under IID assumptions), decomposition (dates into calendar parts, dates of birth into ages, lists

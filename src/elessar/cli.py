@@ -40,7 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--dictionary", action="store_true",
                    help="also write <out>/dictionary.csv and dictionary.md (the data dictionary)")
     p.add_argument("--summary", action="store_true",
-                   help="short report: column charts only for columns with an alert or a significant link to the target")
+                   help="short report: column charts only for columns with a high alert or most associated with the target")
     p.add_argument("--light", action="store_true", help="light charts and report page (print, PDF)")
     p.add_argument("--reference-date", metavar="YYYY-MM-DD",
                    help="date at which ages are computed (default: another date of the row, else today)")

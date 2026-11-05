@@ -467,7 +467,9 @@ class Vision:
         for name, d in self.columns.items():
             st = d.get("stats") or {}
             stype = d.get("semantic_type")
-            if st.get("min") is not None and stype not in ("categorical", "boolean", "id", "text"):
+            if stype == "id":
+                values = f"{st.get('n_unique', 0):,} distinct identifiers"
+            elif st.get("min") is not None and stype not in ("categorical", "boolean", "text"):
                 values = f"{fmt_num(st['min'])} to {fmt_num(st['max'])}"
                 if st.get("median") is not None:
                     values += f" (median {fmt_num(st['median'])})"
@@ -482,7 +484,8 @@ class Vision:
             if d.get("determined_by") is not None:
                 origin.append(f"one value per {d['determined_by']}")
             rows.append({"column": name, "description": d.get("description") or "", "type": stype,
-                         "dtype": d.get("pandas_dtype"), "pct_missing": st.get("pct_missing"),
+                         "dtype": d.get("pandas_dtype"),
+                         "pct_missing": round(st["pct_missing"], 1) if st.get("pct_missing") is not None else None,
                          "n_unique": st.get("n_unique"), "values": values, "notes": "; ".join(origin)})
         return pd.DataFrame(rows)
 
