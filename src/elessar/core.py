@@ -313,6 +313,7 @@ def _summary_row(detail: dict[str, Any]) -> dict[str, Any]:
     top = st.get("top_values") or []
     return {
         "column": detail["name"],
+        "description": detail.get("description"),
         "semantic_type": detail.get("semantic_type"),
         "pandas_dtype": detail.get("pandas_dtype"),
         "count": st.get("count"),
@@ -446,6 +447,10 @@ def see(
     df, details, correlations, found = analyze(df, target, cfg, workers, timings, decided)
     type_alerts = verify_types(df, details, found, src, cfg) if src.plan is not None else []
     dependencies = attribute_columns(df, details, cfg, target)
+    for col, text in cfg.descriptions.items():
+        if col in details:
+            details[col]["description"] = str(text)
+    unknown_described = [c for c in cfg.descriptions if c not in details]
     step = time.perf_counter()
     exact_dups = full.duplicate_rows if full is not None else None
     if full is not None and exact_dups is None:  # too many rows to hash: say so instead of showing the sample's count
@@ -454,6 +459,9 @@ def see(
                             full.n_rows_missing_at_least(cfg.row_missing_pct) if full is not None and df.shape[1] >= 2 else None)
     quality["functional_dependencies"] = dependencies
     alerts = list(quality["alerts"]) + type_alerts + birth_alerts(details) + dependency_alerts(dependencies)
+    if unknown_described:
+        alerts.append(alert("info", None, f"descriptions given for columns not in the table: "
+                                          f"{', '.join(map(str, unknown_described[:10]))}", kind="descriptions"))
     for d in details.values():
         alerts.extend(d["alerts"])
     renamed = bool(original) and dedupe_names(original) != original

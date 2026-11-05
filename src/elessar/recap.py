@@ -794,7 +794,8 @@ class _Recap:
 
     def column_body(self, name: str, d: dict[str, Any]) -> list[Block]:
         st = d.get("stats", {})
-        body: list[Block] = [("p", [("i", f"{d.get('pandas_dtype')} · {d.get('reason')}")])]
+        body: list[Block] = [("p", [bold(d["description"])])] if d.get("description") else []
+        body.append(("p", [("i", f"{d.get('pandas_dtype')} · {d.get('reason')}")]))
         path = d.get("path") or []
         if path:
             body.append(("p", [bold("Decision path: "), ("", " → ".join(path[:-1]) + (" → " if len(path) > 1 else "")),

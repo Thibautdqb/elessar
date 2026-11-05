@@ -69,3 +69,21 @@ def test_cli_type_option(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> 
     assert main([str(path), "--no-target", "-q", "--type", "store=banana"]) == 2
     assert main([str(path), "--no-target", "-q", "--type", "store"]) == 2
     assert "choose one of" in capsys.readouterr().err
+
+
+def test_cli_descriptions_and_dictionary(tmp_path: Path) -> None:
+    rng = np.random.default_rng(3)
+    path = tmp_path / "loans.csv"
+    pd.DataFrame({"amount": rng.lognormal(10, 1, 200).round(), "status": rng.choice(list("ABCD"), 200)}).to_csv(path, index=False)
+    described = tmp_path / "describe.csv"
+    pd.DataFrame({"column": ["amount", "status", "nope"],
+                  "description": ["loan amount (CZK)", "A finished OK, B finished unpaid", "x"]}).to_csv(described, index=False)
+    out = tmp_path / "out"
+    assert main([str(path), "--no-target", "-q", "--no-plots", "-o", str(out), "--describe", str(described),
+                 "--dictionary", "--open", "none"]) == 0
+    table = pd.read_csv(out / "dictionary.csv")
+    assert table.set_index("column").loc["amount", "description"] == "loan amount (CZK)"
+    assert "to" in table.set_index("column").loc["amount", "values"] and "A (" in table.set_index("column").loc["status", "values"]
+    md = (out / "dictionary.md").read_text()
+    assert md.startswith("| column | description |") and "A finished OK, B finished unpaid" in md
+    assert main([str(path), "--no-target", "-q", "--describe", str(tmp_path / "missing.csv")]) == 2

@@ -33,6 +33,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--type", action="append", default=[], metavar="COL=TYPE",
                    help="set a column's type by hand (repeatable), e.g. --type region=categorical --type cylinders="
                         "numeric_discrete")
+    p.add_argument("--describe", metavar="FILE",
+                   help="CSV of column descriptions (two columns: column, description) shown in the reports")
+    p.add_argument("--dictionary", action="store_true",
+                   help="also write <out>/dictionary.csv and dictionary.md (the data dictionary)")
     p.add_argument("--reference-date", metavar="YYYY-MM-DD",
                    help="date at which ages are computed (default: another date of the row, else today)")
     p.add_argument("--no-plots", action="store_true", help="skip the charts (and the HTML recap)")
@@ -72,6 +76,16 @@ def main(argv: list[str] | None = None) -> int:
         if getattr(args, flag) is not None:
             setattr(cfg, attr, getattr(args, flag))
     cfg.single_file_report = args.single_file
+    if args.describe:
+        try:
+            described = pd.read_csv(args.describe, dtype=str, keep_default_na=False)
+        except (OSError, ValueError) as exc:
+            print(f"elessar: --describe {args.describe}: {exc}", file=sys.stderr)
+            return 2
+        if described.shape[1] < 2:
+            print("elessar: --describe expects a CSV with two columns: column, description", file=sys.stderr)
+            return 2
+        cfg.descriptions = dict(zip(described.iloc[:, 0], described.iloc[:, 1]))
     if args.reference_date is not None:
         try:
             pd.Timestamp(args.reference_date)
@@ -115,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
     if recap.maybe_open(report, open_report, sys.stderr) is None and report.recap:
         print(f"\nReport: {report.recap['html'].resolve()}", file=sys.stderr)
     out = report.out_dir or Path(args.out or ".")
-    if args.json or args.markdown or args.csv:
+    if args.json or args.markdown or args.csv or args.dictionary:
         out.mkdir(parents=True, exist_ok=True)
     written = [
         export(out / name)
@@ -123,6 +137,8 @@ def main(argv: list[str] | None = None) -> int:
             (args.json, "report.json", report.to_json),
             (args.markdown, "report.md", report.to_markdown),
             (args.csv, "summary.csv", report.to_csv),
+            (args.dictionary, "dictionary.csv", report.to_dictionary),
+            (args.dictionary, "dictionary.md", report.to_dictionary),
         )
         if flag
     ]

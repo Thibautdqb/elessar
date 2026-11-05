@@ -358,6 +358,8 @@ class Vision:
         lines: list[str] = []
         for name, d in self.columns.items():
             lines.append(truncate(f"▸ {name}  ·  {d.get('semantic_type')}  ·  {d.get('pandas_dtype')}  ·  {d.get('reason')}", w))
+            if d.get("description"):
+                lines += _join_wrap([d["description"]], w, "    ")
             for parts in _detail_parts(d):
                 lines += _join_wrap(parts, w, "    ")
             lines.append("")
@@ -452,6 +454,46 @@ class Vision:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(self.to_dict(), indent=2, ensure_ascii=False), encoding="utf-8")
+        return path
+
+    def dictionary(self) -> pd.DataFrame:
+        """The data dictionary: one row per column with its description (``StoneConfig.descriptions``), type,
+        missing share, number of distinct values, the values it takes, and where it comes from."""
+        rows = []
+        for name, d in self.columns.items():
+            st = d.get("stats") or {}
+            stype = d.get("semantic_type")
+            if st.get("min") is not None and stype not in ("categorical", "boolean", "id", "text"):
+                values = f"{fmt_num(st['min'])} to {fmt_num(st['max'])}"
+                if st.get("median") is not None:
+                    values += f" (median {fmt_num(st['median'])})"
+            else:
+                top = st.get("top_values") or []
+                values = ", ".join(f"{t['value']} ({t['pct']:.0f}%)" for t in top[:5])
+                if st.get("n_unique") and st["n_unique"] > 5:
+                    values += ", ..."
+            origin = []
+            if d.get("derived_from") is not None:
+                origin.append(f"derived from {d['derived_from']}")
+            if d.get("determined_by") is not None:
+                origin.append(f"one value per {d['determined_by']}")
+            rows.append({"column": name, "description": d.get("description") or "", "type": stype,
+                         "dtype": d.get("pandas_dtype"), "pct_missing": st.get("pct_missing"),
+                         "n_unique": st.get("n_unique"), "values": values, "notes": "; ".join(origin)})
+        return pd.DataFrame(rows)
+
+    def to_dictionary(self, path: str | Path) -> Path:
+        """Write :meth:`dictionary` as CSV, or as a Markdown table when ``path`` ends in ``.md``."""
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        table = self.dictionary()
+        if path.suffix.lower() == ".md":
+            cells = table.fillna("").astype(str).apply(lambda s: s.str.replace("|", "\\|", regex=False))
+            lines = ["| " + " | ".join(cells.columns) + " |", "|" + "---|" * len(cells.columns)]
+            lines += ["| " + " | ".join(r) + " |" for r in cells.itertuples(index=False)]
+            path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        else:
+            table.to_csv(path, index=False)
         return path
 
     def to_csv(self, path: str | Path) -> Path:

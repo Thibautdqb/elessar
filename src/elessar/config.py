@@ -67,6 +67,9 @@ class StoneConfig:
     """Types set by hand, e.g. ``{"cylinders": "numeric_discrete", "region": "categorical"}``: they replace
     the decision tree for those columns (numeric_continuous, numeric_discrete, categorical, ordinal-candidate,
     id or text)."""
+    descriptions: dict[str, str] = field(default_factory=dict)
+    """What each column means, e.g. ``{"A11": "average salary in the district"}``: shown with the column in every
+    report and in the data dictionary (:meth:`Vision.dictionary`)."""
     reference_date: str | None = None
     """Date at which ages are computed (``"1999-01-01"``), for an extract whose own dates end long ago. Unset:
     the best-filled other date of the same row, else today."""
