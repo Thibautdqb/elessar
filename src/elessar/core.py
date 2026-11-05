@@ -437,9 +437,9 @@ def see(
     if cfg.theme not in ("dark", "light"):
         raise ValueError(f"StoneConfig.theme is 'dark' or 'light', got {cfg.theme!r}")
     variable = _variable_name(data, inspect.currentframe())
-    if isinstance(target, (list, tuple)) and len(target) == 1:
+    if isinstance(target, list) and len(target) == 1:  # a list names several targets; a tuple can be one label
         target = target[0]
-    if isinstance(target, (list, tuple)):
+    if isinstance(target, list):
         targets = list(dict.fromkeys(target))
         src = load(data, cfg, **load_options)
         results = {}
