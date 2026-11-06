@@ -107,6 +107,12 @@ class StoneConfig:
     association. This avoids selecting the larger observed coefficient; p-value validity still depends on
     the test's sampling/distribution assumptions, not on this heuristic alone."""
     leakage_threshold: float = 0.98
+    """A feature that separates the target this well on its own (|association|, or Gini = |2·AUC - 1|, or the
+    same for its missing indicator) is reported as possible target leakage (high)."""
+    leakage_warning: float = 0.9
+    """Below ``leakage_threshold`` but at or above this, the feature still separates the target almost alone: one
+    medium alert lists them and asks to confirm each is known before the outcome. Data cannot tell a leak from a
+    very strong predictor; only provenance can."""
     exclude_features: tuple[str, ...] = ()
     """Features known from provenance to be unavailable at prediction time; excluded explicitly."""
     exclude_target_aliases: bool = True

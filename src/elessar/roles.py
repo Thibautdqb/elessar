@@ -58,6 +58,7 @@ PERSON_NAME = re.compile(
     r"married|nationality|nationalite|citizen)(_|$)")
 _AGE_NAME = re.compile(r"(^|_)(age|âge|age_?years|ans)($|_)")
 DAYS_PER_YEAR = 365.2425
+DEFAULT_DATES = (pd.Timestamp("1970-01-01"), pd.Timestamp("1900-01-01"), pd.Timestamp("1899-12-30"))
 
 
 def tokens(name: Any) -> str:
@@ -180,6 +181,7 @@ def birth_report(df: pd.DataFrame, col: str, types: dict[str, str], alpha: float
     elif old:
         checks.append(("info", f"{old:,} people would be over 120 today: the table includes people no longer alive "
                                "(compute the age at an event of theirs), or these dates are wrong"))
+    ok = ok[~ok.isin(DEFAULT_DATES)]  # system default dates are reported apart, as defaults (see quality)
     n = len(ok)
     jan1 = int(((ok.dt.month == 1) & (ok.dt.day == 1)).sum())
     ratio, p = _binomial_excess(jan1, n, 1 / DAYS_PER_YEAR)
