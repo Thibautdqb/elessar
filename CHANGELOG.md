@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased — checks decided against chance, several tables
+## 1.2.0 (2026-11-06)
+
+### Checks decided against chance, several tables
 
 Found by profiling the PKDD'99 Berka bank data (8 tables, a 106-million-row transaction file), and fixed by
 methods that judge the data against chance rather than thresholds tuned on example datasets. Each new check is
@@ -45,7 +47,7 @@ measured on tables whose truth is known (`tests/validation/test_generalisation_v
 - JSON export now includes selection, temporal, multivariate, outlier and preparation results while keeping raw tables out of the export.
 
 
-## 1.2.0rc1 — review candidate (not published)
+### From the 1.2.0rc1 review candidate
 
 - Calibrate serial numeric-target shape and missingness tests with conservative TTS, including complete
   missing indicators and explicit unavailable comparator/grid cases.
@@ -58,7 +60,7 @@ measured on tables whose truth is known (`tests/validation/test_generalisation_v
 - Add repeated compatibility/statistical/package gates. The sdist includes scientific records and CI
   reproduction constraints. See `docs/RELEASE_1_2.md` and `docs/SCIENTIFIC_CONTRACT.md`.
 
-## Earlier v1.2 implementation stages — historical scope
+### Earlier v1.2 implementation stages
 
 The bullets below record the preliminary stages; remaining limitations mentioned there are superseded
 where explicitly addressed by the 1.2.0rc1 section and the current scientific contract.

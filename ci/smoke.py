@@ -13,7 +13,7 @@ import pandas as pd
 
 import elessar
 
-assert importlib.metadata.version("elessar") == elessar.__version__ == "1.2.0rc1"
+assert importlib.metadata.version("elessar") == elessar.__version__ == "1.2.0"
 installed = Path(elessar.__file__).resolve()
 assert Path(sys.prefix).resolve() in installed.parents, "smoke test must import the clean installation"
 cli = subprocess.run([sys.executable, "-I", "-m", "elessar", "--version"], check=True, capture_output=True, text=True)

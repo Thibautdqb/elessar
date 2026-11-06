@@ -1,6 +1,7 @@
 name: Publish
 
-# A tag v1.2.3 publishes to PyPI; running the workflow by hand publishes to TestPyPI (a rehearsal).
+# A tag v1.2.3 publishes to PyPI, then creates the GitHub release of the tag (notes from CHANGELOG.md); running the
+# workflow by hand publishes to TestPyPI (a rehearsal).
 # Trusted publishing: no token is stored, PyPI trusts this workflow (set up once as a "publisher").
 on:
   push:
@@ -79,3 +80,28 @@ jobs:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  release:
+    # once on PyPI, the GitHub release of the tag: its notes are the version's section of CHANGELOG.md
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: dist
+          path: dist/
+      - name: Release notes from the changelog
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '$0 ~ "^## " v "( |$)" {on=1; next} on && /^## / {exit} on' CHANGELOG.md > notes.md
+          test -s notes.md || echo "See CHANGELOG.md." > notes.md
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 && { echo "release $GITHUB_REF_NAME exists"; exit 0; }
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --title "elessar ${GITHUB_REF_NAME#v}" --notes-file notes.md

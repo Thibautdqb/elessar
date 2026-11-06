@@ -1,4 +1,6 @@
-# Elessar 1.2.0rc1 review candidate
+# Elessar 1.2 release review
+
+The review below was made on the 1.2.0rc1 candidate; 1.2.0 adds the checks listed first in CHANGELOG.md.
 
 This branch prepares 1.2 and keeps publication separate from validation. No tag or package-index upload
 is created by the preparation task, and main is not changed.

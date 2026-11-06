@@ -11,9 +11,8 @@
 
 **Automated exploratory data analysis and data-quality profiling.**
 
-**1.2 review candidate:** the development branch prepares `1.2.0rc1`. Its conditional guarantees and
-release gates are in the [scientific contract](docs/SCIENTIFIC_CONTRACT.md) and
-[release review record](docs/RELEASE_1_2.md); this does not publish a release.
+**1.2:** its conditional guarantees and release gates are in the
+[scientific contract](docs/SCIENTIFIC_CONTRACT.md) and the [release review record](docs/RELEASE_1_2.md).
 
 One function call (`elessar.see(df)`, or `elessar.see("sales.parquet")`) or one command (`elessar data.csv`) gives
 you semantic types, descriptive statistics, the best-ranked candidate distribution, supported associations
