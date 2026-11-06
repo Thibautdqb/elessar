@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from elessar import see
-from elessar.roles import birth_columns, birth_report, is_birth_name, is_event_name
+from elessar import StoneConfig, see
+from elessar.roles import ages, birth_columns, birth_report, is_birth_name, is_event_name
 
 N = 600
 RNG = np.random.default_rng(11)
@@ -44,6 +44,18 @@ def test_named_birth_date_is_certain_and_aged() -> None:
     rep = birth_report(df, "birth_date", _types(df))
     assert 25 <= rep["min_age"] and rep["max_age"] <= 90
     assert rep["reference"].startswith("on ")  # no other date in the table: ages on the day of the analysis
+
+
+def test_reference_date_set_by_hand() -> None:
+    df = _people(birth_date=BIRTHS)
+    rep = birth_report(df, "birth_date", _types(df), reference_date="2000-01-01")
+    assert rep["reference"] == "on 2000-01-01 (reference date set by hand)"
+    expected = ages(df.birth_date, pd.Timestamp("2000-01-01"))
+    assert rep["max_age"] == pytest.approx(expected.max()) and rep["min_age"] >= 0
+    early = birth_report(df, "birth_date", _types(df), reference_date="1960-01-01")  # before many births
+    assert any("births after the reference date" in text for _, text in early["checks"])
+    v = see(df, config=StoneConfig(reference_date="2000-01-01"), plots=False, verbose=False)
+    assert "on 2000-01-01" in v.columns["birth_date_age"]["reason"]
 
 
 def test_unnamed_birth_dates_in_a_people_table_are_probable() -> None:

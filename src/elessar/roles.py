@@ -75,10 +75,14 @@ def is_event_name(name: Any) -> bool:
 
 
 def _reference(df: pd.DataFrame, parsed: dict[str, pd.Series], birth: str,
-               types: dict[str, str] | None = None) -> tuple[pd.Series | pd.Timestamp, str]:
-    """The date each age is computed at: the best-filled other event date of the same row (a date
-    column, or a year column such as an award year), else today."""
+               types: dict[str, str] | None = None, fixed: Any = None) -> tuple[pd.Series | pd.Timestamp, str]:
+    """The date each age is computed at: ``fixed`` when given, else the best-filled other event date of the
+    same row (a date column, or a year column such as an award year), else today."""
     from .timeseries import _time_columns  # year and year + month columns as dates
+
+    if fixed is not None:
+        ref = pd.Timestamp(fixed).normalize()
+        return ref, f"on {ref:%Y-%m-%d} (reference date set by hand)"
 
     candidates = {c: d for c, d in parsed.items() if c != birth and not is_birth_name(c)}
     with quiet():
@@ -152,13 +156,15 @@ def _binomial_excess(k: int, n: int, p0: float) -> tuple[float, float]:
     return (k / n) / p0, float(stats.binomtest(k, n, p0, alternative="greater").pvalue)
 
 
-def birth_report(df: pd.DataFrame, col: str, types: dict[str, str], alpha: float = 0.05) -> dict[str, Any]:
-    """Ages and checks of one date-of-birth column."""
+def birth_report(df: pd.DataFrame, col: str, types: dict[str, str], alpha: float = 0.05,
+                 reference_date: Any = None) -> dict[str, Any]:
+    """Ages and checks of one date-of-birth column, at ``reference_date`` when given."""
     with quiet():
         parsed = {c: as_datetime(df[c]) for c in df.columns if types.get(c) in DATETIME_TYPES}
-        reference, ref_text = _reference(df, parsed, col, types)
+        reference, ref_text = _reference(df, parsed, col, types, reference_date)
         d = parsed[col]
         age = ages(d, reference)
+    fixed = reference_date is not None
     ok = d.dropna()
     a = age.dropna()
     out: dict[str, Any] = {"reference": ref_text, "n": int(len(a)), "checks": []}
@@ -169,7 +175,7 @@ def birth_report(df: pd.DataFrame, col: str, types: dict[str, str], alpha: float
     neg, old = int((a < 0).sum()), int((a > 120).sum())
     if neg:
         checks.append(("medium", f"{neg:,} births after the reference date (negative ages {ref_text})"))
-    if old and not isinstance(reference, pd.Timestamp):
+    if old and (fixed or not isinstance(reference, pd.Timestamp)):
         checks.append(("medium", f"{old:,} ages above 120 {ref_text}: impossible dates"))
     elif old:
         checks.append(("info", f"{old:,} people would be over 120 today: the table includes people no longer alive "
@@ -198,7 +204,7 @@ def birth_report(df: pd.DataFrame, col: str, types: dict[str, str], alpha: float
         offset, spread = float(gap.median()), float(gap.std())
         bad = float((gap.abs() > 1.5).mean())
         if spread <= 1.5 and abs(offset) > 1.5:
-            year = (pd.Timestamp.today() + pd.Timedelta(days=offset * DAYS_PER_YEAR)).year if isinstance(
+            year = (reference + pd.Timedelta(days=offset * DAYS_PER_YEAR)).year if isinstance(
                 reference, pd.Timestamp) else None
             checks.append(("info", f"'{other}' agrees with {col} up to a constant {offset:+.1f} years"
                                    + (f": the ages were probably computed around {year}" if year else "")))

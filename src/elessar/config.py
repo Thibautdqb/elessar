@@ -26,6 +26,9 @@ PLACEHOLDER_STRINGS: tuple[str, ...] = (
     "missing", "unknown", "undefined", "#n/a", "#null!", "not available",
     "0000-00-00", "00/00/0000", "00-00-0000", "0000/00/00", "0000-00-00 00:00:00",  # zero dates: no date
 )
+PLACEHOLDER_CATEGORY_WORDS: tuple[str, ...] = ("none", "unknown")
+"""Placeholders that are also ordinary category labels ("none" for no card, "unknown" as an answer): what they
+mean cannot be read from the data, so they are reported as a question, never replaced."""
 PLACEHOLDER_NUMBERS: tuple[float, ...] = (-999, -9999, -99999, 999, 9999, 99999, 999999)
 
 
@@ -64,6 +67,12 @@ class StoneConfig:
     """Types set by hand, e.g. ``{"cylinders": "numeric_discrete", "region": "categorical"}``: they replace
     the decision tree for those columns (numeric_continuous, numeric_discrete, categorical, ordinal-candidate,
     id or text)."""
+    descriptions: dict[str, str] = field(default_factory=dict)
+    """What each column means, e.g. ``{"A11": "average salary in the district"}``: shown with the column in every
+    report and in the data dictionary (:meth:`Vision.dictionary`)."""
+    reference_date: str | None = None
+    """Date at which ages are computed (``"1999-01-01"``), for an extract whose own dates end long ago. Unset:
+    the best-filled other date of the same row, else today."""
     id_unique_ratio: float = 0.95
     pattern_match_ratio: float = 0.9
     ordinal_max_levels: int = 12
@@ -119,11 +128,18 @@ class StoneConfig:
     outlier_alert_pct: float = 5.0
     placeholder_strings: tuple[str, ...] = PLACEHOLDER_STRINGS
     placeholder_numbers: tuple[float, ...] = PLACEHOLDER_NUMBERS
+    placeholder_category_words: tuple[str, ...] = PLACEHOLDER_CATEGORY_WORDS
 
     # plots
     plot_top_n: int = 15
     n_scatter: int = 4
     n_target_plots: int = 8
     dpi: int = 144
+    report: str = "full"
+    """``"full"``: every chart in report.html / report.md; ``"summary"``: the dataset charts, and the column charts
+    only for columns with a high alert or among the features drawn against the target (the strongest significant
+    ones, at most ``n_target_plots``), for a report short enough to print or attach."""
+    theme: str = "dark"
+    """Charts and report page: ``"dark"`` (on screen) or ``"light"`` (print, PDF, light documents)."""
     single_file_report: bool = False
     """Also write ``report_single.html`` with every chart inlined (one file to send or attach)."""

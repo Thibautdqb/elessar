@@ -6,6 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
+import pandas as pd
+
 from . import __version__, recap
 from .config import StoneConfig
 from .core import see
@@ -25,12 +27,23 @@ def build_parser() -> argparse.ArgumentParser:
                                   "(compressed or not)")
     p.add_argument("-V", "--version", action="version", version=f"elessar {__version__}")
     target = p.add_mutually_exclusive_group()
-    target.add_argument("-t", "--target", help="target column to analyse features against ('ask' opens a picker)")
+    target.add_argument("-t", "--target", action="append",
+                        help="target column to analyse features against ('ask' opens a picker); repeat it for one "
+                             "analysis per target (-t loan_1997 -t card_1997)")
     target.add_argument("--no-target", action="store_true", help="do not ask for a target")
     p.add_argument("-o", "--out", help="output folder (default: elessar_report/<file>_<target-X or no-target>_<YYYY-MM-DD>/)")
     p.add_argument("--type", action="append", default=[], metavar="COL=TYPE",
                    help="set a column's type by hand (repeatable), e.g. --type region=categorical --type cylinders="
                         "numeric_discrete")
+    p.add_argument("--describe", metavar="FILE",
+                   help="CSV of column descriptions (two columns: column, description) shown in the reports")
+    p.add_argument("--dictionary", action="store_true",
+                   help="also write <out>/dictionary.csv and dictionary.md (the data dictionary)")
+    p.add_argument("--summary", action="store_true",
+                   help="short report: column charts only for columns with a high alert or most associated with the target")
+    p.add_argument("--light", action="store_true", help="light charts and report page (print, PDF)")
+    p.add_argument("--reference-date", metavar="YYYY-MM-DD",
+                   help="date at which ages are computed (default: another date of the row, else today)")
     p.add_argument("--no-plots", action="store_true", help="skip the charts (and the HTML recap)")
     p.add_argument("--single-file", action="store_true", help="also write report_single.html with the charts inlined")
     read = p.add_argument_group("reading")
@@ -68,6 +81,25 @@ def main(argv: list[str] | None = None) -> int:
         if getattr(args, flag) is not None:
             setattr(cfg, attr, getattr(args, flag))
     cfg.single_file_report = args.single_file
+    cfg.report = "summary" if args.summary else "full"
+    cfg.theme = "light" if args.light else "dark"
+    if args.describe:
+        try:
+            described = pd.read_csv(args.describe, dtype=str, keep_default_na=False)
+        except (OSError, ValueError) as exc:
+            print(f"elessar: --describe {args.describe}: {exc}", file=sys.stderr)
+            return 2
+        if described.shape[1] < 2:
+            print("elessar: --describe expects a CSV with two columns: column, description", file=sys.stderr)
+            return 2
+        cfg.descriptions = dict(zip(described.iloc[:, 0], described.iloc[:, 1]))
+    if args.reference_date is not None:
+        try:
+            pd.Timestamp(args.reference_date)
+        except ValueError:
+            print(f"elessar: --reference-date expects a date, got {args.reference_date!r}", file=sys.stderr)
+            return 2
+        cfg.reference_date = args.reference_date
     for spec in args.type:
         col, sep, stype = spec.partition("=")
         if not sep or not col.strip() or not stype.strip():
@@ -85,38 +117,45 @@ def main(argv: list[str] | None = None) -> int:
     except (LoadError, OSError, ValueError, ImportError) as exc:
         print(f"elessar: {exc}", file=sys.stderr)
         return 2
-    target = args.target
-    if target == "ask" or (target is None and not args.no_target and _interactive()):
+    targets = list(args.target or [])
+    if targets == ["ask"] or (not targets and not args.no_target and _interactive()):
         try:
-            target = pick_target(src.df)
+            targets = [pick_target(src.df)]
         except RuntimeError as exc:
             print(f"elessar: {exc}", file=sys.stderr)
             return 2
-    if target is not None and str(target) not in map(str, src.df.columns):
-        print(f"elessar: target {target!r} not in columns: {', '.join(map(str, src.df.columns))}", file=sys.stderr)
-        return 2
+    for t in targets:
+        if str(t) not in map(str, src.df.columns):
+            print(f"elessar: target {t!r} not in columns: {', '.join(map(str, src.df.columns))}", file=sys.stderr)
+            return 2
     open_report = {"auto": None, "html": "html", "md": "md", "none": False}[args.open]
-    report = see(src, target=target, config=cfg, plots=not args.no_plots, out_dir=args.out, verbose=False,
+    target = targets[0] if len(targets) == 1 else (targets or None)
+    result = see(src, target=target, config=cfg, plots=not args.no_plots, out_dir=args.out, verbose=False,
                  open_report=False)
-    if not args.quiet:
-        report.print(width=args.width)
-        sys.stdout.flush()  # keep the report before the "wrote ..." messages when both streams share a file
-    if recap.maybe_open(report, open_report, sys.stderr) is None and report.recap:
-        print(f"\nReport: {report.recap['html'].resolve()}", file=sys.stderr)
-    out = report.out_dir or Path(args.out or ".")
-    if args.json or args.markdown or args.csv:
-        out.mkdir(parents=True, exist_ok=True)
-    written = [
-        export(out / name)
-        for flag, name, export in (
-            (args.json, "report.json", report.to_json),
-            (args.markdown, "report.md", report.to_markdown),
-            (args.csv, "summary.csv", report.to_csv),
-        )
-        if flag
-    ]
-    for path in written:
-        print(f"wrote {path}", file=sys.stderr)
+    reports = list(result.values()) if isinstance(result, dict) else [result]
+    for i, report in enumerate(reports):
+        if not args.quiet:
+            report.print(width=args.width)
+            sys.stdout.flush()  # keep the report before the "wrote ..." messages when both streams share a file
+        last = i == len(reports) - 1
+        if recap.maybe_open(report, open_report if last else False, sys.stderr) is None and report.recap:
+            print(f"\nReport: {report.recap['html'].resolve()}", file=sys.stderr)
+        out = report.out_dir or Path(args.out or ".")
+        if args.json or args.markdown or args.csv or args.dictionary:
+            out.mkdir(parents=True, exist_ok=True)
+        written = [
+            export(out / name)
+            for flag, name, export in (
+                (args.json, "report.json", report.to_json),
+                (args.markdown, "report.md", report.to_markdown),
+                (args.csv, "summary.csv", report.to_csv),
+                (args.dictionary, "dictionary.csv", report.to_dictionary),
+                (args.dictionary, "dictionary.md", report.to_dictionary),
+            )
+            if flag
+        ]
+        for path in written:
+            print(f"wrote {path}", file=sys.stderr)
     return 0
 
 

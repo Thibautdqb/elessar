@@ -75,6 +75,19 @@ def test_vif(rng: np.random.Generator) -> None:
     assert variance_inflation(df[["a"]]).empty
 
 
+def test_vif_column_constant_on_complete_cases(rng: np.random.Generator) -> None:
+    # 'g' varies overall but is constant on the rows where 'h' is present: once missing rows are dropped,
+    # its zero spread used to turn the standardised matrix into NaN and the whole correlation step failed
+    n = 400
+    df = pd.DataFrame({"a": rng.normal(size=n), "b": rng.normal(size=n)})
+    present = np.arange(n) < n // 4
+    df["h"] = np.where(present, rng.normal(size=n), np.nan)
+    df["g"] = np.where(present, 0.0, rng.normal(size=n))
+    vif = variance_inflation(df)["vif"]
+    assert "g" not in vif.index and set(vif.index) == {"a", "b", "h"} and np.isfinite(vif).all()
+    assert "error" not in see_corr(df)
+
+
 def test_see_corr(messy_df: pd.DataFrame) -> None:
     out = see_corr(messy_df)
     for key in ("pearson", "pearson_p", "spearman", "spearman_p", "kendall", "kendall_p", "n_numeric", "vif",

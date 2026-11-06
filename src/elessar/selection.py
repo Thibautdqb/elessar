@@ -112,6 +112,21 @@ def _holdout_mask(n: int, codes: np.ndarray, ordered: bool, seed: int) -> np.nda
     return train
 
 
+def _time_spread(frame: pd.DataFrame, n_blocks: int = 10) -> pd.DataFrame:
+    """At most ``_MAX_ROWS`` rows of a time-ordered frame, as ``n_blocks`` contiguous blocks spread evenly
+    from its first to its last row, still in time order.
+
+    The latest rows alone (the former choice) covered the last days of a six-year table; scattered rows
+    would make consecutive rows far apart in time, and differences between them meaningless. Blocks keep
+    the whole span and the contiguity within each block; the last rows are still the held-out ones."""
+    n = len(frame)
+    if n <= _MAX_ROWS:
+        return frame
+    size = _MAX_ROWS // n_blocks
+    starts = np.linspace(0, n - size, n_blocks).astype(int)
+    return frame.iloc[np.concatenate([np.arange(s, s + size) for s in starts])]
+
+
 def _consensus_masks(n: int, codes: np.ndarray, ordered: bool, seed: int) -> tuple[np.ndarray, ...] | None:
     """Keep the original 80% training allocation; divide reserved rows into voting and final test."""
     from sklearn.model_selection import train_test_split
@@ -211,7 +226,7 @@ def feature_selection(
         frame = frame.loc[valid]
         frame = frame.iloc[np.argsort(stamp.reindex(frame.index).to_numpy(), kind="stable")]
         time_ordered = True
-    frame = frame.iloc[-_MAX_ROWS:] if time_ordered else sample(frame, _MAX_ROWS, cfg.random_state)
+    frame = _time_spread(frame) if time_ordered else sample(frame, _MAX_ROWS, cfg.random_state)
     when = stamp.reindex(frame.index) if stamp is not None else pd.Series(np.arange(len(frame)), index=frame.index)
     unavailable = "not enough development rows/dates for selection plus a separate final test"
     if len(frame) >= 40 and differences is None:
@@ -359,7 +374,7 @@ def _rank_features(
         df = df.iloc[order]
         time_ordered = True
     ordered = time_ordered
-    df = df.iloc[-_MAX_ROWS:] if ordered else sample(df, _MAX_ROWS, cfg.random_state)
+    df = _time_spread(df) if ordered else sample(df, _MAX_ROWS, cfg.random_state)
     when = stamp.reindex(df.index) if stamp is not None else pd.Series(np.arange(len(df)), index=df.index)
     n = len(df)
     if n < 30:

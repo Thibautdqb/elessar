@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import datetime as dt
 import inspect
 import sys
@@ -24,7 +25,8 @@ from .distributions import _fmt_params, analyze_distribution, is_fittable
 from .parallel import TaskError, n_workers, run_tasks, shared
 from .picker import pick_target
 from .plots import make_plots
-from .quality import advanced_alerts, alert, duplicates_text, check_quality, column_alerts, column_quality, correlation_alerts, group_alerts, row_order_alert, sort_alerts
+from .quality import (advanced_alerts, alert, duplicates_text, check_quality, column_alerts, column_quality, correlation_alerts,
+                      entity_level_censoring, functional_dependencies, group_alerts, row_order_alert, sort_alerts)
 from . import recap
 from .report import Vision
 from .readers import COMPRESSIONS, FORMATS
@@ -96,6 +98,38 @@ def birth_alerts(details: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+def attribute_columns(df: pd.DataFrame, details: dict[str, dict[str, Any]], cfg: StoneConfig,
+                      target: str | None = None) -> list[dict[str, Any]]:
+    """Columns that are attributes of a grouping key (:func:`quality.functional_dependencies`); their
+    pile-ups at the min / max are tested again on one value per group before calling them censored."""
+    types = {c: d["semantic_type"] for c, d in details.items()}
+    with quiet():
+        deps = functional_dependencies(df, types, cfg, exclude=(target,) if target is not None else ())
+    for dep in deps:
+        d = details[dep["column"]]
+        d["determined_by"] = dep["determined_by"]
+        st = d.get("stats") or {}
+        if st.get("capped_max") or st.get("capped_min"):
+            with quiet():
+                d["entity_capped"] = entity_level_censoring(df, dep, d["semantic_type"])
+            d["alerts"] = column_alerts(dep["column"], d, cfg)
+    return deps
+
+
+def dependency_alerts(deps: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_key: dict[Any, list[Any]] = {}
+    for dep in deps:
+        by_key.setdefault(dep["determined_by"], []).append(dep["column"])
+    out = []
+    for key, cols in by_key.items():
+        shown = ", ".join(map(str, cols[:8])) + (f" (+{len(cols) - 8} more)" if len(cols) > 8 else "")
+        out.append(alert("info", key, f"{len(cols)} column{'s are' if len(cols) > 1 else ' is'} determined by {key} "
+                         f"(a single value per {key}, beyond chance): {shown} -> attributes of {key} repeated on its "
+                         f"rows, or recodings of it: their row-level statistics weigh each {key} by its number of rows "
+                         f"(describe them on one row per {key})", kind="dependencies"))
+    return out
+
+
 def verify_types(df: pd.DataFrame, details: dict[str, dict[str, Any]], found: dict[str, dict[str, Any]],
                  src: Source, cfg: StoneConfig) -> list[dict[str, Any]]:
     """Confront the types decided on part of a streamed table with the full pass over every row.
@@ -123,6 +157,12 @@ def verify_types(df: pd.DataFrame, details: dict[str, dict[str, Any]], found: di
                                  "(it looked unique on the rows used for typing)", kind="type_check"))
             elif n_dup == 0:
                 d.update(certainty="certain", certainty_reason=f"unique over all {n_rows:,} rows (checked)")
+        elif d.get("n_ids") is not None and stats_full is not None:
+            # the count in the reason was read on the rows used for typing: state the one over every row
+            n_ids = int(stats_full["n_distinct"])
+            exact = "" if stats_full.get("distinct_exact", True) else "~"
+            d["reason"] = d["reason"].replace(f"({d['n_ids']} ids)", f"({exact}{n_ids:,} ids over all {n_rows:,} rows)")
+            d["n_ids"] = n_ids
         elif stype in ("empty", "constant") and stats_full is not None:
             ok = (stats_full["count"] == 0) if stype == "empty" else (stats_full["n_distinct"] <= 1)
             if ok:
@@ -218,7 +258,7 @@ def apply_roles(df: pd.DataFrame, details: dict[str, dict[str, Any]], found: dic
             continue
         d.update(role="date of birth", role_certainty=evidence["certainty"], role_reason=evidence["reason"],
                  path=list(d.get("path") or []) + ["a date of birth? yes"])
-        report = birth_report(df, col, types, cfg.alpha)
+        report = birth_report(df, col, types, cfg.alpha, cfg.reference_date)
         d["birth"] = {k: v for k, v in report.items() if k != "age"}
         if "age" not in report or col == target:
             continue
@@ -274,6 +314,7 @@ def _summary_row(detail: dict[str, Any]) -> dict[str, Any]:
     top = st.get("top_values") or []
     return {
         "column": detail["name"],
+        "description": detail.get("description"),
         "semantic_type": detail.get("semantic_type"),
         "pandas_dtype": detail.get("pandas_dtype"),
         "count": st.get("count"),
@@ -359,7 +400,7 @@ def _with_names_step(prep: dict[str, Any], original: list[Any]) -> dict[str, Any
 
 def see(
     data: Any,
-    target: str | None = None,
+    target: str | list[str] | None = None,
     config: StoneConfig | None = None,
     plots: bool = True,
     out_dir: str | Path | None = None,
@@ -367,7 +408,7 @@ def see(
     open_report: bool | str | None = None,
     name: str | None = None,
     **load_options: Any,
-) -> Vision:
+) -> Vision | dict[str, Vision]:
     """Analyse everything about ``data``: types, stats, distributions, correlations, quality, plots.
 
     ``data`` is a DataFrame or anything :func:`elessar.load` reads: a path, URL, glob or folder
@@ -376,7 +417,10 @@ def see(
     sample. ``load_options`` (``sheet``, ``table``, ``sep``, ``encoding``, ``columns``, ``nrows``,
     ``engine``) are passed to :func:`elessar.load`.
 
-    ``target``: the column to explain, or ``"ask"`` to pick it in a window (or at the terminal).
+    ``target``: the column to explain, or ``"ask"`` to pick it in a window (or at the terminal). A list of
+    columns runs one analysis per target and returns ``{target: Vision}``: in each, the other targets stay in
+    the association table (their link to this target is shown) and are left out of feature selection; each
+    report goes to its own folder (``out_dir/target-<name>`` when ``out_dir`` is given).
 
     Prints a terminal report when ``verbose``. When ``plots``, writes the charts and a recap
     (``report.html`` and ``report.md``, charts embedded) to ``out_dir``; by default a folder of
@@ -388,7 +432,25 @@ def see(
     or the name of the variable holding the DataFrame).
     """
     cfg = config or StoneConfig()
+    if cfg.report not in ("full", "summary"):
+        raise ValueError(f"StoneConfig.report is 'full' or 'summary', got {cfg.report!r}")
+    if cfg.theme not in ("dark", "light"):
+        raise ValueError(f"StoneConfig.theme is 'dark' or 'light', got {cfg.theme!r}")
     variable = _variable_name(data, inspect.currentframe())
+    if isinstance(target, list) and len(target) == 1:  # a list names several targets; a tuple can be one label
+        target = target[0]
+    if isinstance(target, list):
+        targets = list(dict.fromkeys(target))
+        src = load(data, cfg, **load_options)
+        results = {}
+        for i, t in enumerate(targets):
+            others = tuple(o for o in targets if o != t and o not in cfg.exclude_features)
+            each = dataclasses.replace(cfg, exclude_features=tuple(cfg.exclude_features) + others)
+            results[t] = see(src, target=t, config=each, plots=plots,
+                             out_dir=Path(out_dir) / f"target-{safe_name(str(t))}" if out_dir is not None else None,
+                             verbose=verbose, open_report=open_report if i == len(targets) - 1 else False,
+                             name=name or src.name or variable)
+        return results  # type: ignore[return-value]
     started = time.perf_counter()
     timings: dict[str, float] = {}
     src = load(data, cfg, **load_options)
@@ -406,13 +468,22 @@ def see(
     decided = src.plan.types if src.plan is not None else None
     df, details, correlations, found = analyze(df, target, cfg, workers, timings, decided)
     type_alerts = verify_types(df, details, found, src, cfg) if src.plan is not None else []
+    dependencies = attribute_columns(df, details, cfg, target)
+    for col, text in cfg.descriptions.items():
+        if col in details:
+            details[col]["description"] = str(text)
+    unknown_described = [c for c in cfg.descriptions if c not in details]
     step = time.perf_counter()
     exact_dups = full.duplicate_rows if full is not None else None
     if full is not None and exact_dups is None:  # too many rows to hash: say so instead of showing the sample's count
         exact_dups = {"not_counted": True}
     quality = check_quality(df, details, correlations, cfg, target, found, exact_dups,
                             full.n_rows_missing_at_least(cfg.row_missing_pct) if full is not None and df.shape[1] >= 2 else None)
-    alerts = list(quality["alerts"]) + type_alerts + birth_alerts(details)
+    quality["functional_dependencies"] = dependencies
+    alerts = list(quality["alerts"]) + type_alerts + birth_alerts(details) + dependency_alerts(dependencies)
+    if unknown_described:
+        alerts.append(alert("info", None, f"descriptions given for columns not in the table: "
+                                          f"{', '.join(map(str, unknown_described[:10]))}", kind="descriptions"))
     for d in details.values():
         alerts.extend(d["alerts"])
     renamed = bool(original) and dedupe_names(original) != original
@@ -543,6 +614,8 @@ def see(
         timeseries=extra.get("timeseries"),
         selection=extra.get("selection"),
         preparation=_with_names_step(prep, original) if renamed else prep,
+        theme=cfg.theme,
+        report=cfg.report,
     )
     if plots and df.shape[1]:
         step = time.perf_counter()

@@ -28,6 +28,7 @@ from scipy import stats
 
 from ._utils import hashable, quiet, truncate
 from .config import StoneConfig
+from .quality import is_category_word
 from .types import CATEGORY_TYPES, DATETIME_TYPES, MULTI_LABEL, NUMERIC_TYPES, as_numeric
 
 CLEANING = ("Invalid values", "Wrong formats", "Misspelling", "Duplicates", "Consistency", "Missing data",
@@ -345,6 +346,9 @@ def plan(
 
     # ---- cleaning
     for col, ph in q.get("placeholder_values", {}).items():
+        ph = {k: v for k, v in ph.items() if not is_category_word(k, cfg)}  # maybe a category: never replaced
+        if not ph:
+            continue
         values = [_literal(k) for k in list(ph)[:6]]
         steps.append(_step("cleaning", "Invalid values", col,
                            "placeholders used as missing: " + ", ".join(f"{v!r} ×{n:,}" for v, n in zip(values, ph.values())),

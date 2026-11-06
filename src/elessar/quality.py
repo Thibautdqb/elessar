@@ -15,6 +15,9 @@ from .types import CATEGORY_TYPES, DATETIME_TYPES, NUMERIC_TYPES, as_datetime, a
 
 SEVERITIES: tuple[str, ...] = ("high", "medium", "info")
 _HINT_AGE = re.compile(r"(^|_)age($|_)|(^|_)age_?years")
+# a unit other than years written in the name: the 0-120 range of a human age in years does not apply
+_NOT_YEARS = re.compile(r"(^|_)(days?|months?|weeks?|hours?|hrs?|minutes?|mins?|seconds?|secs?|ms|jours?|mois|semaines?|"
+                        r"heures?)($|_)")
 _HINT_NONNEG = re.compile(
     r"price|amount|cost|salary|income|revenue|qty|quantity|count|weight|height|duration|distance|size|area|fare|fee"
 )
@@ -74,11 +77,111 @@ def _duplicated(df: pd.DataFrame) -> pd.Series:
         return _hashable_frame(df).astype(str).duplicated(keep="first")
 
 
-def duplicate_rows(df: pd.DataFrame, id_columns: list[str] | None = None) -> dict[str, Any]:
+def _strata(codes: np.ndarray) -> np.ndarray:
+    """Codes of a column (numbered in the order of the values) cut into at most sqrt(n) groups of near
+    values: the groups a dependent column is shuffled within. A column with that few values keeps one
+    group per value."""
+    n = len(codes)
+    k = max(1, int(np.sqrt(n)))
+    if codes.max() + 1 <= k:
+        return codes
+    ranks = pd.Series(codes).rank(method="dense").to_numpy()
+    return np.minimum((ranks - 1) * k // ranks.max(), k - 1).astype(np.int64)
+
+
+def _mutual_information(a: np.ndarray, b: np.ndarray) -> float:
+    joint = pd.crosstab(a, b).to_numpy(dtype=float)
+    p = joint / joint.sum()
+    pa, pb = p.sum(axis=1, keepdims=True), p.sum(axis=0, keepdims=True)
+    nz = p > 0
+    return float((p[nz] * np.log(p[nz] / (pa @ pb)[nz])).sum())
+
+
+def _dependence_tree(strata: np.ndarray, root: int = 0) -> list[tuple[int, int | None]]:
+    """Columns in the order they are drawn, each with the column it is drawn given (None for ``root``):
+    the maximum spanning tree of pairwise mutual information (Chow-Liu), the closest tree of pairwise
+    links to the table's joint distribution."""
+    k = strata.shape[1]
+    mi = np.zeros((k, k))
+    for i in range(k):
+        for j in range(i + 1, k):
+            mi[i, j] = mi[j, i] = _mutual_information(strata[:, i], strata[:, j])
+    order: list[tuple[int, int | None]] = [(root, None)]
+    best = mi[root].copy()
+    parent = np.full(k, root)
+    done = {root}
+    while len(done) < k:
+        j = max((c for c in range(k) if c not in done), key=lambda c: best[c])
+        order.append((j, int(parent[j])))
+        done.add(j)
+        for c in range(k):
+            if c not in done and mi[j, c] > best[c]:
+                best[c], parent[c] = mi[j, c], j
+    return order
+
+
+def chance_duplicates(df: pd.DataFrame, n_perm: int = 49, max_rows: int = 100_000,
+                      random_state: int = 42) -> dict[str, Any]:
+    """How many duplicate rows chance alone gives with these columns' values (conditional permutation test).
+
+    Tables are drawn that keep every column's values and the strongest link of each column to another
+    (a Chow-Liu tree: each column is shuffled within the groups of the column it depends on most), and
+    nothing else: two rows then coincide only because their values are common, or commonly go together,
+    never because one row was copied. Few columns with few values (a card type and an issue date)
+    coincide often by chance; a coincidence over many varied columns does not. Returns the observed count,
+    the mean count over the draws and the one-sided p-value ``(1 + #{drawn >= observed}) / (1 + n_perm)``,
+    all on the same rows (at most ``max_rows``).
+    """
+    rows = df if len(df) <= max_rows else df.sample(max_rows, random_state=random_state)
+
+    def ordered_codes(s: pd.Series) -> np.ndarray:  # codes in the order of the values: groups of near values
+        v = hashable(s)
+        try:
+            return pd.factorize(v, sort=True, use_na_sentinel=False)[0]
+        except TypeError:  # values that do not compare: order of appearance
+            return pd.factorize(v, use_na_sentinel=False)[0]
+
+    codes = np.column_stack([ordered_codes(rows[c]) for c in rows.columns])
+    strata = np.column_stack([_strata(c) for c in codes.T])
+    # the most varied column first: the others are drawn within its groups, never the reverse (drawing
+    # a varied column within the values of a 3-level one would keep a two-column table exactly as it is)
+    root = int(np.argmax(codes.max(axis=0)))
+    order = _dependence_tree(strata, root) if codes.shape[1] > 1 else [(0, None)]
+
+    def count(m: np.ndarray) -> int:
+        return int(pd.DataFrame(m).duplicated().sum())
+
+    rng = np.random.default_rng(random_state)
+
+    def draw() -> np.ndarray:
+        out = np.empty_like(codes)
+        drawn_strata = np.empty_like(strata)
+        for col, parent in order:
+            if parent is None:
+                perm = rng.permutation(len(codes))
+            else:  # rows whose parent fell in group g receive, in random order, the values of group g
+                perm = np.empty(len(codes), dtype=np.int64)
+                src = pd.Series(np.arange(len(codes))).groupby(strata[:, parent]).indices
+                dst = pd.Series(np.arange(len(codes))).groupby(drawn_strata[:, parent]).indices
+                for g, where in dst.items():
+                    perm[where] = rng.permutation(src[g])
+            out[:, col], drawn_strata[:, col] = codes[perm, col], strata[perm, col]
+        return out
+
+    observed = count(codes)
+    drawn = np.array([count(draw()) for _ in range(n_perm)])
+    return {"observed": observed, "expected": float(drawn.mean()), "n_rows": int(len(rows)), "n_perm": n_perm,
+            "n_columns": int(codes.shape[1]),
+            "p_value": float((1 + (drawn >= observed).sum()) / (1 + n_perm))}
+
+
+def duplicate_rows(df: pd.DataFrame, id_columns: list[str] | None = None, random_state: int = 42) -> dict[str, Any]:
     """Count of fully duplicated rows (beyond the first occurrence) and example indices.
 
     With ``id_columns``, also the rows that only differ by their identifiers: the same record
-    entered twice under two ids, which a plain duplicate check never sees.
+    entered twice under two ids, which a plain duplicate check never sees. Those are compared with the
+    count chance gives (:func:`chance_duplicates`): a few low-variety columns share values without any
+    record being entered twice.
     """
     if df.empty or df.shape[1] == 0:
         return {"count": 0, "pct": 0.0, "example_indices": []}
@@ -91,6 +194,8 @@ def duplicate_rows(df: pd.DataFrame, id_columns: list[str] | None = None) -> dic
         n_key = int(key.sum())
         out.update(count_ignoring_ids=n_key, pct_ignoring_ids=100.0 * n_key / len(df), id_columns=ids,
                    examples_ignoring_ids=[_idx(i) for i in df.index[key & ~dup][:10]])
+        if n_key > int(dup.sum()):
+            out["chance_ignoring_ids"] = chance_duplicates(df.drop(columns=ids), random_state=random_state)
     return out
 
 
@@ -172,6 +277,12 @@ def whitespace_issues(s: pd.Series) -> int:
     return int((strs != strs.str.strip()).sum())
 
 
+def is_category_word(key: str, config: StoneConfig | None = None) -> bool:
+    """Is a placeholder found by :func:`placeholder_values` (its repr) also an ordinary category label?"""
+    cfg = config or StoneConfig()
+    return key.strip("'\"").strip().lower() in cfg.placeholder_category_words
+
+
 def placeholder_values(s: pd.Series, stype: str, config: StoneConfig | None = None) -> dict[str, int]:
     """Values that are probably sentinels for 'missing' (``"NA"``, ``"?"``, ``-999``...)."""
     cfg = config or StoneConfig()
@@ -201,7 +312,8 @@ def suspicious_values(s: pd.Series, stype: str) -> list[str]:
     if stype in NUMERIC_TYPES or stype == "numeric_string":
         x = as_numeric(s).dropna()
         if _HINT_AGE.search(name):
-            neg, old = int((x < 0).sum()), int((x > 120).sum())
+            neg = int((x < 0).sum())
+            old = 0 if _NOT_YEARS.search(name) else int((x > 120).sum())
             if neg:
                 msgs.append(f"{neg} negative ages")
             if old:
@@ -316,6 +428,74 @@ def column_quality(s: pd.Series, info: dict[str, Any], config: StoneConfig | Non
     return found
 
 
+KEY_TYPES = ("categorical", "id", "boolean", "ordinal-candidate")
+
+
+def functional_dependencies(df: pd.DataFrame, types: dict[str, str], config: StoneConfig | None = None,
+                            exclude: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
+    """Columns that are attributes of a grouping key: one value per key, on every row (``X = f(K)``).
+
+    A district's unemployment rate repeated on each of its clients is an attribute of the district: its
+    row-level statistics weigh each district by its number of rows. A dependence is kept only when
+    chance cannot explain it: if ``X`` were drawn independently of ``K``, every group of ``K`` would hold
+    a single value of ``X`` with probability ``prod over groups of sum_v p_v ** size`` (``p_v`` the shares
+    of ``X``'s values), which must fall below ``alpha``. With a key that rarely repeats this probability
+    stays high and nothing is claimed. Keys are labels (categories, identifiers), never measurements; each
+    column is given its coarsest key (fewest groups).
+    """
+    cfg = config or StoneConfig()
+    rows = sample(df, cfg.sample_size, cfg.random_state)
+    n = len(rows)
+    if n < 20:
+        return []
+    codes = {}
+    for c in rows.columns:
+        if types.get(c) in ("empty", "constant") or c in exclude:
+            continue
+        try:
+            k = pd.factorize(hashable(rows[c]), use_na_sentinel=False)[0]
+        except TypeError:
+            continue
+        if k.max() >= 1:
+            codes[c] = k
+    n_values = {c: int(k.max()) + 1 for c, k in codes.items()}
+    # a key is a label (a category or an identifier), never a measurement: 77 districts are also told apart by
+    # their population, which does not make the population a key
+    keys = sorted((c for c in codes if n_values[c] <= n // 2 and types.get(c) in KEY_TYPES), key=lambda c: n_values[c])
+    found: dict[Any, dict[str, Any]] = {}
+    log_alpha = np.log(cfg.alpha)
+    for key in keys:
+        order = np.argsort(codes[key], kind="stable")
+        k_sorted = codes[key][order]
+        same_group = k_sorted[1:] == k_sorted[:-1]
+        sizes = np.bincount(codes[key])
+        sizes = sizes[sizes >= 2]
+        for col, x in codes.items():
+            if col == key or col in found or n_values[col] > n_values[key]:
+                continue
+            x_sorted = x[order]
+            if np.any(same_group & (x_sorted[1:] != x_sorted[:-1])):
+                continue
+            p = np.bincount(x) / n
+            m, count = np.unique(sizes, return_counts=True)
+            log_p = float(np.sum(count * np.log(np.array([np.sum(p ** s) for s in m]))))
+            if log_p < log_alpha:
+                found[col] = {"column": col, "determined_by": key, "n_groups": n_values[key],
+                              "log10_p_chance": log_p / np.log(10)}
+    return list(found.values())
+
+
+def entity_level_censoring(df: pd.DataFrame, dep: dict[str, Any], stype: str) -> dict[str, Any]:
+    """The pile-up test at a column's min and max, redone on one value per group of its key."""
+    from .stats import _pile_up
+
+    per_entity = as_numeric(df.drop_duplicates(dep["determined_by"])[dep["column"]], stype).dropna().to_numpy()
+    if per_entity.size == 0:
+        return {}
+    out = {**_pile_up(per_entity, float(per_entity.max()), "max"), **_pile_up(per_entity, float(per_entity.min()), "min")}
+    return {k: v for k, v in out.items() if k.startswith("capped_")}
+
+
 def check_quality(
     df: pd.DataFrame,
     types: dict[str, dict[str, Any]],
@@ -335,7 +515,8 @@ def check_quality(
     """
     cfg = config or StoneConfig()
     out: dict[str, Any] = {
-        "duplicate_rows": duplicate_rows(df, [c for c, info in types.items() if info.get("semantic_type") == "id"]),
+        "duplicate_rows": duplicate_rows(df, [c for c, info in types.items() if info.get("semantic_type") == "id"],
+                                         cfg.random_state),
         "duplicate_columns": duplicate_columns(df),
         "empty_columns": [],
         "constant_columns": [],
@@ -411,15 +592,28 @@ def quality_alerts(q: dict[str, Any], config: StoneConfig | None = None) -> list
         alerts.append(alert("info", None, f"duplicate rows not counted over all rows (more rows than memory allows "
                             f"hashing); {dr['count']:,} in the sample", kind="duplicates"))
     extra = (dr.get("count_ignoring_ids") or 0) - dr["count"]
-    if extra > 0:
+    chance = dr.get("chance_ignoring_ids")
+    by_chance = chance is not None and (chance["p_value"] >= cfg.alpha or chance["observed"] <= chance["expected"])
+    if extra > 0 and by_chance:
+        ids = dr.get("id_columns") or []
+        alerts.append(alert("info", None,
+                            f"{dr['count_ignoring_ids']:,} rows share all their values once the identifier "
+                            f"column{'s' if len(ids) > 1 else ''} {', '.join(map(str, ids))} "
+                            f"{'are' if len(ids) > 1 else 'is'} ignored, as many as chance gives with these columns "
+                            f"(~{chance['expected']:,.0f} expected on {chance['n_rows']:,} rows when the columns are "
+                            f"shuffled keeping their links, observed {chance['observed']:,}, p {chance['p_value']:.2f}): not a sign of "
+                            "records entered twice", kind="duplicates_ids"))
+    elif extra > 0:
         ids = dr.get("id_columns") or []
         where = " in the sample" if dr.get("ignoring_ids_on_sample") else ""
         ex = dr.get("examples_ignoring_ids") or []
+        beyond = (f" (chance gives ~{chance['expected']:,.0f} on {chance['n_rows']:,} rows, observed "
+                  f"{chance['observed']:,}, permutation p {chance['p_value']:.2f})" if chance else "")
         alerts.append(alert("high" if dr["pct_ignoring_ids"] >= 1 else "medium", None,
                             f"{dr['count_ignoring_ids']:,} rows ({dr['pct_ignoring_ids']:.1f}%){where} are duplicates once "
                             f"the identifier column{'s' if len(ids) > 1 else ''} {', '.join(map(str, ids))} "
                             f"{'are' if len(ids) > 1 else 'is'} ignored: the same record under several ids"
-                            + (f", e.g. index {ex[:3]}" if ex else "")
+                            + beyond + (f", e.g. index {ex[:3]}" if ex else "")
                             + f" -> df.drop_duplicates(subset=[c for c in df.columns if c not in {ids!r}])",
                             kind="duplicates_ids"))
     for group in q["duplicate_columns"]:
@@ -447,8 +641,15 @@ def quality_alerts(q: dict[str, Any], config: StoneConfig | None = None) -> list
     for col, n in q["whitespace_columns"].items():
         alerts.append(alert("medium", col, f"{n:,} values with leading/trailing whitespace -> .str.strip()"))
     for col, found in q["placeholder_values"].items():
-        vals = ", ".join(f"{k} ({v})" for k, v in list(found.items())[:5])
-        alerts.append(alert("medium", col, f"placeholder values used as missing: {vals} -> replace with NaN"))
+        missing = {k: v for k, v in found.items() if not is_category_word(k, cfg)}
+        words = {k: v for k, v in found.items() if is_category_word(k, cfg)}
+        if missing:
+            vals = ", ".join(f"{k} ({v})" for k, v in list(missing.items())[:5])
+            alerts.append(alert("medium", col, f"placeholder values used as missing: {vals} -> replace with NaN"))
+        if words:
+            vals = ", ".join(f"{k} ({v})" for k, v in words.items())
+            alerts.append(alert("info", col, f"{vals}: a missing value, or a category of its own (no card, an answer "
+                                             "'unknown')? -> replace with NaN only if it means missing"))
     for col, msgs in q["suspicious_values"].items():
         for m in msgs:
             alerts.append(alert("high", col, f"suspicious: {m}"))
@@ -506,6 +707,9 @@ def column_alerts(col: str, detail: dict[str, Any], config: StoneConfig | None =
         hint = " -> consider a log transform" if (st.get("min") or 0) > 0 and skew > 0 else ""
         out.append(alert("info", col, f"heavily skewed (skewness {skew:.2f}){hint}", "skewed"))
     for side, word in (("max", "capped at"), ("min", "floored at")):
+        if st.get(f"capped_{side}") and detail.get("determined_by") is not None \
+                and not detail.get("entity_capped", {}).get(f"capped_{side}", True):
+            continue  # one group of the key repeated on many rows, not many values censored (see dependencies)
         if st.get(f"capped_{side}") and not (side == "min" and st[side] == 0):
             out.append(alert("medium", col, f"{word} {fmt_num(st[side])}: {st[f'pct_at_{side}']:.1f}% of values sit exactly "
                              "there (censored data) -> treat as censored, or flag and model separately"))

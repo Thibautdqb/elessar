@@ -42,7 +42,7 @@ a Python 3.10 minimum-version run. Those inherited statements are not independen
 - **Limits are measured, not hidden.** When a method cannot reach its nominal level on a case, the case is
   still run and its figure reported here.
 - **Reproducible.** Every simulation has a fixed seed (no Python hash): two runs give identical figures.
-- **Sizes.** 69 checks: 55 on simulations (about 25,000 simulated tables or series in all) and 14 on public
+- **Sizes.** 86 checks: 72 on simulations (about 28,000 simulated tables or series in all) and 14 on public
   datasets (12 distinct tables from seaborn-data and Rdatasets).
 
 | Area | Checks | What is measured |
@@ -53,6 +53,7 @@ a Python 3.10 minimum-version run. Those inherited statements are not independen
 | Outliers | 10 | advice on five clean distributions, planted errors in five kinds of columns |
 | Time series | 17 | seasonality, trend under seven noise structures, stationarity |
 | Public datasets | 11 | counts against pandas on ten tables, known facts |
+| Checks against chance (duplicates, dependencies, keys) | 17 | false alarms on tables where nothing is wrong, defects planted and found, limits |
 
 ## 1. Associations between columns
 
@@ -337,6 +338,55 @@ Known facts found:
   a redundant group, so `sex` itself may stay borderline).
 - **iris**, target `species`: petal length and width are the two strongest links. **tips**, target `tip`:
   `total_bill` first. **diamonds**, target `price`: `carat` and the length `x` first.
+
+## 6b. Checks decided against chance
+
+These checks replace fixed thresholds with a comparison to what chance gives on the same rows
+(`tests/validation/test_generalisation_v13.py`). Each is run on tables where nothing is wrong (the share of tables
+flagged must stay near the 5% level) and on tables with a planted defect.
+
+### Duplicates once identifiers are ignored
+
+Rows sharing every non-id value are compared with tables drawn to keep each column's values and its strongest link
+to another column (Chow-Liu tree of pairwise mutual information; each column shuffled within groups of near values
+of the column it depends on most), 49 draws, alert when the permutation p-value is below 5%. 200 tables per case.
+
+| Case | Flagged |
+|---|---:|
+| type x issue date, 900 rows, no record entered twice | 3.5% |
+| 3 categories of 8 levels, 2,000 rows | 0.5% |
+| rounded amount x category, 1,500 rows | 0% |
+| card type depending on the issue period (dependent columns) | 5% (97% with plain shuffles of each column) |
+| a hidden segment driving three columns (a dependence outside any tree) | 0% |
+| 3 or 10 records copied under a new id, 4 varied columns | 100% found |
+| **limit**: 3 copies among frequent chance coincidences (a category, a day of 50, a rounded amount) | 9% found |
+
+Before: any share of such rows above 1% raised a high alert (21% of a card table of type x date).
+
+### Columns determined by a key
+
+A dependence `X = f(K)` is claimed when `X` holds one value per group of the label `K` and the probability of that
+happening for an independent `X` (product over groups of the sum of `p_v ** size`) is below 5%.
+
+| Case | Result |
+|---|---:|
+| independent label, groups of 2 to 4 rows, one value 50%, 90% or 99% common (300 tables each) | 0% claimed |
+| attributes of 77 districts repeated on 700 clients, one district holding 12% of rows (100 tables) | 100% found, with their key |
+| the largest district at the maximum of its salary on 12% of rows, and a pay capped at 12,000 | only the pay is "censored" |
+
+### Keys between tables
+
+An integer label column is suggested as a key when its values fall in a unique parent column more often than the
+same values shifted circularly within the parent's range (1 to 199). 200 tables per case.
+
+| Case | Result |
+|---|---:|
+| unrelated identifiers in the same range 1..3,000, parent keeping 30% of it | 0% suggested |
+| the same, parent keeping 80% of it | 4% suggested |
+| child drawn from the parent's identifiers (30% or 80% of the range) | 100% found |
+
+A parent that fills its whole range (77 districts numbered 1 to 77) cannot be told from chance: nothing is
+suggested and the key must be declared.
 
 ## 7. Remaining limits
 

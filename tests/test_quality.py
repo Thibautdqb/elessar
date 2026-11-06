@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from elessar import see_quality
+from elessar import StoneConfig, see_quality
 from elessar.quality import SEVERITIES, duplicate_columns, duplicate_rows, missing_patterns, placeholder_values
 
 
@@ -88,3 +88,57 @@ def test_alert_grouping_and_duplicate_dedup(rng: np.random.Generator) -> None:
     about_copy = [a["message"] for a in alerts if a["column"] in ("copy", "skew0")]
     assert sum("identical" in m for m in about_copy) == 1
     assert not any("linear dependency" in m or "redundant" in m for m in about_copy)
+
+
+def _dup_alerts(df: pd.DataFrame, ids: list[str]) -> list[dict]:
+    q = see_quality(df, StoneConfig(column_types={c: "id" for c in ids}))
+    assert q["duplicate_rows"]["id_columns"] == ids
+    return [a for a in q["alerts"] if a.get("kind") == "duplicates_ids"]
+
+
+def test_duplicates_ignoring_ids_by_chance_are_not_alarming() -> None:
+    # a card table: 3 types x 600 issue dates for 900 cards, no record entered twice (one table; the rate of
+    # false alarms over many such tables is measured in tests/validation/test_generalisation_v13.py)
+    rng = np.random.default_rng(7)
+    n = 900
+    df = pd.DataFrame({"card_id": np.arange(n), "type": rng.choice(["classic", "junior", "gold"], n, p=[.74, .16, .1]),
+                       "issued": rng.integers(0, 600, n)})
+    dr = duplicate_rows(df, ["card_id"])
+    assert dr["count_ignoring_ids"] > 100 and dr["chance_ignoring_ids"]["p_value"] > 0.05
+    alerts = _dup_alerts(df, ["card_id"])
+    assert len(alerts) == 1 and alerts[0]["severity"] == "info" and "as many as chance gives" in alerts[0]["message"]
+
+
+def test_records_entered_twice_are_found_beyond_chance() -> None:
+    # the same loans (amount = duration x payments) under a second id: chance never reproduces such rows
+    rng = np.random.default_rng(6)
+    n = 680
+    duration = rng.choice([12, 24, 36, 48, 60], n)
+    payments = rng.integers(300, 9_900, n)
+    df = pd.DataFrame({"loan_id": np.arange(n), "amount": duration * payments, "duration": duration,
+                       "payments": payments, "status": rng.choice(list("ABCD"), n)})
+    twice = df.sample(10, random_state=0).assign(loan_id=lambda d: d.loan_id + 10_000)
+    df = pd.concat([df, twice], ignore_index=True)
+    dr = duplicate_rows(df, ["loan_id"])
+    assert dr["count_ignoring_ids"] >= 10 and dr["chance_ignoring_ids"]["p_value"] < 0.05
+    alerts = _dup_alerts(df, ["loan_id"])
+    assert alerts[0]["severity"] == "high" and "chance gives" in alerts[0]["message"]
+
+
+def test_age_bounds_only_for_ages_in_years() -> None:
+    from elessar.quality import suspicious_values
+
+    days = pd.Series([400, 1_200, 2_000, 30], name="account_age_at_loan_days")
+    assert suspicious_values(days, "numeric_discrete") == []
+    assert suspicious_values(days.rename("AgeMonths"), "numeric_discrete") == []
+    assert suspicious_values(days.rename("age"), "numeric_discrete") == ["3 ages above 120"]
+    assert suspicious_values(pd.Series([-1, 30], name="age_days"), "numeric_discrete") == ["1 negative ages"]
+
+
+def test_category_words_are_a_question_not_a_replacement() -> None:
+    df = pd.DataFrame({"card_type": ["none"] * 60 + ["classic"] * 30 + ["gold"] * 10,
+                       "city": ["Paris", "?", "Lyon", "Nice"] * 25})
+    q = see_quality(df)
+    by_col = {(a["column"], a["severity"]): a["message"] for a in q["alerts"] if "placeholder" in a["message"] or "category of its own" in a["message"]}
+    assert ("card_type", "info") in by_col and "replace with NaN only if it means missing" in by_col[("card_type", "info")]
+    assert ("card_type", "medium") not in by_col and ("city", "medium") in by_col
