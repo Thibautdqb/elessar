@@ -149,7 +149,8 @@ blocks with a copy button, and collapsible sections per column; it works offline
 - **multivariate statistics**: PCA; the **factor analysis** as a checklist (each step, its question, its answer),
   the unrotated and rotated component matrices with communalities, Cronbach's alpha per factor with the alpha if
   each item is deleted, the new factors and their descriptives, and the code; groups of redundant columns; then
-  the associations (heatmaps with significance, strongest pairs, linear dependencies, VIF)
+  the associations (heatmaps with significance, strongest pairs, exact linear relations, products and ratios
+  such as `total = price × quantity` up to rounding, VIF)
 - the **preparation plan**: cleaning then transformation steps, each with why and the code
 - **attribute statistics**: one collapsible section per column with every statistic laid out in cards
   (center, spread, quantiles, shape, outliers, row order, labels, time, text), its normality tests, its top
@@ -334,8 +335,11 @@ child is checked in about 30 seconds with 0.6 GB of memory.
 Keys that are not declared are suggested among integer label columns, when chance cannot explain the match: the same
 values shifted circularly within the parent's range (by 1 to 199) are looked up too. Identifiers of unrelated tables
 overlap a lot in the same low range; a shift keeps that overlap and breaks a real key. A parent that fills its whole
-range (77 districts numbered 1 to 77) cannot be told from chance and is not suggested, and text keys are never
-guessed: declare them.
+range (77 districts numbered 1 to 77) cannot be told from chance, nor can text keys. Those are suggested only by
+the naming convention: the same specific column name in both tables (`orders.customer_id` and
+`customers.customer_id`; never a generic `id` or `code`), unique on the parent side, with most child values found
+there; the alert says the evidence is the name. A table's own identifier (`disp.disp_id`) is never taken as a key
+to another table: identifiers allocated in step look alike without being linked.
 
 ## How elessar decides
 
@@ -574,6 +578,10 @@ post-outcome variables can be named in `StoneConfig(exclude_features=("column",)
 low-cardinality bijective target aliases are quarantined by default on training rows; this explicit policy
 can be overridden with `exclude_target_aliases=False` when pre-outcome availability is established.
 Association alone does not establish leakage: inspect provenance and availability at prediction time.
+Three warnings point to it: a feature, or the fact that a feature is filled, that gives the target almost alone
+(|association| or Gini = |2·AUC - 1| at least `leakage_threshold`, 0.98: high); features that separate it almost
+alone (at least `leakage_warning`, 0.9: one medium alert listing them); and a near-perfect held-out score of the
+kept features (0.99 or more: medium). Data cannot tell a leak from a very strong predictor; the alerts say so.
 
 Screening/stationarity choices are not all refitted inside every inner fold. The unused final test measures
 the outcome of that complete adaptive procedure; it does not make the internal CV fully nested. A chronological

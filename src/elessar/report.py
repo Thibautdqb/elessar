@@ -393,7 +393,7 @@ class Vision:
                 f"{k} {'inf' if np.isinf(v) else f'{v:.1f}'}" for k, v in vif["vif"].head(10).items())], w, "  ")
         deps = c.get("linear_dependencies")
         if deps is not None and not deps.empty:
-            lines += ["", "  exact linear dependencies:"]
+            lines += ["", "  exact relations between columns:"]
             for r in deps.itertuples(index=False):
                 lines += _join_wrap([r.equation], w, "    ")
         miss = c.get("missingness")
@@ -475,9 +475,13 @@ class Vision:
                     values += f" (median {fmt_num(st['median'])})"
             else:
                 top = st.get("top_values") or []
-                values = ", ".join(f"{t['value']} ({t['pct']:.0f}%)" for t in top[:5])
-                if st.get("n_unique") and st["n_unique"] > 5:
-                    values += ", ..."
+                if top and top[0]["pct"] < 1:  # no value repeats enough for shares to mean anything: show examples
+                    values = (f"{st.get('n_unique', 0):,} distinct values, e.g. "
+                              + ", ".join(str(t["value"]) for t in top[:3]))
+                else:
+                    values = ", ".join(f"{t['value']} ({t['pct']:.0f}%)" for t in top[:5])
+                    if st.get("n_unique") and st["n_unique"] > 5:
+                        values += ", ..."
             origin = []
             if d.get("derived_from") is not None:
                 origin.append(f"derived from {d['derived_from']}")
