@@ -667,7 +667,7 @@ class _Recap:
             self.add("table", headers, rows, "data")
         deps = v.correlations.get("linear_dependencies")
         if deps is not None and not deps.empty:
-            self.add("h", 3, "Exact linear dependencies", None)
+            self.add("h", 3, "Exact relations between columns", None)
             self.add("ul", [[code(r.equation)] for r in deps.itertuples(index=False)])
         vif = v.correlations.get("vif")
         if vif is not None and not vif.empty:

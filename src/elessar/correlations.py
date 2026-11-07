@@ -300,6 +300,57 @@ def linear_dependencies(num: pd.DataFrame, vif: pd.DataFrame, config: StoneConfi
     return pd.DataFrame(rows, columns=["column", "equation", "columns"])
 
 
+def _resolution(y: np.ndarray) -> float:
+    """The recording step of ``y``: 10^-d for the fewest decimals d (0 to 6) that write every value exactly."""
+    for d in range(7):
+        scaled = y * 10.0**d
+        if np.all(np.abs(scaled - np.round(scaled)) <= 1e-9 * np.maximum(1.0, np.abs(scaled))):
+            return 10.0**-d
+    return 0.0
+
+
+def product_dependencies(num: pd.DataFrame, config: StoneConfig | None = None, max_columns: int = 60) -> pd.DataFrame:
+    """Columns that are exactly the product or the ratio of two others, up to the rounding of their recorded
+    values (``total = price × quantity``, ``price = total / quantity``): invisible to a linear check.
+
+    ``y = a × b`` (or ``a / b``) is kept when it holds on every complete row within half of ``y``'s recording step
+    (the rounding the stored values can carry), on at least 20 rows where ``y`` is not zero. Candidates are
+    screened on 50 rows, then checked on all (sampled) rows."""
+    cfg = config or StoneConfig()
+    cols = [c for c in num.columns if num[c].nunique() > 2][:max_columns]
+    data = sample(num[cols].dropna(), cfg.sample_size, cfg.random_state)
+    if len(cols) < 3 or len(data) < 20:
+        return pd.DataFrame(columns=["column", "equation", "columns", "kind"])
+    values = data.to_numpy(dtype="float64")
+    steps = np.array([_resolution(values[:, j]) for j in range(len(cols))])
+    tol = steps / 2 + 1e-9 * np.abs(values).max(axis=0)
+    nonzero = (values != 0).sum(axis=0) >= 20
+    head = slice(0, min(50, len(values)))
+    rows, used, seen = [], set(), set()
+    # products first: y = a × b is the natural statement, its rewritings a = y / b and b = y / a are not repeated
+    for op in ("×", "/"):
+        for i, a in enumerate(cols):
+            for j, b in enumerate(cols):
+                if j == i or (op == "×" and j < i):  # a × b = b × a
+                    continue
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    f = (lambda u, v: u * v) if op == "×" else (lambda u, v: u / v)
+                    guess = f(values[head, i], values[head, j])
+                    near = np.all(np.abs(values[head] - guess[:, None]) <= tol, axis=0)
+                    for k in np.flatnonzero(near & nonzero):
+                        trio = frozenset((i, j, k))
+                        if k in (i, j) or cols[k] in used or trio in seen:
+                            continue
+                        full = f(values[:, i], values[:, j])
+                        if np.all(np.isfinite(full)) and np.all(np.abs(values[:, k] - full) <= tol[k]):
+                            y = cols[k]
+                            rows.append({"column": y, "equation": f"{y} = {a} {op} {b} (up to rounding)",
+                                         "columns": [y, a, b], "kind": "product" if op == "×" else "ratio"})
+                            used.add(y)
+                            seen.add(trio)
+    return pd.DataFrame(rows, columns=["column", "equation", "columns", "kind"])
+
+
 def numeric_shape(num: pd.DataFrame, cfg: StoneConfig) -> pd.DataFrame:
     """Skewness and excess kurtosis of each column, and whether it is shaped for Pearson (roughly
     symmetric, light tails): a pair is tested with Pearson only when both of its columns are."""
@@ -588,7 +639,9 @@ def _corr_task(key: tuple[str, ...]) -> Any:
             out["numeric_shape"] = numeric_shape(num, cfg)
             features = num.drop(columns=[target], errors="ignore")
             out["vif"] = variance_inflation(features, cfg)
-            out["linear_dependencies"] = linear_dependencies(features, out["vif"], cfg)
+            linear = linear_dependencies(features, out["vif"], cfg).assign(kind="linear")
+            products = product_dependencies(features, cfg)
+            out["linear_dependencies"] = pd.concat([linear, products], ignore_index=True) if len(products) else linear
             return out
         if kind == "kendall":
             a = key[1]

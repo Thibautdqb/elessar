@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.2.1 (2026-11-06)
+
+Fixes found by profiling a table with planted problems (a churn table, a two-table shop) and the Berka bank data:
+findings that contradicted the data or each other.
+
+**Target leakage**
+- A column filled only for one class of the target (a churn reason) is reported as possible leakage (high): whether
+  it is filled gives the target. It was only "informative missingness", and feature selection kept it alone with a
+  held-out AUC of 1.0 without any warning.
+- Features that separate the target almost alone but below the leakage threshold (AUC 0.95 to 0.99, such as card
+  withdrawals before a card is issued, AUC 0.988) are listed in one medium alert asking for their provenance
+  (`StoneConfig.leakage_warning`, 0.9 on the Gini or |association| scale).
+- A near-perfect held-out score of the kept features (0.99 or more) raises a medium alert: either the task is that
+  easy, or a feature is recorded after the outcome.
+
+**Contradictions**
+- A placeholder for missing values (`-999`) at the end of a column is no longer also reported as censoring
+  ("floored at -999"), nor counted among "negative values in a quantity that should be >= 0".
+- System default dates (1970-01-01, 1900-01-01) are reported once, as defaults, and no longer counted again in the
+  "births on 1 January" test.
+
+**Found where they were missed**
+- Exact products and ratios between columns, up to the rounding of the stored values (`total = price × quantity`),
+  reported once each; linear checks could not see them.
+- Keys between tables that chance cannot tell (an identifier filling its whole range, text keys) are suggested by
+  the naming convention: the same specific column name, unique on the parent side, most child values found there.
+- E-mail addresses, phone numbers and IP addresses are flagged as personal data.
+
+**Wrong suggestions removed**
+- A table's own identifier is no longer suggested as a key to another table (`disp.disp_id -> client.client_id`:
+  identifiers allocated in step), nor the reverse of a real key (`client.client_id -> disp.client_id`).
+
+**Wording**
+- The data dictionary shows examples, not "(0%)" shares, for a column whose values do not repeat (e-mails).
+- "1 key", "1 negative value", "1 feature separates": singular where it is one.
+
 ## 1.2.0 (2026-11-06)
 
 ### Checks decided against chance, several tables

@@ -11,6 +11,7 @@ import pandas as pd
 from ._utils import fmt_bytes, fmt_num, fmt_p, hashable, is_text_dtype, prepare, quiet, sample, truncate
 from .config import StoneConfig
 from .correlations import compute_correlations
+from .roles import DEFAULT_DATES
 from .types import CATEGORY_TYPES, DATETIME_TYPES, NUMERIC_TYPES, as_datetime, as_numeric, infer_type, python_kinds
 
 SEVERITIES: tuple[str, ...] = ("high", "medium", "info")
@@ -22,7 +23,7 @@ _HINT_NONNEG = re.compile(
     r"price|amount|cost|salary|income|revenue|qty|quantity|count|weight|height|duration|distance|size|area|fare|fee"
 )
 _KIND_FAMILY = {"bool": "number", "list": "container", "dict": "container"}
-_DEFAULT_DATES = (pd.Timestamp("1970-01-01"), pd.Timestamp("1900-01-01"), pd.Timestamp("1899-12-30"))
+_DEFAULT_DATES = DEFAULT_DATES
 
 
 def alert(severity: str, column: str | None, message: str, kind: str | None = None) -> dict[str, Any]:
@@ -292,20 +293,27 @@ def placeholder_values(s: pd.Series, stype: str, config: StoneConfig | None = No
         hits = strs[strs.str.strip().str.lower().isin(cfg.placeholder_strings)]
         found.update({repr(k): int(v) for k, v in hits.value_counts().items()})
     if stype in NUMERIC_TYPES or stype == "numeric_string":
-        x = as_numeric(s).dropna()
-        if len(x) and x.nunique() > 2:
-            lo, hi = x.min(), x.max()
-            for p in cfg.placeholder_numbers:
-                if p in (lo, hi):
-                    count = int((x == p).sum())
-                    rest = x[x != p]
-                    far = rest.empty or (p > rest.max() * 1.5 if p > 0 else p < rest.min() * 1.5 - 1)
-                    if count and far:
-                        found[fmt_num(p)] = count
+        found.update({fmt_num(p): n for p, n in numeric_placeholders(as_numeric(s).dropna(), cfg).items()})
     return found
 
 
-def suspicious_values(s: pd.Series, stype: str) -> list[str]:
+def numeric_placeholders(x: pd.Series, config: StoneConfig | None = None) -> dict[float, int]:
+    """Sentinel numbers (``-999``, ``9999``...) at an end of ``x`` and far from its other values, with their counts."""
+    cfg = config or StoneConfig()
+    found: dict[float, int] = {}
+    if len(x) and x.nunique() > 2:
+        lo, hi = x.min(), x.max()
+        for p in cfg.placeholder_numbers:
+            if p in (lo, hi):
+                count = int((x == p).sum())
+                rest = x[x != p]
+                far = rest.empty or (p > rest.max() * 1.5 if p > 0 else p < rest.min() * 1.5 - 1)
+                if count and far:
+                    found[float(p)] = count
+    return found
+
+
+def suspicious_values(s: pd.Series, stype: str, config: StoneConfig | None = None) -> list[str]:
     """Domain sanity checks driven by the column name (ages, prices, birth dates, default dates)."""
     name = re.sub(r"([a-z])([A-Z])", r"\1_\2", str(s.name)).lower()
     msgs = []
@@ -318,8 +326,11 @@ def suspicious_values(s: pd.Series, stype: str) -> list[str]:
                 msgs.append(f"{neg} negative ages")
             if old:
                 msgs.append(f"{old} ages above 120")
-        elif _HINT_NONNEG.search(name) and (x < 0).any():
-            msgs.append(f"{int((x < 0).sum())} negative values in a quantity that should be >= 0")
+        elif _HINT_NONNEG.search(name):
+            sentinels = numeric_placeholders(x, config)  # reported as placeholders, not as negative quantities
+            neg = int((x[~x.isin(list(sentinels))] < 0).sum())
+            if neg:
+                msgs.append(f"{neg} negative value{'s' * (neg != 1)} in a quantity that should be >= 0")
     if stype in DATETIME_TYPES:
         d = as_datetime(s).dropna()
         for default in _DEFAULT_DATES:
@@ -415,7 +426,7 @@ def column_quality(s: pd.Series, info: dict[str, Any], config: StoneConfig | Non
         found["mixed_type_columns"] = kinds
     checks = (("whitespace_columns", lambda: whitespace_issues(s)),
               ("placeholder_values", lambda: placeholder_values(s, stype, cfg)),
-              ("suspicious_values", lambda: suspicious_values(s, stype)))
+              ("suspicious_values", lambda: suspicious_values(s, stype, cfg)))
     for key, check in checks:
         res = check()
         if res:
@@ -698,6 +709,10 @@ def column_alerts(col: str, detail: dict[str, Any], config: StoneConfig | None =
         out.append(alert("high", col, f"{step} failed: {truncate(err, 100)}"))
     if st.get("n_inf"):
         out.append(alert("high", col, f"{st['n_inf']:,} infinite values -> replace with NaN or clip"))
+    if stype in ("email", "phone", "ip_address"):
+        what = {"email": "an e-mail address", "phone": "a phone number", "ip_address": "an IP address"}[stype]
+        out.append(alert("info", col, f"personal data: {what} identifies a person directly -> drop or pseudonymise it "
+                         "before sharing, and keep it out of models"))
     numeric = stype in NUMERIC_TYPES or stype == "numeric_string"
     if numeric and (st.get("pct_outliers_iqr") or 0) >= cfg.outlier_alert_pct and st.get("iqr"):
         out.append(alert("info", col, f"{st['pct_outliers_iqr']:.1f}% outliers by the 1.5xIQR rule "
@@ -710,6 +725,8 @@ def column_alerts(col: str, detail: dict[str, Any], config: StoneConfig | None =
         if st.get(f"capped_{side}") and detail.get("determined_by") is not None \
                 and not detail.get("entity_capped", {}).get(f"capped_{side}", True):
             continue  # one group of the key repeated on many rows, not many values censored (see dependencies)
+        if st.get(f"capped_{side}") and st[side] in cfg.placeholder_numbers:
+            continue  # a sentinel for missing values sits at the end: reported as a placeholder, not as censoring
         if st.get(f"capped_{side}") and not (side == "min" and st[side] == 0):
             out.append(alert("medium", col, f"{word} {fmt_num(st[side])}: {st[f'pct_at_{side}']:.1f}% of values sit exactly "
                              "there (censored data) -> treat as censored, or flag and model separately"))
@@ -796,8 +813,12 @@ def correlation_alerts(
             explained.update(r.columns)
             if any(set(r.columns) <= group for group in copies):
                 continue
-            out.append(alert("high", r.column, f"exact linear dependency: {truncate(r.equation, 160)} -> drop one of "
-                             "these columns (singular design matrix)"))
+            if getattr(r, "kind", "linear") in ("product", "ratio"):
+                out.append(alert("high", r.column, f"exact {r.kind}: {truncate(r.equation, 160)} -> one of these columns is "
+                                 "derived from the others and adds no information"))
+            else:
+                out.append(alert("high", r.column, f"exact linear dependency: {truncate(r.equation, 160)} -> drop one of "
+                                 "these columns (singular design matrix)"))
     if vif is not None:
         high = vif[(vif["vif"] >= cfg.vif_threshold) & ~vif.index.isin(list(explained))]["vif"]
         if len(high):
@@ -822,14 +843,34 @@ def correlation_alerts(
     mt = correlations.get("missing_target")
     if mt is not None and not mt.empty:
         for r in mt[mt["significant"]].itertuples(index=False):
-            out.append(alert("medium", r.feature, f"missingness is informative about '{target}': {r.detail} "
-                             f"(p_adj={fmt_p(r.p_adjusted)}) -> add a missing-indicator feature"))
+            # same scale as the features: Cramer's V of the indicator, or Gini of its AUC for a numeric target
+            strength = abs(2 * r.effect - 1) if str(r.test).startswith("mann") else abs(r.effect)
+            if strength >= cfg.leakage_threshold:
+                out.append(alert("high", r.feature, f"possible target leakage: whether '{r.feature}' is filled gives "
+                                 f"'{target}' ({r.detail}): a value recorded only after the outcome? -> drop it unless "
+                                 "it is known at prediction time", "leakage"))
+            elif strength >= cfg.leakage_warning:
+                out.append(alert("medium", r.feature, f"whether '{r.feature}' is filled almost gives '{target}' "
+                                 f"({r.detail}): confirm it is known before the outcome", "leakage"))
+            else:
+                out.append(alert("medium", r.feature, f"missingness is informative about '{target}': {r.detail} "
+                                 f"(p_adj={fmt_p(r.p_adjusted)}) -> add a missing-indicator feature"))
     assoc = correlations.get("target")
     if assoc is not None and not assoc.empty:
         for r in assoc[assoc["leakage_suspect"]].itertuples(index=False):
             auc = f", AUC {r.auc:.3f}" if pd.notna(r.auc) else ""
             out.append(alert("high", r.feature, f"possible target leakage: {r.method} = {r.association:.3f}{auc} "
-                             f"with '{target}'"))
+                             f"with '{target}'", "leakage"))
+        gini = (2 * pd.to_numeric(assoc["auc"], errors="coerce") - 1).abs()
+        strength = pd.concat([assoc["association"].abs(), gini], axis=1).max(axis=1)
+        strong = assoc[~assoc["leakage_suspect"].astype(bool) & (strength >= cfg.leakage_warning)]
+        if not strong.empty:
+            listed = ", ".join(f"{r.feature} ({f'AUC {r.auc:.3f}' if pd.notna(r.auc) else f'{r.method} {r.association:.2f}'})"
+                               for r in strong.head(8).itertuples(index=False))
+            more = f" (+{len(strong) - 8} more)" if len(strong) > 8 else ""
+            out.append(alert("medium", None, f"{len(strong)} feature{'s separate' if len(strong) > 1 else ' separates'} "
+                             f"'{target}' almost alone: {listed}{more} -> confirm each is known before the outcome "
+                             "(a leak looks exactly like a very strong predictor)", "leakage"))
     return out
 
 
@@ -889,6 +930,13 @@ def advanced_alerts(extra: dict[str, Any], prep: dict[str, Any], target: str | N
         out.append(alert("info", col, f"{comp['parts']} data items per cell joined by '{comp['separator']}' "
                          f"(e.g. '{comp['example']}') -> split into {comp['parts']} columns", kind="composite"))
     sel = extra.get("selection")
+    ce = (sel or {}).get("consensus_evaluation") or {}
+    if ce.get("status") == "ok" and ce.get("features") and np.isfinite(ce.get("score", np.nan)) and ce["score"] >= 0.99:
+        more = f" (+{len(ce['features']) - 5})" if len(ce["features"]) > 5 else ""
+        out.append(alert("medium", target, f"the kept features predict '{target}' almost perfectly on held-out rows "
+                         f"({ce['scoring']} {ce['score']:.3f} with {', '.join(map(str, ce['features'][:5]))}{more}): either "
+                         "the task is that easy, or a feature is recorded after the outcome -> confirm their provenance",
+                         "leakage"))
     if sel and sel.get("drop"):
         out.append(alert("info", target, f"feature selection ({sel['n_methods']} methods): drop "
                          + ", ".join(sel["drop"][:8]) + (f" (+{len(sel['drop']) - 8})" if len(sel["drop"]) > 8 else "")

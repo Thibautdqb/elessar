@@ -13,8 +13,10 @@ Keys that are not declared are suggested among integer label columns (identifier
 measurements): a child column whose distinct values fall in a unique parent column far more often than
 the same values shifted by 1, 2, ... 199 within the parent's range do (identifiers of different tables are
 often dense in the same low range: a shift keeps that overlap and breaks a real key). A range the parent fills densely (77
-districts numbered 1 to 77) cannot be told from chance and is not suggested; text keys are never guessed
-(no chance model fits them): declare them.
+districts numbered 1 to 77) cannot be told from chance; neither can text keys (no chance model fits them).
+Those are suggested only by the naming convention: the same specific column name in both tables
+(``orders.customer_id`` and ``customers.customer_id``, never a generic ``id`` or ``code``), unique on the parent
+side, with most child values found there. The report says the evidence is the name, not a test.
 """
 
 from __future__ import annotations
@@ -55,7 +57,8 @@ class Relations:
 
     def render(self, width: int | None = None) -> str:
         w = width or min(max(shutil.get_terminal_size((120, 40)).columns, 60), 160)
-        out = ["═" * w, f" elessar relations  ·  {len(self.exact)} tables, {len(self.keys)} keys", "═" * w, ""]
+        out = ["═" * w, f" elessar relations  ·  {len(self.exact)} table{'s' * (len(self.exact) != 1)}, "
+               f"{len(self.keys)} key{'s' * (len(self.keys) != 1)}", "═" * w, ""]
         for r in self.keys.itertuples(index=False):
             out.append(truncate(f"▸ {r.child}.{r.child_column} -> {r.parent}.{r.parent_column}  ·  {r.origin}"
                                 f"  ·  {r.cardinality}", w))
@@ -65,7 +68,9 @@ class Relations:
                      f"children per parent {r.children_min:g} / {r.children_median:g} / {r.children_max:g} (min / median / max)"]
             if r.n_child_before_parent is not None and pd.notna(r.n_child_before_parent):
                 parts.append(f"children dated before their parent {int(r.n_child_before_parent):,}")
-            if r.origin == "suggested":
+            if r.origin == "suggested" and getattr(r, "by_name", False) is True:
+                parts.append(f"{r.pct_included:.1f}% of its values in {r.parent}.{r.parent_column} (same column name)")
+            elif r.origin == "suggested":
                 parts.append(f"{r.pct_included:.1f}% of its values in {r.parent}.{r.parent_column} vs "
                              f"{100 * r.chance_rate:.1f}% once shifted (p {r.p_value:.3f})")
             out.append(truncate("    " + " · ".join(parts), w))
@@ -217,7 +222,7 @@ def _suggest(frames: dict[str, pd.DataFrame], declared: set[tuple[str, str, str,
     shifts = np.arange(1, n_shifts + 1)
     for (pt, pc), pv in parents.items():
         for (ct, cc), cv in values.items():
-            if ct == pt or (ct, cc) in engaged:
+            if ct == pt or (ct, cc) in engaged or _points_away(ct, cc, pt, pc):
                 continue
             observed = float(np.isin(cv, pv).mean())
             if observed <= 0.5:
@@ -244,6 +249,71 @@ def _suggest(frames: dict[str, pd.DataFrame], declared: set[tuple[str, str, str,
         if key not in best or (t["pct_included"], -t["p_value"]) > (best[key]["pct_included"], -best[key]["p_value"]):
             best[key] = t
     return list(best.values())
+
+
+_GENERIC_NAMES = {"id", "key", "code", "name", "index", "idx", "no", "num", "number", "pk", "uid", "uuid", "ref", "type",
+                  "label", "value", "date", "year"}
+
+
+def _stem(name: str) -> str:
+    return re.sub(r"[^0-9a-z]+", "_", str(name).lower()).strip("_")
+
+
+def _own_key(table: str, column: str) -> bool:
+    """Is ``column`` named as the identifier of ``table`` itself (``disp.disp_id``, ``customers.customer_id``)?"""
+    base = re.sub(r"_?(id|key|code|no|num|number)$", "", _stem(column))
+    t = _stem(table)
+    return bool(base) and (t.startswith(base) or base.startswith(t))
+
+
+def _points_away(ct: str, cc: str, pt: str, pc: str) -> bool:
+    """A table's own identifier is referenced, it does not reference: ``disp.disp_id`` is not a key to
+    ``client.client_id`` (ids allocated in step look alike), nor ``client.client_id`` to ``disp.client_id`` (the
+    reverse of the real key). Only an extension table sharing the parent's identifier (``customer_details.
+    customer_id -> customers.customer_id``) keeps its own identifier as a key."""
+    return _own_key(ct, cc) and not (_own_key(pt, pc) and _stem(cc) == _stem(pc))
+
+
+def _suggest_by_name(frames: dict[str, pd.DataFrame], taken: set[tuple[str, str]]) -> list[dict[str, Any]]:
+    """Keys proposed by the naming convention alone: the same specific column name in two tables, unique in one
+    of them (the parent), with more than half of the other's distinct values found there."""
+    columns: dict[str, list[tuple[str, str]]] = {}
+    for t, df in frames.items():
+        for c in df.columns:
+            if _stem(c) and _stem(c) not in _GENERIC_NAMES:
+                columns.setdefault(_stem(c), []).append((t, c))
+    out = []
+    for places in columns.values():
+        for pt, pc in places:
+            parent = frames[pt][pc].dropna()
+            if parent.empty or not parent.is_unique:
+                continue
+            for ct, cc in places:
+                if ct == pt or (ct, cc) in taken:
+                    continue
+                child = pd.Series(frames[ct][cc].dropna().unique())
+                if child.empty:
+                    continue
+                if child.dtype != parent.dtype:  # 18.0 and 18, '18' and 18: compare as text of the integer if possible
+                    child, values = child.astype(str).str.replace(r"\.0$", "", regex=True), \
+                        parent.astype(str).str.replace(r"\.0$", "", regex=True)
+                else:
+                    values = parent
+                share = float(child.isin(set(values)).mean())
+                if share <= 0.5:
+                    continue
+                if _points_away(ct, cc, pt, pc):
+                    continue
+                if frames[ct][cc].dropna().is_unique:
+                    if not _own_key(pt, pc):
+                        continue  # both sides unique and the parent not named after its table: no direction
+                    back = float(pd.Series(values.unique()).isin(set(child)).mean())
+                    if back > share or (back == share and len(_stem(pt)) >= len(_stem(ct))):
+                        continue  # 1:1: the parent holds every child value (or, on a tie, has the shorter name)
+                out.append({"child": ct, "child_column": cc, "parent": pt, "parent_column": pc,
+                            "pct_included": 100.0 * share, "chance_rate": np.nan, "p_value": np.nan, "by_name": True})
+                taken.add((ct, cc))
+    return out
 
 
 def see_relations(tables: dict[str, Any], keys: list[Any] | None = None, dates: dict[str, str] | None = None,
@@ -279,6 +349,8 @@ def see_relations(tables: dict[str, Any], keys: list[Any] | None = None, dates: 
             if not whole:
                 sampled.append(t)
         found += [dict(t, origin="suggested") for t in _suggest(candidates, set(declared), cfg)]
+        taken = {(k["child"], k["child_column"]) for k in found} | {(k["parent"], k["parent_column"]) for k in found}
+        found += [dict(t, origin="suggested") for t in _suggest_by_name(candidates, taken)]
     parents: dict[str, set[str]] = {}
     for k in found:
         parents.setdefault(k["parent"], set()).add(k["parent_column"])
@@ -319,7 +391,12 @@ def see_relations(tables: dict[str, Any], keys: list[Any] | None = None, dates: 
                            "message": f"{r['n_child_before_parent']:,} rows dated ({dates[ct]}) before their {pt} row "
                                       f"({dates[pt]}): an event cannot precede the row it depends on, e.g. rows "
                                       f"{r['child_before_parent_examples'][:3]}"})
-        if r["origin"] == "suggested":
+        if r["origin"] == "suggested" and r.get("by_name"):
+            alerts.append({"severity": "info", "column": name,
+                           "message": f"probably a key to {pt}.{pc}: same column name and {r['pct_included']:.1f}% of its "
+                                      "distinct values are there (a naming convention: chance cannot be measured on these "
+                                      "values) -> declare it in keys= to confirm"})
+        elif r["origin"] == "suggested":
             alerts.append({"severity": "info", "column": name,
                            "message": f"probably a key to {pt}.{pc}: {r['pct_included']:.1f}% of its values are there, "
                                       f"{100 * r['chance_rate']:.1f}% once its values are shifted (BH-adjusted p {r['p_value']:.3f})"
